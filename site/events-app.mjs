@@ -57,7 +57,7 @@ function readEvent(){
     throw new Error('Sélectionnez au moins un trajet : aller ou retour.');
   if(!title||!destination||destination.length<3||!startDate||!endDate||!startTime||!endTime)
     throw new Error('Indiquez le nom, le lieu, le début et la fin de l’événement.');
-  if(!isoDate(startDate)||!isoDate(endDate)||!isoDate(outwardDate)||!isoDate(returnDate))
+  if(!isoDate(startDate)||!isoDate(endDate)||(outwardDate&&!isoDate(outwardDate))||(returnDate&&!isoDate(returnDate)))
     throw new Error('Date d’événement, d’aller ou de retour invalide.');
   const out={title,destination,startDate,startTime,endDate,endTime,outwardDate,returnDate,
     includeOutward,includeReturn,
