@@ -68,16 +68,35 @@ export function searchFeed(data, params, source) {
 export function proposalText(journeys, params) {
   const lines=['PROPOSITION D’HORAIRES — TRANSBORA',
     params.from+' → '+params.to,
-    'Date : '+dateText(params.date),''];
+    'Date de départ : '+dateText(params.date),''];
   for(let i=0;i<journeys.length;i++){
     const j=journeys[i];
-    const nextDate=Math.floor(j.arrival/DAY)!==0?' ('+dateText(params.date,j.arrival)+')':'';
-    lines.push((i+1)+'. '+(j.mode==='bus'?'Autocar':'Train')+' '+j.provider
-      +(j.number?' n° '+j.number:'')
-      +' | '+j.from+' '+timeText(j.departure)+' → '+j.to+' '+timeText(j.arrival)
-      +nextDate+' | '+durationText(j.arrival-j.departure)+' | Sans correspondance');
+    const legs=j.legs?.length===2?j.legs:[j];
+    const dateSuffix=Math.floor(j.arrival/DAY)!==0?' ('+dateText(params.date,j.arrival)+')':'';
+    lines.push((i+1)+'. '+dateText(params.date,j.departure)+' '+timeText(j.departure)
+      +' — '+timeText(j.arrival)+dateSuffix+' | '+durationText(j.arrival-j.departure)
+      +' | '+(legs.length===1?'Direct':'1 correspondance'));
+    for(const [index,leg] of legs.entries()){
+      const departureSuffix=Math.floor(leg.departure/DAY)!==0?' ('+dateText(params.date,leg.departure)+')':'';
+      const arrivalSuffix=Math.floor(leg.arrival/DAY)!==0?' ('+dateText(params.date,leg.arrival)+')':'';
+      lines.push('   '+(index+1)+') '+(leg.mode==='bus'?'Autocar':'Train')
+        +' '+leg.provider+(leg.number?' n° '+leg.number:'')
+        +' : '+leg.from+' '+timeText(leg.departure)+departureSuffix
+        +' → '+leg.to+' '+timeText(leg.arrival)+arrivalSuffix);
+    }
+    if(j.transfer){
+      lines.push('   Correspondance à '+j.transfer.station
+        +(j.transfer.station!==j.transfer.departureStation
+          ?' → '+j.transfer.departureStation:'')
+        +' : '+durationText(j.transfer.waitingSeconds)+' disponibles'
+        +' (marge de sécurité retenue '+durationText(j.transfer.minimumSeconds)+').');
+      if(j.transfer.proximity==='nearby_unverified')
+        lines.push('   ATTENTION : arrêts proches géographiquement, trajet piéton non vérifié.');
+    }
+    lines.push('');
   }
-  lines.push('','Horaires théoriques indicatifs. Tarifs et places non vérifiés.',
-    'Vérifier les horaires auprès de chaque transporteur avant toute réservation.');
+  lines.push('Horaires théoriques indicatifs. Ni réservation, ni garantie de correspondance, ni protection automatique en cas de retard.',
+    'Les marges sont des précautions générales, pas des garanties : vérifier billets, règles de correspondance, quais, contrôles et horaires auprès des transporteurs.',
+    'Pour les trajets internationaux, vérifier les heures locales auprès des compagnies.');
   return lines.join('\n');
 }
