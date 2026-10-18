@@ -1,0 +1,398 @@
+import {fromRows,displayName,plain,MAX_PARTICIPANTS,isoDate} from './events-model.mjs';
+import {prepareFeeds,planEvent,eventBoundaries} from './event-planner.mjs';
+import {officialIndex} from './connections.mjs';
+import {parisTime,parisDate} from './time-zones.mjs';
+import {durationText} from './engine.mjs';
+import {
+  buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
+  importTemplate,readDecisions
+} from './excel-exports.mjs';
+
+const $=id=>document.getElementById(id);
+const SITE_FILE_SIZE=5*1024*1024;
+let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
+let isBusy=false,hasSearched=false,nextId=1;
+const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
+  'event-end-time','event-outward-date','event-return-date','arrival-margin','departure-margin',
+  'ev-mode','ev-connections','ev-buffer','ev-count'];
+
+function node(tag,cls,value){
+  const item=document.createElement(tag);
+  if(cls)item.className=cls;
+  if(value!==undefined)item.textContent=value;
+  return item;
+}
+function status(message,error=false){
+  const s=$('global-status');s.textContent=message;
+  s.classList.toggle('error',error);
+}
+function msg(element,message,error=false){
+  element.textContent=message;
+  element.classList.toggle('error-text',error);
+}
+function excelReady(){
+  if(!globalThis.ExcelJS?.Workbook)throw new Error(
+    'La bibliothèque Excel n’a pas pu se charger. Vérifiez votre connexion Internet puis actualisez cette page.');
+  return globalThis.ExcelJS;
+}
+function dateParis(days=0){
+  const now=new Date();
+  now.setDate(now.getDate()+days);
+  const formatter=new Intl.DateTimeFormat('fr-CA',{
+    timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'
+  });
+  return formatter.format(now);
+}
+function readEvent(){
+  const title=$('event-title').value.trim();
+  const destination=$('event-destination').value.trim();
+  const startDate=$('event-start-date').value,endDate=$('event-end-date').value;
+  const startTime=$('event-start-time').value,endTime=$('event-end-time').value;
+  const outwardDate=$('event-outward-date').value||startDate;
+  const returnDate=$('event-return-date').value||endDate;
+  if(!title||!destination||destination.length<3||!startDate||!endDate||!startTime||!endTime)
+    throw new Error('Renseignez le nom, la destination et les dates/heures de début et de fin.');
+  if(!isoDate(startDate)||!isoDate(endDate)||!isoDate(outwardDate)||!isoDate(returnDate))
+    throw new Error('Date d’événement, d’aller ou de retour invalide.');
+  const out={title,destination,startDate,startTime,endDate,endTime,outwardDate,returnDate,
+    arrivalMargin:Number($('arrival-margin').value),departureMargin:Number($('departure-margin').value)};
+  eventBoundaries(out);
+  return out;
+}
+function readSettings(){
+  return {mode:$('ev-mode').value,connections:$('ev-connections').value,
+    buffer:$('ev-buffer').value,maxOptions:Number($('ev-count').value)};
+}
+function updateButtons(){
+  const hasPeople=participants.length>0;
+  $('search-everyone').disabled=isBusy||!hasPeople||!manifest;
+  const havePlans=hasSearched&&plans.size>0;
+  for(const id of ['export-organizer','export-personal-zip','export-followup'])
+    $(id).disabled=isBusy||!havePlans;
+  $('download-template').disabled=isBusy;
+}
+function invalidate(){
+  plans=new Map();choices={};hasSearched=false;
+  $('journey-recap').replaceChildren();
+  $('individual-files').replaceChildren(node('p','muted','Lancez la recherche pour créer les fichiers personnels.'));
+  msg($('reply-status'),'');
+  updateButtons();
+}
+function labelPerson(p){
+  return displayName(p)+' · '+p.departure;
+}
+function renderPeople(){
+  $('participants-total').textContent=String(participants.length);
+  const holder=$('participants-list');
+  holder.replaceChildren();
+  if(!participants.length){
+    holder.append(node('p','muted','Aucun voyageur ajouté.'));
+    return;
+  }
+  const frag=document.createDocumentFragment();
+  participants.forEach(p=>{
+    const item=node('div','person-chip');
+    const content=node('div','person-copy');
+    content.append(node('strong',null,displayName(p)));
+    content.append(node('span','muted',p.departure+
+      (p.outwardDate?' · aller '+p.outwardDate:'')+
+      (p.returnDate?' · retour '+p.returnDate:'')));
+    const remove=node('button','mini-button','Supprimer');
+    remove.type='button';remove.setAttribute('aria-label','Supprimer '+displayName(p));
+    remove.addEventListener('click',()=>{
+      participants=participants.filter(x=>x.id!==p.id);
+      invalidate();renderPeople();
+    });
+    item.append(content,remove);frag.append(item);
+  });
+  holder.append(frag);
+}
+function includeParticipants(items){
+  const seen=new Set(participants.map(p=>[p.first,p.last,p.departure].map(x=>x.toLowerCase()).join('|')));
+  let added=0,duplicates=0;
+  for(const incoming of items){
+    const key=[incoming.first,incoming.last,incoming.departure].map(x=>x.toLowerCase()).join('|');
+    if(seen.has(key)){duplicates++;continue;}
+    if(participants.length>=MAX_PARTICIPANTS)break;
+    const id='P-'+String(nextId++).padStart(3,'0');
+    participants.push({...incoming,id});
+    seen.add(key);added++;
+  }
+  if(added)invalidate();
+  renderPeople();
+  return {added,duplicates};
+}
+async function init(){
+  $('event-start-date').value=dateParis(7);
+  $('event-end-date').value=dateParis(7);
+  $('event-outward-date').value=dateParis(7);
+  $('event-return-date').value=dateParis(7);
+  for(const id of eventFieldIds)$(id).addEventListener('change',invalidate);
+  try{
+    const response=await fetch('./data/manifest.json',{cache:'no-store'});
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    manifest=await response.json();
+    if(!manifest?.sources?.some(s=>s.status==='ok'))throw new Error('Aucune source GTFS active');
+    status('Prêt : '+manifest.sources.filter(s=>s.status==='ok').length+
+      ' sources de transport disponibles. Créez un événement puis ajoutez les voyageurs.');
+    let stations;
+    try{
+      const res=await fetch('./data/stations.json');
+      if(res.ok)stations=await res.json();
+    }catch(_error){/* Suggestions are optional; manual city names still work. */}
+    if(Array.isArray(stations)){
+      const frag=document.createDocumentFragment();
+      for(const station of stations.filter(x=>typeof x==='string').slice(0,12000)){
+        const option=node('option');option.value=station;frag.append(option);
+      }
+      $('event-stations').replaceChildren(frag);
+    }
+  }catch(error){
+    status('Recherche indisponible : '+error.message+'. Le modèle Excel reste téléchargeable.',true);
+  }
+  updateButtons();
+}
+async function download(book,prefix){
+  const result=await bytes(book);
+  saveBytes(result,prefix+'.xlsx');
+}
+function busy(flag){
+  isBusy=flag;updateButtons();
+}
+function useResultStatus(summary,errors=[]){
+  msg($('import-status'),summary+(errors.length?' · '+errors.slice(0,6).join(' / '):''),Boolean(errors.length));
+}
+$('download-template').addEventListener('click',async()=>{
+  try{
+    busy(true);
+    await download(buildTemplate(excelReady()),'Transbora_MODELE_liste_participants');
+    status('Modèle Excel téléchargé. Remplissez la feuille Participants puis réimportez-la.');
+  }catch(error){status(error.message,true);}finally{busy(false);}
+});
+$('import-participants').addEventListener('change',async event=>{
+  const file=event.target.files?.[0];
+  if(!file)return;
+  try{
+    if(!/\.xlsx$/i.test(file.name)||file.size>SITE_FILE_SIZE)
+      throw new Error('Sélectionnez un fichier .xlsx de moins de 5 Mo.');
+    busy(true);
+    const {participants:found,errors}=await importTemplate(excelReady(),await file.arrayBuffer());
+    const {added,duplicates}=includeParticipants(found);
+    useResultStatus(added+' participant(s) ajouté(s) depuis '+file.name+
+      (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':''),errors);
+    status('Import terminé : '+participants.length+' personne(s) dans le dossier.');
+  }catch(error){msg($('import-status'),error.message,true);}finally{
+    busy(false);event.target.value='';
+  }
+});
+$('manual-person').addEventListener('submit',event=>{
+  event.preventDefault();
+  if(participants.length>=MAX_PARTICIPANTS){
+    msg($('import-status'),'Limite de 100 voyageurs atteinte.',true);return;
+  }
+  const person={first:$('add-first').value.trim(),last:$('add-last').value.trim(),
+    departure:$('add-from').value.trim(),outwardDate:'',returnDate:'',notes:''};
+  if(!person.first||!person.last||person.departure.length<3){
+    msg($('import-status'),'Prénom, nom et lieu de départ sont obligatoires.',true);return;
+  }
+  const {added,duplicates}=includeParticipants([person]);
+  useResultStatus(added?'Voyageur ajouté.':'Personne déjà présente.',duplicates?['Doublon ignoré.']:[]);
+  if(added)event.target.reset();
+});
+$('clear-participants').addEventListener('click',()=>{
+  if(!participants.length)return;
+  if(!confirm('Effacer les personnes de ce brouillon et tous les résultats de recherche ?'))return;
+  participants=[];nextId=1;invalidate();renderPeople();
+  msg($('import-status'),'Liste effacée.');
+});
+function showJourney(j,day){
+  return parisTime(day,j.departure)+' → '+parisTime(day,j.arrival)+
+    ' · '+durationText(j.arrival-j.departure)+' · '+(j.changes||0)+' chgt';
+}
+function renderSearchResults(issues){
+  const holder=$('journey-recap');holder.replaceChildren();
+  if(issues.length){
+    const notice=node('div','notice warning','Certains trajets n’ont pas été trouvés : '+issues.slice(0,7).join(' / '));
+    holder.append(notice);
+  }
+  for(const p of participants){
+    const plan=plans.get(p.id);
+    if(!plan)continue;
+    const card=node('article','recap-person');
+    card.append(node('strong',null,displayName(p)+' · '+p.departure));
+    const line=node('div','recap-columns');
+    for(const [label,list,date] of [
+      ['ALLER',plan.outward,plan.outwardDate],['RETOUR',plan.returning,plan.returnDate]
+    ]){
+      const side=node('div','recap-side');
+      side.append(node('span','pill',label+' · '+date));
+      if(!list.length)side.append(node('p','no-options','Aucune proposition correspondant aux contraintes horaires.'));
+      list.forEach((j,index)=>{
+        const option=node('p','recap-route',(index+1)+'. '+showJourney(j,date)+
+          ' · '+(j.legs?.length?j.legs.map(t=>t.provider).join(' → '):j.provider));
+        side.append(option);
+      });
+      line.append(side);
+    }
+    card.append(line);holder.append(card);
+  }
+}
+function renderIndividualButtons(event){
+  const holder=$('individual-files');holder.replaceChildren();
+  for(const p of participants){
+    const item=node('div','file-row');
+    item.append(node('span',null,'👤 '+displayName(p)));
+    const actions=node('div','file-actions');
+    const btn=node('button','mini-button','⬇ Excel');
+    btn.type='button';
+    btn.addEventListener('click',async()=>{
+      try{
+        busy(true);
+        await download(buildIndividual(excelReady(),event,p,plans,choices),
+          'Transbora_'+fileName(event.title)+'_'+fileName(displayName(p)));
+        status('Fichier individuel créé pour '+displayName(p)+'.');
+      }catch(error){status(error.message,true);}finally{busy(false);}
+    });
+    actions.append(btn);
+    if(typeof navigator.share==='function'){
+      const shareBtn=node('button','mini-button','📤 Partager');
+      shareBtn.type='button';
+      shareBtn.addEventListener('click',async()=>{
+        try{
+          busy(true);
+          const name='Transbora_'+fileName(event.title)+'_'+fileName(displayName(p))+'.xlsx';
+          const buffer=await bytes(buildIndividual(excelReady(),event,p,plans,choices));
+          const file=new File([buffer],name,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+          if(!navigator.canShare?.({files:[file]}))throw new Error('Le partage de fichiers n’est pas pris en charge ici : utilisez ⬇ Excel.');
+          await navigator.share({files:[file],title:'Propositions de trajet de '+displayName(p)});
+        }catch(error){
+          if(error.name!=='AbortError')status(error.message,true);
+        }finally{busy(false);}
+      });
+      actions.append(shareBtn);
+    }
+    item.append(actions);holder.append(item);
+  }
+}
+$('search-everyone').addEventListener('click',async()=>{
+  try{
+    if(!participants.length)throw new Error('Ajoutez au moins un voyageur.');
+    const event=readEvent(),settings=readSettings();
+    busy(true);invalidate();
+    $('progress-box').hidden=false;$('progress').value=0;
+    status('Lecture des horaires réels des transporteurs…');
+    if(!prepared){
+      prepared=await prepareFeeds(manifest);
+      if(!prepared.feeds.length)throw new Error('Les fichiers horaires n’ont pas pu être récupérés.');
+      try{
+        const response=await fetch('./data/mct.json');
+        if(response.ok)officialRules=officialIndex(await response.json());
+      }catch(_e){/* Optional; conservative buffers stay enabled. */}
+    }
+    const result=await planEvent(event,participants,prepared.feeds,settings,officialRules,
+      (done,total,p)=>{
+        $('progress').value=Math.round(done/total*100);
+        $('progress-label').textContent=done+' / '+total+' voyageur(s) · '+displayName(p);
+      });
+    plans=result.plans;hasSearched=true;
+    const gaps=participants.reduce((total,p)=>{
+      const plan=plans.get(p.id);return total+(plan.outward.length?0:1)+(plan.returning.length?0:1);
+    },0);
+    renderSearchResults([...prepared.issues,...result.issues]);
+    renderIndividualButtons(event);
+    status('Recherche terminée : '+participants.length+' personnes, '+gaps+
+      ' sens sans option trouvée. Vérifiez les horaires avant de partager.',Boolean(gaps));
+    document.getElementById('etape-4').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(error){
+    status('Impossible de terminer la recherche : '+error.message,true);
+  }finally{
+    $('progress-box').hidden=true;busy(false);
+  }
+});
+$('export-organizer').addEventListener('click',async()=>{
+  try{
+    busy(true);
+    const event=readEvent();
+    await download(buildOrganizer(excelReady(),event,participants,plans,choices),
+      'Transbora_GROUPE_'+fileName(event.title));
+    status('Classeur du groupe téléchargé : Allers, Retours, Réservations et Aide.');
+  }catch(error){status(error.message,true);}finally{busy(false);}
+});
+$('export-followup').addEventListener('click',async()=>{
+  try{
+    busy(true);
+    const event=readEvent();
+    await download(buildOrganizer(excelReady(),event,participants,plans,choices),
+      'Transbora_SUIVI_RESERVATIONS_'+fileName(event.title));
+    status('Tableau de réservation mis à jour avec les choix importés.');
+  }catch(error){status(error.message,true);}finally{busy(false);}
+});
+$('export-personal-zip').addEventListener('click',async()=>{
+  try{
+    busy(true);
+    if(!globalThis.JSZip)throw new Error('Le module ZIP est indisponible. Rechargez la page.');
+    const event=readEvent(),archive=new JSZip();
+    const names=new Set();
+    for(let i=0;i<participants.length;i++){
+      const p=participants[i];
+      const book=buildIndividual(excelReady(),event,p,plans,choices);
+      let name='Transbora_'+fileName(displayName(p))+'_'+p.id+'.xlsx';
+      if(names.has(name))name=fileName(displayName(p))+'_'+i+'.xlsx';
+      names.add(name);
+      archive.file(name,await bytes(book));
+      if(i%3===0)await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    archive.file('LIRE_AVANT_ENVOI.txt',[
+      'TRANSBORA — PROPOSITIONS INDIVIDUELLES',
+      'Un Excel par voyageur. Ne transmettez à chacun QUE son fichier .xlsx.',
+      'Dans chaque Excel, remplir X pour UN ALLER et UN RETOUR.',
+      'Renvoyer les fichiers complétés à l’organisateur par e-mail.',
+      'Les horaires sont théoriques. Aucun billet n’est réservé.',
+      'Données personnelles : conserver ces fichiers de manière sécurisée.'
+    ].join('\r\n'));
+    const zipped=await archive.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}});
+    saveBytes(zipped,'Transbora_INDIVIDUELS_'+fileName(event.title)+'.zip','application/zip');
+    status(participants.length+' fichiers personnels regroupés en un ZIP, prêt à être partagé individuellement.');
+  }catch(error){status(error.message,true);}finally{busy(false);}
+});
+$('import-replies').addEventListener('change',async e=>{
+  const files=[...(e.target.files||[])];
+  if(!files.length)return;
+  const errors=[];let read=0,updated=0;
+  try{
+    if(!hasSearched)throw new Error('Effectuez une recherche avant de réimporter les choix.');
+    busy(true);
+    for(const file of files.slice(0,100)){
+      try{
+        if(!/\.xlsx$/i.test(file.name)||file.size>SITE_FILE_SIZE)
+          throw new Error('Excel .xlsx requis (5 Mo maximum).');
+        const result=await readDecisions(excelReady(),await file.arrayBuffer(),participants,plans);
+        read++;updated+=Object.values(result.choices).reduce((n,obj)=>n+Object.keys(obj).length,0);
+        for(const [id,obj] of Object.entries(result.choices))choices[id]={...(choices[id]||{}),...obj};
+        errors.push(...result.warnings.map(x=>file.name+' : '+x));
+      }catch(error){errors.push(file.name+' : '+error.message);}
+    }
+    msg($('reply-status'),read+' fichier(s) lu(s), '+updated+
+      ' choix accepté(s).'+(errors.length?' Vérifications : '+errors.slice(0,6).join(' / '):''),Boolean(errors.length));
+    if(read)status('Réponses consolidées. Exportez « Suivi des réservations actualisé ».'),
+      renderIndividualButtons(readEvent());
+  }catch(error){msg($('reply-status'),error.message,true);}
+  finally{busy(false);e.target.value='';}
+});
+function toggleHelp(show){
+  const drawer=$('help-drawer');
+  const backdrop=$('help-backdrop');
+  drawer.setAttribute('aria-hidden',String(!show));
+  drawer.inert=!show;
+  drawer.classList.toggle('open',show);
+  backdrop.hidden=!show;
+  document.body.classList.toggle('drawer-active',show);
+  $('help-open').setAttribute('aria-expanded',String(show));
+  if(show)drawer.focus();else $('help-open').focus();
+}
+$('help-open').addEventListener('click',()=>toggleHelp($('help-drawer').getAttribute('aria-hidden')==='true'));
+$('help-close').addEventListener('click',()=>toggleHelp(false));
+$('help-backdrop').addEventListener('click',()=>toggleHelp(false));
+$('footer-help').addEventListener('click',()=>toggleHelp(true));
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('help-drawer').classList.contains('open'))toggleHelp(false);});
+init();
