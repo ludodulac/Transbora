@@ -43,7 +43,7 @@ function runtime(){
   SpreadsheetApp:{getActiveSpreadsheet:()=>spreadsheet,openById:()=>spreadsheet,getUi:()=>ui},
   PropertiesService:{getScriptProperties:()=>({setProperty:(k,v)=>properties[k]=v,getProperty:k=>properties[k]})},
   DriveApp:{getFileById:()=>({getParents:()=>({hasNext:()=>false})})},
-  FormApp:{openById:(id)=>forms.find(f=>f.getId()===id),create(name)=>{
+  FormApp:{openById:(id)=>forms.find(f=>f.getId()===id),create(name){
    const id='form-'+(forms.length+1);
    const form={name,getId:()=>id,getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',
      getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit',
