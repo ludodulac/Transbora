@@ -1,41 +1,41 @@
-# Transbora 🚆
+# 🚆 Transbora
 
-Outil indépendant de recherche et de préparation de propositions d'horaires de train.
+Projet indépendant destiné à **éviter de recopier des horaires de train** : chercher un trajet, sélectionner les horaires de départ et d'arrivée, puis copier directement une proposition.
 
-## Objectif
+## Où en sommes-nous ?
 
-Réduire le temps passé à rechercher des trains, recopier leurs horaires et préparer plusieurs propositions pour un client.
+- ✅ Recherche documentée : voir [le choix technique](docs/choix-technique.md).
+- ✅ Moteur de lecture du GTFS public SNCF dans `scripts/build_gtfs.py`.
+- ✅ Recherche de trajets **directs**, filtrage par date et plage horaire : `site/engine.mjs`.
+- ✅ Page de recherche et copie dans le presse-papiers : `site/index.html`, `site/app.mjs`.
+- ✅ Tests unitaires Python/JavaScript dans `tests/`.
+- ✅ Workflow quotidien GitHub Actions pour télécharger les horaires SNCF et publier le site.
+- ⬜ Vérifier la première exécution GitHub Actions, les horaires avec un cas réel, et le site public.
+- ⬜ Ajouter les correspondances après validation de l'usage.
 
-## Parcours de la version 1
+## Activer la page web
 
-1. Saisir une gare de départ et d'arrivée, une date et éventuellement une plage horaire.
-2. Lancer la recherche d'itinéraires ferroviaires.
-3. Voir des résultats structurés : départ, arrivée, durée, nombre de correspondances, opérateur ou type de train si disponible.
-4. Sélectionner les trajets pertinents.
-5. Copier un texte clair et prêt à coller dans le document ou l'e-mail habituel.
+Dans ce dépôt : **Settings → Pages → Build and deployment → Source : GitHub Actions**.
 
-## Critères de réussite
+Ensuite, consulter l'onglet **Actions** ; le workflow « Transbora - horaires SNCF et publication » doit réussir pour publier une page accessible. L'adresse attendue **après validation effective du déploiement** est :
 
-- Les résultats correspondent à des **horaires réels et sourcés**, jamais à des horaires inventés.
-- L'interface distingue clairement horaires prévus, éventuelles informations temps réel et données manquantes.
-- Les correspondances et les jours de circulation ne sont pas masqués.
-- Une proposition copiée contient au minimum la date, les gares, les horaires et les correspondances.
-- L'outil signale clairement si aucune donnée exploitable n'est disponible.
-- Pas de prix, de disponibilité de places ni de réservation annoncés sans source qui fournit effectivement ces données.
+https://ludodulac.github.io/Transbora/
 
-## Étapes techniques
+Le site ne fonctionne pas si le téléchargement des données réelles a échoué : les heures ne sont jamais inventées.
 
-- [ ] Vérifier les sources de données ferroviaires autorisées (API SNCF/NAVITIA, données ouvertes ou autre), leur couverture géographique, les dates disponibles, les conditions d'accès et leur actualisation.
-- [ ] Construire un adaptateur de données et des tests vérifiant les résultats.
-- [ ] Créer l'interface de recherche et de sélection.
-- [ ] Ajouter « Copier la proposition ».
-- [ ] Vérifier les parcours réels avec des trajets représentatifs.
-- [ ] Envisager ensuite PDF, liens de choix et autres améliorations uniquement si nécessaire.
+## Exécuter les tests sans service payant
 
-## Hébergement et confidentialité
+```bash
+python -m unittest discover -s tests -p 'test_*.py' -v
+node --test tests/*.test.mjs
+```
 
-Le code est hébergé sur GitHub. GitHub Pages peut servir l'interface statique, mais **ne protège pas une clé API insérée dans le navigateur**. Les secrets devront être conservés côté serveur ou dans les secrets d'une automatisation GitHub, jamais dans le dépôt ni dans les fichiers publics. Aucune donnée personnelle de clients n'est nécessaire pour la première version.
+## Générer des données réelles localement
 
-## État
+```bash
+python scripts/build_gtfs.py --output site/data/trains.json
+```
 
-Cadrage initial. **Aucune connexion à une source d'horaires n'est encore opérationnelle.**
+Les données du fichier ZIP GTFS SNCF sont celles du programme théorique, **pas** des disponibilités commerciales ou du temps réel. Les données sont publiées sous licence ODbL et conditions particulières ; l'attribution apparaît sur le site.
+
+**Version 1 :** trains directs uniquement. Tarifs, réservations, correspondances, perturbations et billets non couverts. Vérifier les horaires auprès du transporteur avant achat.
