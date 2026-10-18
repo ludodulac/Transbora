@@ -11,7 +11,7 @@ import {
 const $=id=>document.getElementById(id);
 const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
-let isBusy=false,hasSearched=false,nextId=1;
+let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','event-outward-date','event-return-date','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
@@ -24,7 +24,7 @@ function node(tag,cls,value){
 }
 function status(message,error=false){
   const s=$('global-status');s.textContent=message;
-  s.classList.toggle('error',error);
+  s.classList.toggle('has-error',error);
 }
 function msg(element,message,error=false){
   element.textContent=message;
@@ -67,14 +67,29 @@ function updateButtons(){
   const hasPeople=participants.length>0;
   $('search-everyone').disabled=isBusy||!hasPeople||!manifest;
   const havePlans=hasSearched&&plans.size>0;
-  for(const id of ['export-organizer','export-personal-zip','export-followup'])
+  for(const id of ['export-organizer','export-personal-zip','export-followup']){
     $(id).disabled=isBusy||!havePlans;
+  }
+  for(const id of ['export-organizer','export-personal-zip']){
+    $(id).hidden=!havePlans;
+  }
+  $('individual-details').hidden=!havePlans;
+  $('copy-invitation').hidden=!havePlans;
   $('download-template').disabled=isBusy;
+  const next=$('wizard-next'),search=$('search-everyone');
+  if(currentView==='wizard'){
+    const isThird=activeStep===3;
+    next.hidden=activeStep===4 || (isThird&&!havePlans);
+    search.hidden=!isThird || havePlans;
+    next.disabled=isBusy;
+    $('wizard-back').hidden=activeStep===1;
+    $('wizard-actions').hidden=false;
+  }
 }
 function invalidate(){
   plans=new Map();choices={};hasSearched=false;
   $('journey-recap').replaceChildren();
-  $('individual-files').replaceChildren(node('p','muted','Lancez la recherche pour créer les fichiers personnels.'));
+  $('individual-files').replaceChildren(node('p','muted','Lancez la recherche.'));
   msg($('reply-status'),'');
   updateButtons();
 }
@@ -302,7 +317,10 @@ $('search-everyone').addEventListener('click',async()=>{
     renderIndividualButtons(event);
     status('Recherche terminée : '+participants.length+' personnes, '+gaps+
       ' sens sans option trouvée. Vérifiez les horaires avant de partager.',Boolean(gaps));
-    document.getElementById('etape-4').scrollIntoView({behavior:'smooth',block:'start'});
+    // Keep the results visible on screen 3; the single main CTA becomes "Suivant".
+    $('step-three-heading').textContent='Trajets';
+    updateButtons();
+    $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(error){
     status('Impossible de terminer la recherche : '+error.message,true);
   }finally{
@@ -395,7 +413,69 @@ $('import-replies').addEventListener('change',async e=>{
   }catch(error){msg($('reply-status'),error.message,true);}
   finally{busy(false);e.target.value='';}
 });
-function toggleHelp(show){
+
+/** One active wizard screen and one main footer action, never a long scrolling form. */
+const screenIds=['etape-1','etape-2','etape-3','etape-4'];
+const screenTitles=['Événement','Voyageurs','Trajets','Excel'];
+function showStep(number,{focus=true}={}){
+  activeStep=Math.max(1,Math.min(4,number));
+  currentView='wizard';
+  $('wizard-shell').hidden=false;
+  $('reply-screen').hidden=true;
+  screenIds.forEach((id,i)=>{$(id).hidden=i!==activeStep-1;});
+  $('step-counter').textContent='Étape '+activeStep+' sur 4';
+  $('step-label').textContent=screenTitles[activeStep-1];
+  $('step-progress').setAttribute('aria-valuenow',String(activeStep));
+  $('step-progress-fill').style.width=activeStep*25+'%';
+  [...document.querySelectorAll('.progress-dots span')].forEach((dot,i)=>{
+    dot.classList.toggle('current',i===activeStep-1);
+    dot.classList.toggle('done',i<activeStep-1);
+  });
+  updateButtons();
+  if(focus)$(screenIds[activeStep-1]).querySelector('h1')?.focus?.();
+  window.scrollTo({top:0,behavior:'instant'});
+}
+function showReplies(){
+  currentView='replies';
+  $('wizard-shell').hidden=true;
+  $('reply-screen').hidden=false;
+  toggleHelp(false,{focus:false});
+  $('replies-heading').setAttribute('tabindex','-1');
+  $('replies-heading').focus();
+  window.scrollTo({top:0,behavior:'instant'});
+}
+function validateStep(){
+  if(activeStep===1){
+    readEvent();
+  }else if(activeStep===2){
+    if(!participants.length)throw new Error('Ajoutez au moins un voyageur.');
+  }else if(activeStep===3){
+    if(!hasSearched)throw new Error('Lancez la recherche avant de continuer.');
+  }
+}
+$('wizard-next').addEventListener('click',()=>{
+  try{
+    validateStep();
+    if(activeStep<4)showStep(activeStep+1);
+    status('');
+  }catch(error){
+    status(error.message,true);
+    const field=activeStep===1?
+      ($('event-title').value.trim()?$('event-destination'):$('event-title')):
+      null;
+    field?.focus();
+  }
+});
+$('wizard-back').addEventListener('click',()=>{if(activeStep>1)showStep(activeStep-1);});
+$('menu-event').addEventListener('click',()=>{
+  toggleHelp(false,{focus:false});
+  showStep(activeStep);
+});
+$('menu-replies').addEventListener('click',showReplies);
+$('open-replies').addEventListener('click',showReplies);
+$('back-to-wizard').addEventListener('click',()=>showStep(activeStep));
+
+function toggleHelp(show,{focus=true}={}){
   const drawer=$('help-drawer');
   const backdrop=$('help-backdrop');
   drawer.setAttribute('aria-hidden',String(!show));
@@ -404,11 +484,11 @@ function toggleHelp(show){
   backdrop.hidden=!show;
   document.body.classList.toggle('drawer-active',show);
   $('help-open').setAttribute('aria-expanded',String(show));
-  if(show)drawer.focus();else $('help-open').focus();
+  if(focus){if(show)drawer.focus();else $('help-open').focus();}
 }
 $('help-open').addEventListener('click',()=>toggleHelp($('help-drawer').getAttribute('aria-hidden')==='true'));
 $('help-close').addEventListener('click',()=>toggleHelp(false));
 $('help-backdrop').addEventListener('click',()=>toggleHelp(false));
-$('footer-help').addEventListener('click',()=>toggleHelp(true));
+showStep(1,{focus:false});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('help-drawer').classList.contains('open'))toggleHelp(false);});
 init();
