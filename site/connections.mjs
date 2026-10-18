@@ -4,7 +4,7 @@
  * Generic GTFS transfer rules are applied when provided.
  */
 import {matchesStop, normalizeStop} from './search-multi.mjs';
-import {isoDateAtDay,shiftToParis} from './time-zones.mjs';
+import {isoDateAtDay,shiftToParis,parisDate} from './time-zones.mjs';
 
 const DAY = 86400;
 export const MAX_WAIT = 4 * 3600;  // do not recommend an overnight station wait as a normal transfer
@@ -161,7 +161,9 @@ export function assessTransfer(first,second,context,opts={}) {
     const firstCode=sncfUic(a.station),secondCode=sncfUic(b.station);
     if(firstCode&&secondCode&&first.number&&second.number){
       const rules=opts.officialRules.get([firstCode,secondCode,first.number,second.number].join(':'))||[];
-      const active=rules.filter(r=>opts.date>=r.from&&opts.date<=r.to);
+      const [d,m,y]=parisDate(opts.date,first.arrival).split('/');
+      const dayOfChange=y+'-'+m+'-'+d;
+      const active=rules.filter(r=>dayOfChange>=r.from&&dayOfChange<=r.to);
       if(active.some(r=>r.minutes===-1))return null;
       if(active.length){
         minSec=Math.max(minSec,...active.map(r=>r.minutes*60));
