@@ -4,9 +4,9 @@ const HEADER_ALIASES=[
   ['prenom','first name','firstname','prénom'],
   ['nom','last name','lastname','family name'],
   ['ville de depart','depart','ville','origine','gare de depart','point de depart'],
-  ['date aller (aaaa mm jj)','date aller','aller le','depart le'],
-  ['date retour (aaaa mm jj)','date retour','retour le'],
-  ['notes (facultatif)','notes','commentaires','remarques']
+  ['date aller aaaa mm jj','date aller','aller le','depart le'],
+  ['date retour aaaa mm jj','date retour','retour le'],
+  ['notes facultatif','notes','commentaires','remarques']
 ];
 export function plain(value){
   if(value===undefined||value===null)return '';
