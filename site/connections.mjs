@@ -242,7 +242,7 @@ export function findConnections(feeds, params, opts={}) {
         outputs.set(id,{id,departure:first.departure,arrival:second.arrival,
           from:first.from,to:second.to,legs:[first,second],
           transfer,changes:1,mode:first.mode===second.mode?first.mode:'mixed',
-          score:elapsed+(wait>90*60?(wait-90*60)/3:0)+(proximity.sameStation?0:15*60)});
+          score:elapsed+(transfer.waitingSeconds>90*60?(transfer.waitingSeconds-90*60)/3:0)+(proximity.sameStation?0:15*60)});
       }
     }
   }
