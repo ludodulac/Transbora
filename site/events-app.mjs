@@ -150,10 +150,13 @@ async function init(){
   $('event-outward-date').value='';
   $('event-return-date').value='';
   const updateTravelOptions=()=>{
-    $('event-outward-date').disabled=!$('include-outward').checked;
-    $('event-return-date').disabled=!$('include-return').checked;
-    $('arrival-margin').disabled=!$('include-outward').checked;
-    $('departure-margin').disabled=!$('include-return').checked;
+    const aller=$('include-outward').checked,retour=$('include-return').checked;
+    $('event-outward-date').disabled=!aller;
+    $('event-return-date').disabled=!retour;
+    $('arrival-margin').disabled=!aller;
+    $('departure-margin').disabled=!retour;
+    const summary=$('etape-1').querySelector('details > summary');
+    if(summary)summary.textContent='Options · '+(aller&&retour?'Aller + retour':aller?'Aller':retour?'Retour':'Aucun trajet');
   };
   updateTravelOptions();
   for(const id of ['include-outward','include-return'])
