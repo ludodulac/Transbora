@@ -46,7 +46,7 @@
   <p id="global-status" class="system-status" role="status" aria-live="polite"></p>
 
   <section class="panel event-panel wizard-screen" id="etape-1" data-step="1" aria-labelledby="step-one-heading">
-   <div class="screen-heading"><span class="screen-icon">01</span><h1 id="step-one-heading">Événement</h1></div>
+   <div class="screen-heading"><span class="screen-icon">01</span><h1 id="step-one-heading" tabindex="-1">Événement</h1></div>
    <div class="wizard-fields">
     <label>Nom<input id="event-title" placeholder="Ex. Congrès" maxlength="90" autocomplete="off" required></label>
     <label>Destination<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" autocomplete="off" required><datalist id="event-stations"></datalist></label>
@@ -68,7 +68,7 @@
   </section>
 
   <section class="panel event-panel wizard-screen" id="etape-2" data-step="2" aria-labelledby="step-two-heading" hidden>
-   <div class="screen-heading"><span class="screen-icon">02</span><h1 id="step-two-heading">Voyageurs</h1><span id="participants-total" class="count-bubble">0</span></div>
+   <div class="screen-heading"><span class="screen-icon">02</span><h1 id="step-two-heading" tabindex="-1">Voyageurs</h1><span id="participants-total" class="count-bubble">0</span></div>
    <form id="manual-person" class="wizard-manual">
     <div class="two-inline"><label>Prénom<input id="add-first" placeholder="Sophie" maxlength="90" required></label><label>Nom<input id="add-last" placeholder="Martin" maxlength="90" required></label></div>
     <label>Départ<input id="add-from" list="event-stations" placeholder="Brest" maxlength="140" required></label>
@@ -85,7 +85,7 @@
   </section>
 
   <section class="panel event-panel wizard-screen" id="etape-3" data-step="3" aria-labelledby="step-three-heading" hidden>
-   <div class="screen-heading"><span class="screen-icon">03</span><h1 id="step-three-heading">Trajets</h1></div>
+   <div class="screen-heading"><span class="screen-icon">03</span><h1 id="step-three-heading" tabindex="-1">Trajets</h1></div>
    <details class="settings-fold"><summary>Réglages</summary>
     <div class="fold-fields">
      <label>Transports<select id="ev-mode"><option value="all">Train + autocar</option><option value="rail">Train</option><option value="bus">Autocar</option></select></label>
@@ -99,7 +99,7 @@
   </section>
 
   <section class="panel event-panel wizard-screen" id="etape-4" data-step="4" aria-labelledby="step-four-heading" hidden>
-   <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading">Excel</h1></div>
+   <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading" tabindex="-1">Excel</h1></div>
    <div class="export-grid simplified-exports">
     <article class="export-card"><div class="export-icon" aria-hidden="true">👥</div><h2>Un Excel pour tous</h2>
      <button type="button" class="primary download-action" id="export-organizer" hidden disabled>⬇ Télécharger</button>
