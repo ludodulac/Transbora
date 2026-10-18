@@ -58,6 +58,34 @@ jobs:
           console.log(results.slice(0,3).map(r=>[r.from,r.to,r.departure,r.arrival]));
           if(!results.length)throw new Error('Aucun train direct Lorient-Paris, vérifier le moteur de recherche');
           JS
+      - name: Tester une vraie recherche avec correspondance
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {findConnections} from './site/connections.mjs';
+          const manifest=JSON.parse(fs.readFileSync('site/data/manifest.json','utf8'));
+          const feeds=manifest.sources.filter(s=>s.status==='ok').map(source=>({
+            source,data:JSON.parse(fs.readFileSync('site/'+source.file,'utf8'))
+          }));
+          console.log('Fuseaux et coordonnées par source:');
+          for(const f of feeds){
+            const located=f.data.stations.filter(s=>Number.isFinite(s[2])&&Number.isFinite(s[3])).length;
+            console.log(f.source.label, f.data.meta.timezone,located,'gares coordonnées /',f.data.stations.length,
+              'restrictions de correspondances:',f.data.transfers?.length||0);
+          }
+          for(const [from,to] of [['Lorient','Bordeaux'],['Brest','Lyon']]){
+            const result=findConnections(feeds,{
+              from,to,date:'2026-11-25',earliest:'00:00',latest:'23:59'
+            },{limit:10,profile:'prudent'});
+            console.log('Correspondances réelles',from,'->',to,':',result.length);
+            console.log(result.slice(0,3).map(x=>({
+              from:x.from,to:x.to,departure:x.departure,arrival:x.arrival,
+              transfer:x.transfer.station,waiting:x.transfer.waitingSeconds,
+              min:x.transfer.minimumSeconds,
+              operators:x.legs.map(l=>l.provider)
+            })));
+          }
+          JS
       - uses: actions/upload-artifact@v4
         if: always()
         with:
