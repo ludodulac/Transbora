@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Transbora : les voyages d'un événement en quatre étapes, avec fichiers Excel à compléter.">
+<meta name="description" content="Transbora : voyages de groupe en quatre étapes, choix de trains dans Google Forms.">
 <title>Événements — Transbora</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="./events.css">
@@ -27,12 +27,12 @@
   <button type="button" id="menu-replies" class="drawer-link">✅ Réponses</button>
   <a href="./index.html" class="drawer-link">🚆 Recherche simple</a></nav>
   <h3>Mode d’emploi</h3>
-  <p class="drawer-highlight">Créez un événement, ajoutez les voyageurs, cherchez leurs horaires, puis exportez les Excel.</p>
+  <p class="drawer-highlight">Créez un événement, ajoutez les voyageurs, cherchez leurs horaires, puis créez les formulaires Google.</p>
   <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Laissez les dates de voyage vides pour utiliser les dates de l’événement.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
   <h3>3 · Recherche</h3><p>Un clic recherche les trajets souhaités de tous les participants. Les réglages permettent de choisir les transports et le nombre de correspondances.</p>
-  <h3>4 · Excel</h3><p>Choisissez « Un Excel pour tous » ou « Un Excel par personne ». Les cellules jaunes marquées « X » servent de cases universelles, y compris sur téléphone. Les fichiers individuels sont également disponibles séparément.</p>
-  <h3>Réponses</h3><p>Quand les fichiers complétés reviennent, ouvrez « Réponses » dans ce menu, importez les Excel et téléchargez le tableau pour préparer les réservations.</p>
+  <h3>4 · Formulaires</h3><p>Choisissez un formulaire collectif ou individuel. Transbora copie les propositions. Collez-les dans le tableau privé Google Sheets, onglet Propositions, cellule A1, puis menu « Transbora → Créer les formulaires ». Les liens apparaissent dans « Liens ».</p>
+  <h3>Réponses</h3><p>Les participants cochent un seul horaire par sens dans leur Google Form. Les réponses sont automatiquement centralisées dans le Google Sheet privé. L’ancienne option Excel reste disponible.</p>
   <h3>Précautions</h3><p>Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
  </div>
 </aside>
@@ -41,7 +41,7 @@
   <nav class="wizard-progress" aria-label="Avancement" aria-live="polite">
    <div class="progress-top"><span id="step-counter">Étape 1 sur 4</span><span id="step-label">Événement</span></div>
    <div class="progress-track" role="progressbar" aria-label="Progression" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" id="step-progress"><div id="step-progress-fill"></div></div>
-   <div class="progress-dots" aria-hidden="true"><span>Événement</span><span>Voyageurs</span><span>Trajets</span><span>Excel</span></div>
+   <div class="progress-dots" aria-hidden="true"><span>Événement</span><span>Voyageurs</span><span>Trajets</span><span>Formulaires</span></div>
   </nav>
   <p id="global-status" class="system-status" role="status" aria-live="polite"></p>
 
@@ -103,22 +103,49 @@
   </section>
 
   <section class="panel event-panel wizard-screen" id="etape-4" data-step="4" aria-labelledby="step-four-heading" hidden>
-   <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading" tabindex="-1">Excel</h1></div>
+   <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading" tabindex="-1">Choix des horaires</h1></div>
    <div class="export-grid simplified-exports">
-    <article class="export-card"><div class="export-icon" aria-hidden="true">👥</div><h2>Un Excel pour tous</h2>
-     <button type="button" class="primary download-action" id="export-organizer" hidden disabled>⬇ Télécharger</button>
+    <article class="export-card">
+     <div class="export-icon" aria-hidden="true">👥</div>
+     <h2>Un lien pour tous</h2>
+     <button type="button" class="primary download-action google-export" id="prepare-google-group" hidden disabled>📋 Copier les propositions</button>
     </article>
-    <article class="export-card"><div class="export-icon" aria-hidden="true">👤</div><h2>Un Excel par personne</h2>
-     <button type="button" class="primary download-action" id="export-personal-zip" hidden disabled>⬇ Télécharger le ZIP</button>
+    <article class="export-card">
+     <div class="export-icon" aria-hidden="true">👤</div>
+     <h2>Un lien par personne</h2>
+     <button type="button" class="primary download-action google-export" id="prepare-google-individual" hidden disabled>📋 Copier les propositions</button>
     </article>
    </div>
-   <details id="individual-details" class="settings-fold person-downloads" hidden>
-    <summary>Fichiers individuels</summary>
-    <div id="individual-files" class="individual-files"><p class="muted">Lancez la recherche.</p></div>
+   <div class="google-steps" id="google-steps" aria-live="polite">
+    <strong>3 gestes pour les formulaires</strong>
+    <div><span>1</span> Copier ci-dessus</div>
+    <div><span>2</span> Coller dans Google Sheets, en <b>Propositions!A1</b></div>
+    <div><span>3</span> Menu <b>Transbora → Créer les formulaires</b></div>
+    <div class="google-actions">
+      <a id="open-google-sheet" href="https://drive.google.com/drive/u/0/my-drive" target="_blank" rel="noopener noreferrer" class="sheet-action">📋 Ouvrir Google Sheets ↗</a>
+      <details id="google-config" class="google-config">
+       <summary>Configurer Drive</summary>
+       <label>Lien du tableau<input type="url" id="google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off"></label>
+       <button type="button" class="secondary" id="save-google-sheet">Enregistrer</button>
+       <p>Une seule fois : collez <a href="https://script.google.com/" target="_blank" rel="noopener noreferrer">le script Google</a> dans Extensions → Apps Script du tableau. <a href="https://github.com/ludodulac/Transbora/blob/main/integrations/google-forms/Code.gs" target="_blank" rel="noopener noreferrer">Voir le code ↗</a></p>
+      </details>
+    </div>
+    <p id="google-forms-status" class="inline-feedback" role="status"></p>
+   </div>
+   <details class="settings-fold legacy-excel" id="legacy-excel">
+    <summary>Export Excel (optionnel)</summary>
+    <div class="legacy-actions">
+      <button type="button" class="secondary" id="export-organizer" hidden disabled>⬇ Excel du groupe</button>
+      <button type="button" class="secondary" id="export-personal-zip" hidden disabled>⬇ Excel individuels (ZIP)</button>
+    </div>
+    <details id="individual-details" class="settings-fold person-downloads" hidden>
+     <summary>Fichiers individuels</summary>
+     <div id="individual-files" class="individual-files"><p class="muted">Lancez la recherche.</p></div>
+    </details>
+    <button type="button" class="text-button invite-link" id="copy-invitation" hidden>📋 Message d’envoi</button>
+    <p id="copy-invitation-status" class="inline-feedback" role="status"></p>
    </details>
-   <button type="button" class="text-button invite-link" id="copy-invitation" hidden>📋 Message d’envoi</button>
-   <p id="copy-invitation-status" class="inline-feedback" role="status"></p>
-   <p class="reply-shortcut"><button type="button" class="text-button" id="open-replies">✅ Retour des réponses →</button></p>
+   <p class="reply-shortcut"><button type="button" class="text-button" id="open-replies">✅ Voir les réponses →</button></p>
   </section>
 
   <div class="wizard-actions" id="wizard-actions">
@@ -132,15 +159,20 @@
   <div class="screen-heading"><span class="screen-icon">✓</span><h1 id="replies-heading">Réponses</h1></div>
   <button type="button" id="back-to-wizard" class="text-button">← Événement</button>
   <div class="reply-panel">
-   <label class="upload-button" for="import-replies">📂 Importer Excel</label>
+   <a id="open-replies-google" class="sheet-action" href="https://drive.google.com/drive/u/0/my-drive" target="_blank" rel="noopener noreferrer">📋 Voir Google Sheets ↗</a>
+   <p class="muted">Les réponses Google Forms sont ajoutées automatiquement dans l’onglet « Réponses » du tableau. Aucun import nécessaire.</p>
+   <details class="settings-fold legacy-excel" style="width:100%">
+    <summary>Anciennes réponses Excel</summary>
+    <label class="upload-button" for="import-replies">📂 Importer Excel</label>
    <input id="import-replies" class="sr-only" type="file" accept=".xlsx" multiple>
    <p id="reply-status" role="status" class="inline-feedback"></p>
    <button type="button" class="secondary" id="export-followup" disabled>⬇ Suivi réservations</button>
+   </details>
   </div>
  </section>
  <footer class="event-footer">
   <p>⚠️ Horaires indicatifs : vérifiez prix, places et correspondances avant réservation.</p>
-  <p>🔒 Fichiers locaux : sauvegardez vos Excel avant de quitter.</p>
+  <p>🔒 Les choix partagés restent dans votre Google Drive privé ; la session Transbora n’est pas sauvegardée.</p>
  </footer>
 </main>
 </body>
