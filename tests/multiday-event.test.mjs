@@ -71,3 +71,12 @@ test('return following day is allowed even if no train runs after 23h',async()=>
  assert.equal(plan.returning.length>0,true);
  assert.ok(plan.returning.some(x=>x.date==='2026-11-30'));
 });
+
+test('three available days remain visible in a three-option shortlist',async()=>{
+ const result=await planEvent(ev,[person],[feed],{...settings,maxOptions:3});
+ const plan=result.plans.get('P-001');
+ assert.deepEqual([...new Set(plan.outward.map(r=>parisDate(r.date,r.departure)))].sort(),
+   ['27/11/2026','28/11/2026','29/11/2026']);
+ assert.deepEqual([...new Set(plan.returning.map(r=>parisDate(r.date,r.departure)))].sort(),
+   ['29/11/2026','30/11/2026','01/12/2026'].sort());
+});
