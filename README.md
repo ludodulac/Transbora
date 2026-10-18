@@ -23,6 +23,20 @@ Application indépendante pour gagner du temps lors de la préparation d'horaire
 
 Les correspondances utilisent des marges conservatrices et la proximité physique documentée des gares ; [voir les règles](docs/correspondances.md) et [la mission 004](docs/routage-mission-004.md). Pas de prix, de places disponibles, de réservation ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : horaires affichés en heure de Paris, vérifier l'heure locale et les contrôles auprès du transporteur.**
 
+## ✨ Nouveau : événements & Excel (mission 005)
+
+Ouvrez **[la page Événements](https://ludodulac.github.io/Transbora/events.html)** : créez un événement, ajoutez les personnes manuellement ou à partir du **modèle Excel téléchargeable**, recherchez tous les allers-retours puis exportez :
+
+- **Un Excel pour un organisateur** avec toutes les options, et une feuille « Réservations ».
+- **Un Excel personnalisé par participant** ou un seul ZIP contenant tous les fichiers individuels.
+- **Un suivi des réservations actualisé** après réimport des Excel complétés.
+
+Les cases de choix sont représentées par une **cellule jaune où saisir X**, plus robuste dans les différents lecteurs mobiles que les contrôles de formulaire anciens. Le **menu hamburger en haut à droite** explique toute la procédure.
+
+Le modèle .xlsx est **généré depuis le code versionné dans GitHub** : aucune installation requise, et pas de serveur d'enregistrement des données personnelles. L'application tourne dans le navigateur ; **aucune sauvegarde automatique du brouillon**.
+
+Documentation : [Événements / Excel / réponses](docs/evenements-excel-005.md).
+
 ## Publication sur GitHub Pages
 
 Sur le dépôt GitHub, sous **Settings → Pages**, choisir **Source : GitHub Actions**.
