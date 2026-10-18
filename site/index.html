@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Transbora : horaires de train théoriques prêts à copier">
+<title>Transbora — Horaires de trains</title>
+<link rel="stylesheet" href="./style.css">
+<script type="module" src="./app.mjs"></script>
+</head>
+<body>
+<header><div class="container bar"><strong>🚆 Transbora</strong><span>Propositions de trajets</span></div></header>
+<main class="container">
+<section class="hero"><p class="eyebrow">RECHERCHER · CHOISIR · COPIER</p>
+<h1>Des horaires prêts à proposer.</h1>
+<p>Recherchez les trains directs, sélectionnez les horaires utiles, copiez une proposition claire dans votre document ou e-mail.</p></section>
+<section class="panel">
+<h2>Rechercher un trajet</h2>
+<p id="status" role="status" class="notice">Chargement des données SNCF…</p>
+<form id="search-form">
+<div class="fields">
+<label>Gare de départ<input id="origin" list="stations" placeholder="Ex. Lorient" required disabled autocomplete="off"></label>
+<label>Gare d’arrivée<input id="destination" list="stations" placeholder="Ex. Paris Montparnasse" required disabled autocomplete="off"></label>
+<datalist id="stations"></datalist>
+<label>Date de départ<input id="date" type="date" required disabled></label>
+<label>À partir de<input id="earliest" type="time" value="00:00" required></label>
+<label>Jusqu’à<input id="latest" type="time" value="23:59" required></label>
+</div>
+<button id="search" type="submit" class="primary" disabled>Rechercher les trains directs</button>
+</form>
+<p class="warning">⚠️ Horaires théoriques seulement, non garantis : ni prix, ni places disponibles, ni retards en temps réel. Confirmer auprès du transporteur.</p>
+</section>
+<section class="panel" id="result-section" hidden>
+<div class="row"><h2>Horaires trouvés</h2><strong id="count"></strong></div>
+<p id="explanation" class="muted"></p>
+<div id="results" class="results" aria-live="polite"></div>
+<div class="buttons"><button id="all" type="button" class="secondary">Tout sélectionner</button>
+<button id="none" type="button" class="secondary">Tout désélectionner</button>
+<button id="copy" type="button" class="primary" disabled>📋 Copier la proposition (0)</button></div>
+<p id="copy-status" class="muted" role="status"></p>
+</section>
+<footer>
+<p><strong>Source :</strong> <a href="https://transport.data.gouv.fr/datasets/horaires-sncf" target="_blank" rel="noopener noreferrer">Données SNCF Voyageurs ouvertes</a> (ODbL et conditions particulières). Site indépendant, sans affiliation avec la SNCF ni Trainline.</p>
+<p>Prototype : trains directs seulement, sans correspondances. Consultez le transporteur avant toute réservation.</p>
+</footer>
+</main>
+</body></html>
