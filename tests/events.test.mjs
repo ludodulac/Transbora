@@ -50,7 +50,7 @@ test('event date boundaries and schedules enforce arrival/departure deadlines',(
     {date:event.outwardDate},event,'A',{maximum:4});
   assert.deepEqual(options.map(x=>x.key).sort(),['OUT-1','OUT-2']);
   const impossible=route('EARLY',event.returnDate,0,4*3600,'Paris','Brest');
-  assert.equal(pickItineraries([impossible],{date:event.returnDate},event,'R').length,0);
+  assert.equal(pickItineraries([impossible],{date:event.endDate},event,'R').length,0);
 });
 test('organizer export is readable, styled, with editable X and code metadata',async()=>{
   const w=buildOrganizer(ExcelJS,event,[person],plans,{});
