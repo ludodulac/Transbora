@@ -100,7 +100,7 @@ function addQuestion_(form,person,sens,options,dossier,indexSheet){
     'Aucun de ces horaires','NONE',dossier,person.departure]);
   rows.forEach(function(row){indexSheet.appendRow(row);});
 }
-function prepareForm_(ss,input,people,person,label,indexSheet){
+function prepareForm_(ss,input,people,label,indexSheet){
   var title='Transbora · '+input.event+' · '+label;
   var form=FormApp.create(title,true);
   form.setDescription('Sélectionnez un horaire pour chaque trajet demandé. Les horaires sont théoriques : ni place ni billet réservé. Les gares, correspondances et prix sont à confirmer.');
@@ -127,6 +127,7 @@ function creerFormulairesTransbora(){
     var ss=SpreadsheetApp.getActiveSpreadsheet();
     var data=readPropositions_(ss);
     var people=personGroups_(data);
+    PropertiesService.getScriptProperties().setProperty('TRANSBORA_SPREADSHEET_ID',ss.getId());
     var ui=SpreadsheetApp.getUi();
     var count=data.mode==='collectif'?1:people.length;
     var reply=ui.alert('Créer les formulaires ?',
@@ -144,7 +145,7 @@ function creerFormulairesTransbora(){
     // Apps Script may have creation quotas: resume by rerunning menu.
     batches.slice(0,20).forEach(function(batch){
       if(existing.has(batch.key)){reused++;return;}
-      var form=prepareForm_(ss,data,batch.participants,null,batch.name,index);
+      var form=prepareForm_(ss,data,batch.participants,batch.name,index);
       links.appendRow([data.dossier,data.event,data.mode,batch.key,batch.name,
         form.url,form.edit,form.id,new Date()]);
       created++;
@@ -174,7 +175,9 @@ function onTransboraFormSubmit(e){
   var lock=LockService.getDocumentLock() || LockService.getScriptLock();
   lock.waitLock(25000);
   try{
-    var ss=SpreadsheetApp.getActiveSpreadsheet();
+    var bookId=PropertiesService.getScriptProperties().getProperty('TRANSBORA_SPREADSHEET_ID');
+    if(!bookId)throw new Error('Tableau Transbora non initialisé. Exécutez créer les formulaires.');
+    var ss=SpreadsheetApp.openById(bookId);
     var links=ss.getSheetByName('Liens').getDataRange().getValues();
     var indexed=ss.getSheetByName('IndexQuestions').getDataRange().getValues();
     var out=ss.getSheetByName('Réponses');
