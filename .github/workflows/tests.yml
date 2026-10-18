@@ -29,6 +29,8 @@ jobs:
           python-version: '3.12'
       - name: Test des vrais flux GTFS publics
         run: python scripts/build_sources.py --output site/data
+      - name: Examiner les colonnes des temps minimaux SNCF
+        run: python scripts/inspect_mct.py
       - name: Rapport de couverture
         run: |
           python - <<'PY'
