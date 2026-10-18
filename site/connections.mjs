@@ -4,6 +4,7 @@
  * Generic GTFS transfer rules are applied when provided.
  */
 import {matchesStop, normalizeStop} from './search-multi.mjs';
+import {isoDateAtDay,shiftToParis} from './time-zones.mjs';
 
 const DAY = 86400;
 const MAX_WAIT = 4 * 3600;  // do not recommend an overnight station wait as a normal transfer
@@ -54,15 +55,15 @@ function compatible(first, second) {
   if (first.source.id===second.source.id && first.index===second.index)
     return {sameStation:true,distanceMeters:0};
   if (first.source.id===second.source.id) return null; // do not infer intra-feed walking paths
-  if (!first.zone || !second.zone || first.zone!==second.zone) return null;
+  if (!first.zone || !second.zone) return null; // timezones have been normalized to one clock
   const metres=distance(first.station,second.station);
   if (metres>GEO_LIMIT_METERS) return null;
   return {sameStation:false,distanceMeters:Math.round(metres)};
 }
-function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,requested) {
+function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
   const start=trip[4][fromIndex],end=trip[4][toIndex];
-  const dep=start[2]+(serviceDay-requested)*DAY;
-  const arr=end[1]+(serviceDay-requested)*DAY;
+  const dep=start[2]+clockShift;
+  const arr=end[1]+clockShift;
   if (arr<=dep || arr-dep>DAY*2) return null;
   const beginStop=feed.data.stations[start[0]],endStop=feed.data.stations[end[0]];
   return {id:feed.source.id+':'+tripIndex+':'+serviceDay+':'+fromIndex+':'+toIndex,
@@ -86,6 +87,7 @@ function enumerate(feed,params,earliest,latest,day) {
   // First leg departs on the selected date; the second can depart the next day.
   for(let serviceDay=day-1;serviceDay<=day+1;serviceDay++){
     if(serviceDay<first||serviceDay>last) continue;
+    const clockShift=shiftToParis(params.date,isoDateAtDay(serviceDay),feed.data.meta.timezone||'Europe/Paris');
     for(let index=0;index<feed.data.trips.length;index++){
       const trip=feed.data.trips[index];
       if(!maskRuns(feed.data.services[trip[0]],serviceDay-first))continue;
@@ -94,18 +96,18 @@ function enumerate(feed,params,earliest,latest,day) {
       for(let i=0;i<stops.length;i++){
         const at=stops[i];
         if(origin.has(at[0]) && at[3]===1){
-          const departure=at[2]+(serviceDay-day)*DAY;
+          const departure=at[2]+clockShift;
           if(departure>=earliest && departure<=latest)starts.push(i);
         }
         if(destination.has(at[0]) && at[4]===1){
-          const arrival=at[1]+(serviceDay-day)*DAY;
+          const arrival=at[1]+clockShift;
           if(arrival>earliest && arrival<=latest+DAY*2)ends.push(i);
         }
       }
       for(const i of starts){
         for(let j=i+1;j<stops.length;j++){
           if(stops[j][4]!==1 || destination.has(stops[j][0]) || origin.has(stops[j][0]))continue;
-          const l=leg(feed,index,trip,serviceDay,i,j,day);
+          const l=leg(feed,index,trip,serviceDay,i,j,clockShift);
           if(l)initial.push(l);
         }
       }
