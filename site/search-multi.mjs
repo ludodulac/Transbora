@@ -1,6 +1,7 @@
 // Direct scheduled journeys (no transfers, prices, seat availability or live data).
 // Search is based on stop names, not geographical interchangeability.
-import {timeText, dateText, durationText} from './engine.mjs';
+import {durationText} from './engine.mjs';
+import {shiftToParis,isoDateAtDay,parisTime,parisDate} from './time-zones.mjs';
 const DAY=86400;
 
 export function normalizeStop(s) {
@@ -39,6 +40,7 @@ export function searchFeed(data, params, source) {
   if(!Number.isFinite(start)||!Number.isFinite(end)||start>end)return [];
   const output=[];
   for(let serviceDay=Math.max(first,day-1);serviceDay<=day;serviceDay++){
+    const clockShift=shiftToParis(params.date,isoDateAtDay(serviceDay),data.meta.timezone||'Europe/Paris');
     for(let t=0;t<data.trips.length;t++){
       const trip=data.trips[t];
       if(!runOn(data.services[trip[0]],serviceDay-first))continue;
@@ -46,14 +48,14 @@ export function searchFeed(data, params, source) {
       for(let i=0;i<stops.length-1;i++){
         const from=stops[i];
         if(!origins.has(from[0])||from[3]!==1)continue;
-        const departure=from[2]+(serviceDay-day)*DAY;
+        const departure=from[2]+clockShift;
         if(departure<start||departure>end)continue;
         for(let j=i+1;j<stops.length;j++){
           const to=stops[j];
           if(!targets.has(to[0])||to[4]!==1||to[1]<from[2])continue;
           output.push({
             id:source.id+':'+t+':'+serviceDay+':'+i+':'+j,
-            departure,arrival:to[1]+(serviceDay-day)*DAY,
+            departure,arrival:to[1]+clockShift,
             from:data.stations[from[0]][1],to:data.stations[to[0]][1],
             provider:source.label,providerId:source.id,mode:source.mode,
             route:trip[1]||'',number:trip[3]||'',headsign:trip[2]||''
@@ -68,16 +70,35 @@ export function searchFeed(data, params, source) {
 export function proposalText(journeys, params) {
   const lines=['PROPOSITION D’HORAIRES — TRANSBORA',
     params.from+' → '+params.to,
-    'Date : '+dateText(params.date),''];
+    'Date de départ : '+parisDate(params.date),''];
   for(let i=0;i<journeys.length;i++){
     const j=journeys[i];
-    const nextDate=Math.floor(j.arrival/DAY)!==0?' ('+dateText(params.date,j.arrival)+')':'';
-    lines.push((i+1)+'. '+(j.mode==='bus'?'Autocar':'Train')+' '+j.provider
-      +(j.number?' n° '+j.number:'')
-      +' | '+j.from+' '+timeText(j.departure)+' → '+j.to+' '+timeText(j.arrival)
-      +nextDate+' | '+durationText(j.arrival-j.departure)+' | Sans correspondance');
+    const legs=j.legs?.length===2?j.legs:[j];
+    const dateSuffix=parisDate(params.date,j.arrival)!==parisDate(params.date,j.departure)?' ('+parisDate(params.date,j.arrival)+')':'';
+    lines.push((i+1)+'. '+parisDate(params.date,j.departure)+' '+parisTime(params.date,j.departure)
+      +' — '+parisTime(params.date,j.arrival)+dateSuffix+' | '+durationText(j.arrival-j.departure)
+      +' | '+(legs.length===1?'Direct':'1 correspondance'));
+    for(const [index,leg] of legs.entries()){
+      const departureSuffix=parisDate(params.date,leg.departure)!==parisDate(params.date)?' ('+parisDate(params.date,leg.departure)+')':'';
+      const arrivalSuffix=parisDate(params.date,leg.arrival)!==parisDate(params.date)?' ('+parisDate(params.date,leg.arrival)+')':'';
+      lines.push('   '+(index+1)+') '+(leg.mode==='bus'?'Autocar':'Train')
+        +' '+leg.provider+(leg.number?' n° '+leg.number:'')
+        +' : '+leg.from+' '+parisTime(params.date,leg.departure)+departureSuffix
+        +' → '+leg.to+' '+parisTime(params.date,leg.arrival)+arrivalSuffix);
+    }
+    if(j.transfer){
+      lines.push('   Correspondance à '+j.transfer.station
+        +(j.transfer.station!==j.transfer.departureStation
+          ?' → '+j.transfer.departureStation:'')
+        +' : '+durationText(j.transfer.waitingSeconds)+' disponibles'
+        +' (marge de sécurité retenue '+durationText(j.transfer.minimumSeconds)+').');
+      if(j.transfer.proximity==='nearby_unverified')
+        lines.push('   ATTENTION : arrêts proches géographiquement, trajet piéton non vérifié.');
+    }
+    lines.push('');
   }
-  lines.push('','Horaires théoriques indicatifs. Tarifs et places non vérifiés.',
-    'Vérifier les horaires auprès de chaque transporteur avant toute réservation.');
+  lines.push('Horaires théoriques indicatifs. Ni réservation, ni garantie de correspondance, ni protection automatique en cas de retard.',
+    'Vérifier les horaires, billets, règles de correspondance, quais et contrôles auprès des transporteurs : les marges sont des précautions, pas des garanties.',
+    'Horaires affichés en heure de Paris. Pour les trajets internationaux, vérifier les heures locales auprès des compagnies.');
   return lines.join('\n');
 }

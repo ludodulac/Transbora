@@ -1,5 +1,7 @@
-import {timeText,durationText,dateText} from './engine.mjs';
+import {durationText,dateText} from './engine.mjs';
+import {parisTime,parisDate} from './time-zones.mjs';
 import {searchFeed,proposalText,normalizeStop} from './search-multi.mjs';
+import {findConnections} from './connections.mjs';
 const $=id=>document.getElementById(id);
 const dataCache=new Map();
 let manifest, suggestions=[], results=[], selected=new Set(), current;
@@ -104,18 +106,29 @@ $('search-form').addEventListener('submit',async event=>{
   const loaded=await Promise.all(sources.map(async s=>{
     try{return {source:s,data:await loadFeed(s)}}catch(error){return {source:s,error:error.message}}
   }));
-  const failures=[];
+  const failures=[], active=[];
   for(const entry of loaded){
     if(entry.error){failures.push(entry.source.label);continue;}
     try{
       results.push(...searchFeed(entry.data,current,entry.source));
+      active.push({data:entry.data,source:entry.source});
     }catch(e){failures.push(entry.source.label);}
   }
-  results.sort((a,b)=>a.departure-b.departure||a.arrival-b.arrival);
+  const directCount=results.length;
+  if($('connections').value==='yes' && active.length){
+    try{
+      const options=findConnections(active,current,{profile:$('buffer').value,limit:120});
+      results.push(...options);
+    }catch(e){failures.push('calcul des correspondances : '+e.message);}
+  }
+  const connectionCount=results.length-directCount;
+  // Meilleurs temps de trajet en premier, puis départ le plus tôt à durée égale.
+  results.sort((a,b)=>(a.arrival-a.departure)-(b.arrival-b.departure)
+    ||(a.changes||0)-(b.changes||0)||a.departure-b.departure);
   $('search').disabled=false;
-  message(results.length+' trajets directs identifiés'
-    +(failures.length?' (recherche incomplète : '+failures.join(', ')+').':'.')
-    +' Vérifiez les arrêts exacts dans chaque résultat.',failures.length>0);
+  message(directCount+' directs et '+connectionCount+' itinéraires à correspondance trouvés'
+    +(failures.length?' (recherche partielle : '+failures.join(', ')+').':'.')
+    +' Horaires en heure de Paris ; classement par durée. Vérifier chaque proposition auprès du transporteur.',failures.length>0);
   render(failures);
 });
 function updateCopy(){
@@ -127,8 +140,8 @@ function render(failures=[]){
   $('count').textContent=results.length+' résultat(s)';
   $('explanation').textContent=results.length>100
     ? 'Les 100 premiers résultats sont affichés. Affinez la plage horaire pour les autres.'
-    :results.length?'Cochez les trajets souhaités : les noms exacts des gares ou arrêts figurent ci-dessous.'
-    :'Aucun trajet direct trouvé dans les sources chargées. Une correspondance peut être nécessaire.';
+    :results.length?'Classés par durée totale. Les correspondances indiquent leur durée, les stations et la marge minimale retenue.'
+    :'Aucun itinéraire trouvé dans les sources chargées : les horaires et les possibilités de correspondance ne sont pas exhaustifs.';
   const fragment=document.createDocumentFragment();
   for(const journey of results.slice(0,100)){
     const label=elt('label','train');
@@ -136,13 +149,31 @@ function render(failures=[]){
     input.addEventListener('change',()=>{if(input.checked)selected.add(journey.id);else selected.delete(journey.id);updateCopy();});
     const info=elt('div','train-info');
     const left=elt('div');
-    const late=Math.floor(journey.arrival/86400)!==0?' (le '+dateText(current.date,journey.arrival)+')':'';
-    left.append(elt('div','times',timeText(journey.departure)+' → '+timeText(journey.arrival)+late));
+    const late=parisDate(current.date,journey.arrival)!==parisDate(current.date,journey.departure)?' (le '+parisDate(current.date,journey.arrival)+')':'';
+    left.append(elt('div','times',parisTime(current.date,journey.departure)+' → '+parisTime(current.date,journey.arrival)+late));
     left.append(elt('div','details',journey.from+' → '+journey.to));
-    const right=elt('div','details',
-      (journey.mode==='bus'?'🚌 Autocar':'🚆 Train')+' · '+journey.provider
-      +(journey.number?' · n° '+journey.number:'')+' · '+durationText(journey.arrival-journey.departure)
-      +' · Direct');
+    const right=elt('div','details');
+    if(journey.legs?.length===2){
+      const providers=journey.legs.map(l=>l.provider).join(' → ');
+      right.textContent='🔄 1 correspondance · '+providers+' · '+durationText(journey.arrival-journey.departure);
+      left.append(elt('div','transfer-line',
+        'Correspondance à '+journey.transfer.station
+        +(journey.transfer.station!==journey.transfer.departureStation
+          ?' → '+journey.transfer.departureStation:'')
+        +' · '+durationText(journey.transfer.waitingSeconds)+' sur place'
+        +' · marge de sécurité '+durationText(journey.transfer.minimumSeconds)));
+      if(journey.transfer.proximity==='nearby_unverified'){
+        left.append(elt('div','warning',
+          '⚠️ Arrêts géographiquement proches, itinéraire piéton non vérifié.'));
+      }
+      left.append(elt('div','details',journey.legs.map((l,i)=>
+        (i+1)+') '+l.from+' '+parisTime(current.date,l.departure)+' → '+l.to+' '+parisTime(current.date,l.arrival)
+        +' · '+l.provider+(l.number?' n° '+l.number:'')).join(' | ')));
+    }else{
+      right.textContent=(journey.mode==='bus'?'🚌 Autocar':'🚆 Train')+' · '+journey.provider
+        +(journey.number?' · n° '+journey.number:'')+' · '+durationText(journey.arrival-journey.departure)
+        +' · Direct';
+    }
     info.append(left,right);label.append(input,info);fragment.append(label);
   }
   $('results').replaceChildren(fragment);

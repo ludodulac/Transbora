@@ -63,9 +63,24 @@ def build(z, mode='rail', provider='SNCF'):
                 item.get("trip_headsign", ""), item.get("trip_short_name", "")]
     if not trips:
         raise ValueError(f"No {mode} services found")
+    def coords(item):
+        try:
+            lat = float(item.get("stop_lat", ""))
+            lon = float(item.get("stop_lon", ""))
+            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                return [round(lat, 6), round(lon, 6)]
+        except (ValueError, TypeError):
+            pass
+        return [None, None]
+
+    agency_zones = {r.get("agency_timezone", "").strip() for r in rows(z, "agency.txt")}
+    agency_zones.discard("")
+    agency_timezone = next(iter(agency_zones)) if len(agency_zones) == 1 else None
+
     stops = {}
     for item in rows(z, "stops.txt"):
-        stops[item["stop_id"]] = [item.get("stop_name", "").strip(), item.get("parent_station", "").strip()]
+        stops[item["stop_id"]] = [item.get("stop_name", "").strip(),
+                                  item.get("parent_station", "").strip(), *coords(item)]
 
     masks = {value[0]: 0 for value in trips.values()}
     for item in rows(z, "calendar.txt"):
@@ -123,6 +138,33 @@ def build(z, mode='rail', provider='SNCF'):
     masks_used = sorted({masks[trips[tid][0]] for tid, _ in active})
     mask_index = {v:i for i,v in enumerate(masks_used)}
     encoded = [base64.b64encode(v.to_bytes((span+7)//8, "little")).decode("ascii") for v in masks_used]
+    # Generic station-level GTFS transfer requirements. Do not apply trip/route-specific
+    # conditions to all services. A prohibited transfer always takes precedence.
+    transfer_rules = {}
+    for item in rows(z, "transfers.txt"):
+        if any(item.get(field) for field in ("from_trip_id", "to_trip_id", "from_route_id", "to_route_id")):
+            continue
+        raw_from, raw_to = item.get("from_stop_id", ""), item.get("to_stop_id", "")
+        if raw_from not in stops or raw_to not in stops:
+            continue
+        from_station = stops[raw_from][1] if stops[raw_from][1] in stops else raw_from
+        to_station = stops[raw_to][1] if stops[raw_to][1] in stops else raw_to
+        if from_station not in station_index or to_station not in station_index:
+            continue
+        kind = str(item.get("transfer_type", "0"))
+        if kind not in ("2", "3"):
+            continue
+        try:
+            required = max(0, int(item.get("min_transfer_time") or "0")) if kind == "2" else 0
+        except ValueError:
+            continue
+        pair = (station_index[from_station], station_index[to_station])
+        previous = transfer_rules.get(pair, (0, 0))
+        if kind == "3" or previous[0] == 3:
+            transfer_rules[pair] = (3, 0)
+        else:
+            transfer_rules[pair] = (2, max(required, previous[1]))
+
     output = []
     for tid, items in active:
         sid, line, headsign, train_number = trips[tid]
@@ -130,9 +172,11 @@ def build(z, mode='rail', provider='SNCF'):
             [[station_index[i[1]], *i[2:]] for i in items]])
     return {"meta": {"first":first.isoformat(), "last":last.isoformat(),
             "generated":datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "source": URL, "provider":provider, "mode":mode, "kind":"planned_only", "trains":len(output), "stations":len(ordered)},
-            "stations":[[sid, stops.get(sid, [sid])[0] or sid] for sid in ordered],
-            "services":encoded, "trips":output}
+            "source": URL, "provider":provider, "mode":mode, "kind":"planned_only",
+            "timezone": agency_timezone, "trains":len(output), "stations":len(ordered)},
+            "stations":[[sid, stops.get(sid, [sid])[0] or sid, *stops.get(sid, ["", "", None, None])[2:4]] for sid in ordered],
+            "services":encoded, "trips":output,
+            "transfers":[[a,b,*rules] for (a,b),rules in transfer_rules.items()]}
 
 def main():
     parser = argparse.ArgumentParser()
