@@ -7,22 +7,22 @@ import {matchesStop, normalizeStop} from './search-multi.mjs';
 import {isoDateAtDay,shiftToParis} from './time-zones.mjs';
 
 const DAY = 86400;
-const MAX_WAIT = 4 * 3600;  // do not recommend an overnight station wait as a normal transfer
+export const MAX_WAIT = 4 * 3600;  // do not recommend an overnight station wait as a normal transfer
 const GEO_LIMIT_METERS = 100;  // geographic proximity is NOT a validated walking path
 
-function dayNum(value) {
+export function dayNum(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return NaN;
   const t=Date.parse(value+'T00:00:00Z');
   return Number.isFinite(t) && new Date(t).toISOString().slice(0,10)===value
     ? Math.floor(t/(DAY*1000)) : NaN;
 }
-function maskRuns(mask, day) {
+export function maskRuns(mask, day) {
   if (day < 0 || !mask) return false;
   const bytes=atob(mask);
   return Math.floor(day/8)<bytes.length &&
     Boolean(bytes.charCodeAt(Math.floor(day/8)) & (1 << (day%8)));
 }
-function distance(a,b) {
+export function distance(a,b) {
   if (![a?.[2],a?.[3],b?.[2],b?.[3]].every(Number.isFinite)) return Infinity;
   const rad=Math.PI/180, la1=a[2]*rad,la2=b[2]*rad;
   const dl=(b[3]-a[3])*rad, df=(b[2]-a[2])*rad;
@@ -30,11 +30,11 @@ function distance(a,b) {
   return 12742000*Math.asin(Math.min(1,Math.sqrt(h)));
 }
 const transferId=(providerId,index)=>providerId+':'+index;
-function geoCell(station) {
+export function geoCell(station) {
   if (![station?.[2],station?.[3]].every(Number.isFinite)) return null;
   return [Math.floor(station[2]*1000),Math.floor(station[3]*1000)];
 }
-function coordKey(x,y) {return x+','+y;}
+export function coordKey(x,y) {return x+','+y;}
 
 function margin(first,second,profile) {
   const calm = profile === 'very_cautious';
@@ -51,7 +51,7 @@ function transferRule(feed,from,to) {
   if (feed.source.id !== from.source.id || feed.source.id !== to.source.id) return null;
   return feed.rules.get(from.index+':'+to.index) || null;
 }
-function compatible(first, second) {
+export function compatible(first, second) {
   if (first.source.id===second.source.id && first.index===second.index)
     return {sameStation:true,distanceMeters:0};
   if (first.source.id===second.source.id) return null; // do not infer intra-feed walking paths
@@ -60,7 +60,7 @@ function compatible(first, second) {
   if (metres>GEO_LIMIT_METERS) return null;
   return {sameStation:false,distanceMeters:Math.round(metres)};
 }
-function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
+export function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
   const start=trip[4][fromIndex],end=trip[4][toIndex];
   const dep=start[2]+clockShift;
   const arr=end[1]+clockShift;
@@ -75,7 +75,7 @@ function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
     route:trip[1]||'',number:trip[3]||'',headsign:trip[2]||''};
 }
 
-function enumerate(feed,params,earliest,latest,day) {
+export function enumerate(feed,params,earliest,latest,day) {
   const first=dayNum(feed.data.meta.first),last=dayNum(feed.data.meta.last);
   const initial=[],final=[];
   const origin=new Set(), destination=new Set();
@@ -123,7 +123,7 @@ function enumerate(feed,params,earliest,latest,day) {
   }
   return {initial,final};
 }
-function stationRecord(feed,index) {
+export function stationRecord(feed,index) {
   return {source:feed.source,zone:feed.data.meta.timezone,index,
     station:feed.data.stations[index]};
 }
