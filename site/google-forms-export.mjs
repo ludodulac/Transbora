@@ -16,7 +16,10 @@ export function cleanCell(input){
 }
 export function optionLabel(route,date,ordinal){
   const legs=route.legs?.length?route.legs:[route];
-  const head=parisTime(date,route.departure)+' → '+parisTime(date,route.arrival);
+  const day=route.date||date;
+  // Show BOTH calendar dates: an overnight trip must never look like a same-day trip.
+  const head=parisDate(day,route.departure)+' '+parisTime(day,route.departure)+
+    ' → '+parisDate(day,route.arrival)+' '+parisTime(day,route.arrival);
   const providers=[...new Set(legs.map(x=>x.provider).filter(Boolean))].join(' + ');
   const changes=legs.length-1;
   const intermediary=changes ? ' · via '+legs.slice(0,-1).map(x=>x.to).join(' / ') : '';
@@ -24,7 +27,7 @@ export function optionLabel(route,date,ordinal){
     ordinal+'. '+head+' · '+durationText(route.arrival-route.departure),
     providers,
     changes+' changement(s)'+intermediary,
-    '('+parisDate(date,route.departure)+')'
+    ''
   ].filter(Boolean).join(' · ').slice(0,330);
 }
 export function buildFormsRows(event,participants,plans,mode,{batchId}={}){
@@ -46,7 +49,7 @@ export function buildFormsRows(event,participants,plans,mode,{batchId}={}){
           const optionId=route.key||route.id;
           if(!optionId)throw new Error('Une proposition ne possède pas de code.');
           rows.push([id,event.title,mode,p.id,p.first,p.last,p.departure,dir,
-            optionId,optionLabel(route,date,index+1),date]);
+            optionId,optionLabel(route,route.date||date,index+1),route.date||date]);
         });
       }else{
         rows.push([id,event.title,mode,p.id,p.first,p.last,p.departure,dir,
