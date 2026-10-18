@@ -114,7 +114,7 @@ function enumerate(feed,params,earliest,latest,day) {
       for(const j of ends){
         for(let i=0;i<j;i++){
           if(stops[i][3]!==1 || origin.has(stops[i][0]) || destination.has(stops[i][0]))continue;
-          const l=leg(feed,index,trip,serviceDay,i,j,day);
+          const l=leg(feed,index,trip,serviceDay,i,j,clockShift);
           if(l && l.departure>=earliest && l.departure<=latest+MAX_WAIT+DAY)
             final.push(l);
         }
