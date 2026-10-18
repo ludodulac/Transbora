@@ -83,7 +83,7 @@ progress{width:100%;height:12px}
 .reply-panel .upload-button{color:#fff;background:#007f86;border-color:#007f86}
 .reply-panel .secondary{width:100%;max-width:350px}
 .reply-panel p{width:100%;text-align:center}
-.wizard-actions{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:14px;background:#ffffffeb;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);border:1px solid #e0eaed;box-shadow:0 -5px 23px #193f4a17;border-radius:14px;padding:12px 14px;margin:18px 0 0;z-index:30}
+.wizard-actions{position:fixed;bottom:13px;left:50%;transform:translateX(-50%);width:min(750px,calc(100% - 28px));display:flex;align-items:center;justify-content:space-between;gap:14px;background:#ffffffeb;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);border:1px solid #e0eaed;box-shadow:0 -5px 23px #193f4a17;border-radius:14px;padding:12px 14px;margin:18px 0 0;z-index:30}
 .wizard-next{margin-left:auto;min-width:160px;min-height:50px;font-size:1.02rem}
 #search-everyone{width:100%;min-height:57px;font-size:1.12rem}
 .back-action{padding:10px 14px}
