@@ -1,4 +1,5 @@
-import {timeText,durationText,dateText} from './engine.mjs';
+import {durationText,dateText} from './engine.mjs';
+import {parisTime,parisDate} from './time-zones.mjs';
 import {searchFeed,proposalText,normalizeStop} from './search-multi.mjs';
 import {findConnections} from './connections.mjs';
 const $=id=>document.getElementById(id);
@@ -127,7 +128,7 @@ $('search-form').addEventListener('submit',async event=>{
   $('search').disabled=false;
   message(directCount+' directs et '+connectionCount+' itinéraires à correspondance trouvés'
     +(failures.length?' (recherche partielle : '+failures.join(', ')+').':'.')
-    +' Classement par durée de voyage ; vérifier chaque proposition auprès du transporteur.',failures.length>0);
+    +' Horaires en heure de Paris ; classement par durée. Vérifier chaque proposition auprès du transporteur.',failures.length>0);
   render(failures);
 });
 function updateCopy(){
@@ -148,8 +149,8 @@ function render(failures=[]){
     input.addEventListener('change',()=>{if(input.checked)selected.add(journey.id);else selected.delete(journey.id);updateCopy();});
     const info=elt('div','train-info');
     const left=elt('div');
-    const late=Math.floor(journey.arrival/86400)!==0?' (le '+dateText(current.date,journey.arrival)+')':'';
-    left.append(elt('div','times',timeText(journey.departure)+' → '+timeText(journey.arrival)+late));
+    const late=parisDate(current.date,journey.arrival)!==parisDate(current.date,journey.departure)?' (le '+parisDate(current.date,journey.arrival)+')':'';
+    left.append(elt('div','times',parisTime(current.date,journey.departure)+' → '+parisTime(current.date,journey.arrival)+late));
     left.append(elt('div','details',journey.from+' → '+journey.to));
     const right=elt('div','details');
     if(journey.legs?.length===2){
@@ -166,7 +167,7 @@ function render(failures=[]){
           '⚠️ Arrêts géographiquement proches, itinéraire piéton non vérifié.'));
       }
       left.append(elt('div','details',journey.legs.map((l,i)=>
-        (i+1)+') '+l.from+' '+timeText(l.departure)+' → '+l.to+' '+timeText(l.arrival)
+        (i+1)+') '+l.from+' '+parisTime(current.date,l.departure)+' → '+l.to+' '+parisTime(current.date,l.arrival)
         +' · '+l.provider+(l.number?' n° '+l.number:'')).join(' | ')));
     }else{
       right.textContent=(journey.mode==='bus'?'🚌 Autocar':'🚆 Train')+' · '+journey.provider
