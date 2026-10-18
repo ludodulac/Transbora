@@ -14,7 +14,7 @@ const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
-  'event-end-time','event-outward-date','event-return-date','include-outward','include-return','arrival-margin','departure-margin',
+  'event-end-time','event-outward-date','event-return-date','days-before','days-after','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
 
 function node(tag,cls,value){
@@ -51,16 +51,17 @@ function readEvent(){
   const startTime=$('event-start-time').value,endTime=$('event-end-time').value;
   const includeOutward=$('include-outward').checked;
   const includeReturn=$('include-return').checked;
-  const outwardDate=$('event-outward-date').value||startDate;
-  const returnDate=$('event-return-date').value||endDate;
+  const outwardDate=$('event-outward-date').value;
+  const returnDate=$('event-return-date').value;
   if(!includeOutward&&!includeReturn)
     throw new Error('Sélectionnez au moins un trajet : aller ou retour.');
   if(!title||!destination||destination.length<3||!startDate||!endDate||!startTime||!endTime)
     throw new Error('Indiquez le nom, le lieu, le début et la fin de l’événement.');
-  if(!isoDate(startDate)||!isoDate(endDate)||!isoDate(outwardDate)||!isoDate(returnDate))
+  if(!isoDate(startDate)||!isoDate(endDate)||(outwardDate&&!isoDate(outwardDate))||(returnDate&&!isoDate(returnDate)))
     throw new Error('Date d’événement, d’aller ou de retour invalide.');
   const out={title,destination,startDate,startTime,endDate,endTime,outwardDate,returnDate,
     includeOutward,includeReturn,
+    daysBefore:Number($('days-before').value),daysAfter:Number($('days-after').value),
     arrivalMargin:Number($('arrival-margin').value),departureMargin:Number($('departure-margin').value)};
   eventBoundaries(out);
   return out;
@@ -156,11 +157,13 @@ async function init(){
     $('event-return-date').disabled=!retour;
     $('arrival-margin').disabled=!aller;
     $('departure-margin').disabled=!retour;
+    $('days-before').disabled=!aller||Boolean($('event-outward-date').value);
+    $('days-after').disabled=!retour||Boolean($('event-return-date').value);
     const summary=$('etape-1').querySelector('details > summary');
     if(summary)summary.textContent='Options · '+(aller&&retour?'Aller + retour':aller?'Aller':retour?'Retour':'Aucun trajet');
   };
   updateTravelOptions();
-  for(const id of ['include-outward','include-return'])
+  for(const id of ['include-outward','include-return','event-outward-date','event-return-date'])
     $(id).addEventListener('change',updateTravelOptions);
   $('event-start-date').addEventListener('change',()=>{
     const end=$('event-end-date');
@@ -247,7 +250,9 @@ $('clear-participants').addEventListener('click',()=>{
   msg($('import-status'),'Liste effacée.');
 });
 function showJourney(j,day){
-  return parisTime(day,j.departure)+' → '+parisTime(day,j.arrival)+
+  const actual=j.date||day;
+  return parisDate(actual,j.departure)+' '+parisTime(actual,j.departure)
+    +' → '+parisDate(actual,j.arrival)+' '+parisTime(actual,j.arrival)+
     ' · '+durationText(j.arrival-j.departure)+' · '+(j.changes||0)+' chgt';
 }
 function renderSearchResults(issues){
@@ -263,15 +268,16 @@ function renderSearchResults(issues){
     card.append(node('strong',null,displayName(p)+' · '+p.departure));
     const line=node('div','recap-columns');
     const requested=readEvent();
-    for(const [label,list,date] of [
-      ...(requested.includeOutward?[['ALLER',plan.outward,plan.outwardDate]]:[]),
-      ...(requested.includeReturn?[['RETOUR',plan.returning,plan.returnDate]]:[])
+    for(const [label,list,dates] of [
+      ...(requested.includeOutward?[['ALLER',plan.outward,plan.outwardDates||[plan.outwardDate]]]:[]),
+      ...(requested.includeReturn?[['RETOUR',plan.returning,plan.returnDates||[plan.returnDate]]]:[])
     ]){
       const side=node('div','recap-side');
-      side.append(node('span','pill',label+' · '+date));
-      if(!list.length)side.append(node('p','no-options','Aucune proposition correspondant aux contraintes horaires.'));
+      const range=dates.length>1?dates[0]+' → '+dates.at(-1):dates[0];
+      side.append(node('span','pill',label+' · '+range));
+      if(!list.length)side.append(node('p','no-options','Aucun trajet trouvé dans cette période. Vérifiez la couverture des horaires ou élargissez les jours dans Options.'));
       list.forEach((j,index)=>{
-        const option=node('p','recap-route',(index+1)+'. '+showJourney(j,date)+
+        const option=node('p','recap-route',(index+1)+'. '+showJourney(j,j.date||dates[0])+
           ' · '+(j.legs?.length?j.legs.map(t=>t.provider).join(' → '):j.provider));
         side.append(option);
       });
