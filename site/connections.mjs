@@ -209,5 +209,16 @@ export function findConnections(feeds, params, opts={}) {
     }
   }
   // Prefer shorter total travel times, then earlier arrival. Do not claim guaranteed connections.
-  return [...outputs.values()].sort((a,b)=>a.score-b.score||a.arrival-b.arrival).slice(0,opts.limit||120);
+  const ranked=[...outputs.values()].sort((a,b)=>a.score-b.score||a.arrival-b.arrival);
+  const seen=new Set(),unique=[];
+  for(const journey of ranked){
+    const signature=journey.legs.map(l=>[
+      l.providerId,l.number||l.route,l.fromIndex,l.toIndex,l.departure,l.arrival
+    ].join(':')).join('+');
+    if(seen.has(signature))continue;
+    seen.add(signature);
+    unique.push(journey);
+    if(unique.length>=(opts.limit||120))break;
+  }
+  return unique;
 }
