@@ -4,25 +4,25 @@
  * Generic GTFS transfer rules are applied when provided.
  */
 import {matchesStop, normalizeStop} from './search-multi.mjs';
-import {isoDateAtDay,shiftToParis} from './time-zones.mjs';
+import {isoDateAtDay,shiftToParis,parisDate} from './time-zones.mjs';
 
 const DAY = 86400;
-const MAX_WAIT = 4 * 3600;  // do not recommend an overnight station wait as a normal transfer
+export const MAX_WAIT = 4 * 3600;  // do not recommend an overnight station wait as a normal transfer
 const GEO_LIMIT_METERS = 100;  // geographic proximity is NOT a validated walking path
 
-function dayNum(value) {
+export function dayNum(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return NaN;
   const t=Date.parse(value+'T00:00:00Z');
   return Number.isFinite(t) && new Date(t).toISOString().slice(0,10)===value
     ? Math.floor(t/(DAY*1000)) : NaN;
 }
-function maskRuns(mask, day) {
+export function maskRuns(mask, day) {
   if (day < 0 || !mask) return false;
   const bytes=atob(mask);
   return Math.floor(day/8)<bytes.length &&
     Boolean(bytes.charCodeAt(Math.floor(day/8)) & (1 << (day%8)));
 }
-function distance(a,b) {
+export function distance(a,b) {
   if (![a?.[2],a?.[3],b?.[2],b?.[3]].every(Number.isFinite)) return Infinity;
   const rad=Math.PI/180, la1=a[2]*rad,la2=b[2]*rad;
   const dl=(b[3]-a[3])*rad, df=(b[2]-a[2])*rad;
@@ -30,11 +30,11 @@ function distance(a,b) {
   return 12742000*Math.asin(Math.min(1,Math.sqrt(h)));
 }
 const transferId=(providerId,index)=>providerId+':'+index;
-function geoCell(station) {
+export function geoCell(station) {
   if (![station?.[2],station?.[3]].every(Number.isFinite)) return null;
   return [Math.floor(station[2]*1000),Math.floor(station[3]*1000)];
 }
-function coordKey(x,y) {return x+','+y;}
+export function coordKey(x,y) {return x+','+y;}
 
 function margin(first,second,profile) {
   const calm = profile === 'very_cautious';
@@ -51,7 +51,7 @@ function transferRule(feed,from,to) {
   if (feed.source.id !== from.source.id || feed.source.id !== to.source.id) return null;
   return feed.rules.get(from.index+':'+to.index) || null;
 }
-function compatible(first, second) {
+export function compatible(first, second) {
   if (first.source.id===second.source.id && first.index===second.index)
     return {sameStation:true,distanceMeters:0};
   if (first.source.id===second.source.id) return null; // do not infer intra-feed walking paths
@@ -60,7 +60,7 @@ function compatible(first, second) {
   if (metres>GEO_LIMIT_METERS) return null;
   return {sameStation:false,distanceMeters:Math.round(metres)};
 }
-function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
+export function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
   const start=trip[4][fromIndex],end=trip[4][toIndex];
   const dep=start[2]+clockShift;
   const arr=end[1]+clockShift;
@@ -75,7 +75,7 @@ function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift) {
     route:trip[1]||'',number:trip[3]||'',headsign:trip[2]||''};
 }
 
-function enumerate(feed,params,earliest,latest,day) {
+export function enumerate(feed,params,earliest,latest,day) {
   const first=dayNum(feed.data.meta.first),last=dayNum(feed.data.meta.last);
   const initial=[],final=[];
   const origin=new Set(), destination=new Set();
@@ -123,9 +123,60 @@ function enumerate(feed,params,earliest,latest,day) {
   }
   return {initial,final};
 }
-function stationRecord(feed,index) {
+export function stationRecord(feed,index) {
   return {source:feed.source,zone:feed.data.meta.timezone,index,
     station:feed.data.stations[index]};
+}
+
+export function officialIndex(document) {
+  const map=new Map();
+  for(const rule of document?.trainRules||[]) {
+    const [a,b,t1,t2,minutes,from,to]=rule;
+    if(!/^\d{7}$/.test(a)||!/^\d{7}$/.test(b) ||
+       !/^\d+$/.test(t1)||!/^\d+$/.test(t2) ||
+       !Number.isInteger(minutes)||minutes< -1||minutes>720 ||
+       !/^\d{4}-\d\d-\d\d$/.test(from)||!/^\d{4}-\d\d-\d\d$/.test(to))continue;
+    const k=[a,b,t1,t2].join(':');
+    if(!map.has(k))map.set(k,[]);
+    map.get(k).push({minutes,from,to});
+  }
+  return map;
+}
+function sncfUic(station) {
+  const m=String(station?.[0]||'').match(/^StopArea:OCE(\d{8})$/);
+  return m?m[1].slice(0,7):null;
+}
+export function assessTransfer(first,second,context,opts={}) {
+  if(first.tripKey===second.tripKey)return null;
+  const arrivalFeed=context.get(first.providerId), departureFeed=context.get(second.providerId);
+  if(!arrivalFeed||!departureFeed)return null;
+  const a=stationRecord(arrivalFeed,first.toIndex),b=stationRecord(departureFeed,second.fromIndex);
+  const proximity=compatible(a,b);
+  if(!proximity)return null;
+  const rule=transferRule(arrivalFeed,a,b);
+  if(rule?.[0]===3)return null;
+  let minSec=Math.max(margin(a,b,opts.profile),rule?.[1]||0);
+  let source='marge de précaution';
+  if(first.providerId==='sncf'&&second.providerId==='sncf'&&opts.officialRules){
+    const firstCode=sncfUic(a.station),secondCode=sncfUic(b.station);
+    if(firstCode&&secondCode&&first.number&&second.number){
+      const rules=opts.officialRules.get([firstCode,secondCode,first.number,second.number].join(':'))||[];
+      const [d,m,y]=parisDate(opts.date,first.arrival).split('/');
+      const dayOfChange=y+'-'+m+'-'+d;
+      const active=rules.filter(r=>dayOfChange>=r.from&&dayOfChange<=r.to);
+      if(active.some(r=>r.minutes===-1))return null;
+      if(active.length){
+        minSec=Math.max(minSec,...active.map(r=>r.minutes*60));
+        source='règle SNCF spécifique au couple de trains + marge de précaution';
+      }
+    }
+  }
+  const wait=second.departure-first.arrival;
+  if(wait<minSec || wait>MAX_WAIT || wait<=0)return null;
+  return {station:first.to,departureStation:second.from,
+    waitingSeconds:wait,minimumSeconds:minSec,source,
+    proximity:proximity.sameStation?'same_station':'nearby_unverified',
+    metres:proximity.distanceMeters,risk:wait-minSec<15*60?'marge limitée':'marge confortable'};
 }
 
 export function findConnections(feeds, params, opts={}) {
@@ -183,28 +234,17 @@ export function findConnections(feeds, params, opts={}) {
       if(!secondStation)continue;
       const proximity=compatible(arrival,secondStation);
       if(!proximity)continue;
-      const secondFeed=context.get(secondStation.source.id);
-      const rule=transferRule(originFeed,arrival,secondStation);
-      if(rule?.[0]===3)continue; // explicitly forbidden GTFS transfer
       for(const second of stationLegs.get(key)||[]){
-        if(second.tripKey===first.tripKey)continue;
-        const minSec=Math.max(margin(arrival,secondStation,opts.profile),rule?.[1]||0);
-        const wait=second.departure-first.arrival;
-        if(wait<minSec)continue;
-        if(wait>MAX_WAIT)break;
-        if(second.arrival<=first.arrival)continue;
+        if(second.departure-first.arrival>MAX_WAIT)break;
+        const transfer=assessTransfer(first,second,context,{...opts,date:params.date});
+        if(!transfer || second.arrival<=first.arrival)continue;
         const elapsed=second.arrival-first.departure;
-        if(elapsed > DAY*2)continue;
-        const risk=wait-minSec<15*60?'marge limitée':'marge confortable';
-        const transfer={station:first.to,departureStation:second.from,
-          waitingSeconds:wait,minimumSeconds:minSec,
-          proximity:proximity.sameStation?'same_station':'nearby_unverified',
-          metres:proximity.distanceMeters, risk};
+        if(elapsed>DAY*2)continue;
         const id=first.id+'+'+second.id;
         outputs.set(id,{id,departure:first.departure,arrival:second.arrival,
           from:first.from,to:second.to,legs:[first,second],
           transfer,changes:1,mode:first.mode===second.mode?first.mode:'mixed',
-          score:elapsed+(wait>90*60?(wait-90*60)/3:0)+(proximity.sameStation?0:15*60)});
+          score:elapsed+(transfer.waitingSeconds>90*60?(transfer.waitingSeconds-90*60)/3:0)+(proximity.sameStation?0:15*60)});
       }
     }
   }

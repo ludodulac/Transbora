@@ -1,10 +1,11 @@
 import {durationText,dateText} from './engine.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {searchFeed,proposalText,normalizeStop} from './search-multi.mjs';
-import {findConnections} from './connections.mjs';
+import {findConnections,officialIndex} from './connections.mjs';
+import {findTwoChanges} from './connections-two.mjs';
 const $=id=>document.getElementById(id);
 const dataCache=new Map();
-let manifest, suggestions=[], results=[], selected=new Set(), current;
+let manifest, suggestions=[], results=[], selected=new Set(), current, officialRules=new Map(), officialState='non chargé';
 
 function elt(tag,cls,content){
   const e=document.createElement(tag);
@@ -43,6 +44,13 @@ async function init(){
     message(active.length+' compagnies disponibles en horaires théoriques.'
       +(failed.length?' Sources non chargées : '+failed.join(', ')+'.':'')
       +' Recherche par nom de ville, gare ou arrêt.');
+    try {
+      const ruleResponse=await fetch('./data/mct.json',{cache:'no-cache'});
+      if(!ruleResponse.ok)throw new Error('HTTP '+ruleResponse.status);
+      const ruleDoc=await ruleResponse.json();
+      officialRules=officialIndex(ruleDoc);
+      officialState=ruleDoc.meta?.status==='unavailable'?'indisponible':officialRules.size+' règles SNCF spécifiques';
+    }catch(_error){ officialState='indisponible'; }
     renderSources();
   }catch(e){message('Aucune recherche possible : téléchargement des données absent ou invalide ('+e.message+').',true);}
 }
@@ -67,6 +75,7 @@ function renderSources(loaded=null){
     a.href=s.page;a.target='_blank';a.rel='noopener noreferrer';
     root.append(a,document.createTextNode(' · '));
   }
+  root.append(elt('p','muted','Temps minimaux SNCF officiels (couples de trains identifiés) : '+officialState+'. Les règles génériques RICS non appariées restent exclues.'));
   root.append(document.createTextNode('Licence et disponibilité propres à chaque source. '
     +'Dates des flux différentes selon transporteur. Pas de garantie de complétude.'));
   if(loaded?.length)root.append(elt('p','warning','Échec lors du chargement des fichiers : '+loaded.join(', ')+'. Résultats partiels.'));
@@ -115,18 +124,34 @@ $('search-form').addEventListener('submit',async event=>{
     }catch(e){failures.push(entry.source.label);}
   }
   const directCount=results.length;
-  if($('connections').value==='yes' && active.length){
+  let single=0,double=0;
+  const allowed=$('connections').value;
+  if(allowed!=='no' && active.length){
+    const settings={profile:$('buffer').value,limit:120,officialRules};
     try{
-      const options=findConnections(active,current,{profile:$('buffer').value,limit:120});
-      results.push(...options);
-    }catch(e){failures.push('calcul des correspondances : '+e.message);}
+      const options=findConnections(active,current,settings);
+      single=options.length;results.push(...options);
+    }catch(e){failures.push('calcul à un changement : '+e.message);}
+    if(allowed==='two'){
+      try{
+        const options=findTwoChanges(active,current,{...settings,limit:70});
+        double=options.length;results.push(...options);
+        if(options.partial)failures.push('recherche à deux changements partiellement limitée pour éviter une saturation');
+      }catch(e){failures.push('calcul à deux changements : '+e.message);}
+    }
   }
-  const connectionCount=results.length-directCount;
-  // Meilleurs temps de trajet en premier, puis départ le plus tôt à durée égale.
-  results.sort((a,b)=>(a.arrival-a.departure)-(b.arrival-b.departure)
-    ||(a.changes||0)-(b.changes||0)||a.departure-b.departure);
+  // Balance door-to-door duration and the operational risk of more changes.
+  // Indicative heuristic, not an observed delay probability or a guarantee.
+  const merit=j=>{
+    const transfers=j.transfers||(j.transfer?[j.transfer]:[]);
+    return j.arrival-j.departure + transfers.length*20*60
+      +transfers.filter(t=>t.waitingSeconds-t.minimumSeconds<15*60).length*15*60
+      +transfers.filter(t=>t.proximity!=='same_station').length*25*60;
+  };
+  results.sort((a,b)=>merit(a)-merit(b)||(a.changes||0)-(b.changes||0)
+    ||a.arrival-b.arrival);
   $('search').disabled=false;
-  message(directCount+' directs et '+connectionCount+' itinéraires à correspondance trouvés'
+  message(directCount+' directs · '+single+' avec 1 changement · '+double+' avec 2 changements trouvés'
     +(failures.length?' (recherche partielle : '+failures.join(', ')+').':'.')
     +' Horaires en heure de Paris ; classement par durée. Vérifier chaque proposition auprès du transporteur.',failures.length>0);
   render(failures);
@@ -140,7 +165,7 @@ function render(failures=[]){
   $('count').textContent=results.length+' résultat(s)';
   $('explanation').textContent=results.length>100
     ? 'Les 100 premiers résultats sont affichés. Affinez la plage horaire pour les autres.'
-    :results.length?'Classés par durée totale. Les correspondances indiquent leur durée, les stations et la marge minimale retenue.'
+    :results.length?'Classés selon un compromis entre durée et nombre de changements (pénalité de prudence par correspondance). Chaque transfert indique le lieu exact et la marge prévue.'
     :'Aucun itinéraire trouvé dans les sources chargées : les horaires et les possibilités de correspondance ne sont pas exhaustifs.';
   const fragment=document.createDocumentFragment();
   for(const journey of results.slice(0,100)){
@@ -153,18 +178,23 @@ function render(failures=[]){
     left.append(elt('div','times',parisTime(current.date,journey.departure)+' → '+parisTime(current.date,journey.arrival)+late));
     left.append(elt('div','details',journey.from+' → '+journey.to));
     const right=elt('div','details');
-    if(journey.legs?.length===2){
+    if(journey.legs?.length>=2){
+      const transfers=journey.transfers||[journey.transfer];
       const providers=journey.legs.map(l=>l.provider).join(' → ');
-      right.textContent='🔄 1 correspondance · '+providers+' · '+durationText(journey.arrival-journey.departure);
-      left.append(elt('div','transfer-line',
-        'Correspondance à '+journey.transfer.station
-        +(journey.transfer.station!==journey.transfer.departureStation
-          ?' → '+journey.transfer.departureStation:'')
-        +' · '+durationText(journey.transfer.waitingSeconds)+' sur place'
-        +' · marge de sécurité '+durationText(journey.transfer.minimumSeconds)));
-      if(journey.transfer.proximity==='nearby_unverified'){
-        left.append(elt('div','warning',
-          '⚠️ Arrêts géographiquement proches, itinéraire piéton non vérifié.'));
+      right.textContent='🔄 '+transfers.length+' correspondance(s) · '+providers+' · '+durationText(journey.arrival-journey.departure);
+      for(const change of transfers){
+        left.append(elt('div','transfer-line',
+          'Correspondance à '+change.station
+          +(change.station!==change.departureStation
+            ?' → '+change.departureStation:'')
+          +' · '+durationText(change.waitingSeconds)+' disponibles'
+          +' · marge retenue '+durationText(change.minimumSeconds)
+          +(change.source?.includes('SNCF')?' · règle SNCF spécifique':'')
+        ));
+        if(change.proximity==='nearby_unverified'){
+          left.append(elt('div','warning',
+            '⚠️ Arrêts géographiquement proches, trajet piéton non vérifié.'));
+        }
       }
       left.append(elt('div','details',journey.legs.map((l,i)=>
         (i+1)+') '+l.from+' '+parisTime(current.date,l.departure)+' → '+l.to+' '+parisTime(current.date,l.arrival)

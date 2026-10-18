@@ -29,6 +29,8 @@ jobs:
           python-version: '3.12'
       - name: Test des vrais flux GTFS publics
         run: python scripts/build_sources.py --output site/data
+      - name: Construire le référentiel SNCF PRR de correspondances
+        run: python scripts/build_mct.py --output site/data/mct.json
       - name: Rapport de couverture
         run: |
           python - <<'PY'
@@ -85,6 +87,27 @@ jobs:
               operators:x.legs.map(l=>l.provider)
             })));
           }
+          JS
+      - name: Tester deux vraies correspondances en recherche multimodale
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {findTwoChanges} from './site/connections-two.mjs';
+          import {officialIndex} from './site/connections.mjs';
+          const m=JSON.parse(fs.readFileSync('site/data/manifest.json','utf8'));
+          const rules=officialIndex(JSON.parse(fs.readFileSync('site/data/mct.json','utf8')));
+          console.log('Règles SNCF spécifiques officiellement téléchargées :',rules.size);
+          const feeds=m.sources.filter(x=>x.status==='ok').map(source=>({
+            source,data:JSON.parse(fs.readFileSync('site/'+source.file,'utf8'))
+          }));
+          const start=Date.now();
+          const routes=findTwoChanges(feeds,{from:'Brest',to:'Strasbourg',date:'2026-11-25',
+            earliest:'05:00',latest:'23:59'},{profile:'very_cautious',officialRules:rules,limit:6});
+          console.log('Temps de calcul en ms :',Date.now()-start);
+          console.log('Itinéraires trouvés à deux correspondances :',routes.length);
+          console.log(routes.slice(0,2).map(r=>({dep:r.departure,arr:r.arrival,
+            via:r.transfers.map(t=>[t.station,t.waitingSeconds,t.minimumSeconds])})));
+          if(!routes.length)throw new Error('Absence inattendue de trajet réel à deux correspondances');
           JS
       - uses: actions/upload-artifact@v4
         if: always()
