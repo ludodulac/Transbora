@@ -23,6 +23,18 @@ Application indépendante pour gagner du temps lors de la préparation d'horaire
 
 Les correspondances utilisent des marges conservatrices et la proximité physique documentée des gares ; [voir les règles](docs/correspondances.md) et [la mission 004](docs/routage-mission-004.md). Pas de prix, de places disponibles, de réservation ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : horaires affichés en heure de Paris, vérifier l'heure locale et les contrôles auprès du transporteur.**
 
+## ⭐ Sélection des trajets par Google Forms (mission 008)
+
+Transbora peut préparer une **page de choix Google Forms lisible sur téléphone** : un lien par voyageur ou un lien collectif pour l'organisateur. Les réponses arrivent dans **un Google Sheet privé** dans le Drive du propriétaire, sans Supabase, Cloudflare, base publique ni paiement.
+
+Dans l'assistant **[Événements](https://ludodulac.github.io/Transbora/events.html)**, après la recherche, l'étape 4 **« Choix des horaires »** permet de copier les propositions. Il faut ensuite les coller dans l'onglet **Propositions**, cellule **A1**, du tableau privé, puis cliquer sur **Transbora → Créer les formulaires** dans le menu du tableur.
+
+**Installation initiale nécessaire :** associer [Code.gs](integrations/google-forms/Code.gs) au Google Sheet via **Extensions → Apps Script** et autoriser les services Google dans son propre compte. Cette opération ne peut pas être réalisée automatiquement par le connecteur Drive de ChatGPT : **tant qu'elle n'a pas été effectuée, les boutons ne créent pas réellement de formulaire**. Aucune clé Google n'est enregistrée dans GitHub.
+
+Les liens à partager sont dans l'onglet **Liens**. Les réponses sont synchronisées dans **Réponses** à la demande depuis le menu, ou automatiquement chaque heure. Voir le [mode d'emploi complet](docs/google-forms-008.md).
+
+Les exports Excel de la mission 005 restent en option secondaire (import de participants et export de réservation). Les choix des voyageurs passent désormais de préférence par des **boutons radio Google Forms**, sans tableur à remplir.
+
 ## ✨ Nouveau : événements & Excel (mission 005)
 
 Ouvrez **[la page Événements](https://ludodulac.github.io/Transbora/events.html)** : créez un événement, ajoutez les personnes manuellement ou à partir du **modèle Excel téléchargeable**, recherchez tous les allers-retours puis exportez :
