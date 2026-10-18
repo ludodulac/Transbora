@@ -15,7 +15,7 @@
 <p>Comparez les horaires théoriques de plusieurs compagnies ferroviaires et d’autocars, sélectionnez vos trajets et copiez une proposition prête à transmettre.</p></section>
 <section class="panel">
 <h2>Rechercher un trajet</h2>
-<p id="status" role="status" class="notice">Chargement des données SNCF…</p>
+<p id="status" role="status" class="notice">Chargement des données des transporteurs…</p>
 <form id="search-form">
 <div class="fields">
 <label>Ville ou arrêt de départ<input id="origin" list="stations" placeholder="Ex. Lorient" required disabled autocomplete="off" minlength="3"></label>
@@ -25,10 +25,12 @@
 <label>Mode de transport<select id="mode"><option value="all">🚆 Train + 🚌 Autocar</option><option value="rail">🚆 Trains uniquement</option><option value="bus">🚌 Autocars uniquement</option></select></label>
 <label>À partir de<input id="earliest" type="time" value="00:00" required></label>
 <label>Jusqu’à<input id="latest" type="time" value="23:59" required></label>
+<label>Correspondances<select id="connections"><option value="yes" selected>Directs + jusqu’à 1 changement</option><option value="no">Directs uniquement</option></select></label>
+<label>Prudence des correspondances<select id="buffer"><option value="prudent" selected>Prudente</option><option value="very_cautious">Très prudente</option></select></label>
 </div>
-<button id="search" type="submit" class="primary" disabled>Rechercher les trajets directs</button>
+<button id="search" type="submit" class="primary" disabled>Trouver les meilleurs itinéraires</button>
 </form>
-<p class="warning">⚠️ Horaires théoriques indicatifs, sans prix, places disponibles, annulations ou retards en temps réel. Résultats directs uniquement, sans correspondance. Pour les trajets internationaux, vérifier les heures locales auprès du transporteur.</p>
+<p class="warning">⚠️ Horaires théoriques indicatifs, sans prix, places disponibles, annulations ou retards en temps réel. Correspondances calculées avec des marges de sécurité, sans garantie de prise en charge en cas de retard. Pour les trajets internationaux, vérifier les heures locales auprès du transporteur.</p>
 </section>
 <section class="panel" id="result-section" hidden>
 <div class="row"><h2>Horaires trouvés</h2><strong id="count"></strong></div>
@@ -42,7 +44,7 @@
 </section>
 <footer>
 <p><strong>Sources :</strong> SNCF Voyageurs, Trenitalia France, Eurostar, FlixBus, BlaBlaCar Bus — <a href="https://transport.data.gouv.fr/" target="_blank" rel="noopener noreferrer">portail national des données de transport</a>. Références et licences par fournisseur précisées ci-dessus. Site indépendant des transporteurs.</p>
-<p>Prototype : trajets directs uniquement, sans correspondances. Les lieux de départ et d’arrivée exacts sont indiqués dans les résultats. Vérifiez chaque proposition auprès du transporteur.</p>
+<p>Prototype : trajets directs et jusqu’à une correspondance. Marges prudentes : au moins 30 min train/train, 40 min entre transporteurs ferroviaires, 60 min pour un autocar, et 90 min avant un Eurostar. Les liaisons entre arrêts voisins non vérifiés à pied doivent être contrôlées. Les lieux de départ, de correspondance et d’arrivée exacts sont indiqués dans les résultats. Vérifiez chaque proposition auprès du transporteur.</p>
 </footer>
 </main>
 </body></html>
