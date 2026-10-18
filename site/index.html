@@ -25,7 +25,7 @@
 <label>Mode de transport<select id="mode"><option value="all">🚆 Train + 🚌 Autocar</option><option value="rail">🚆 Trains uniquement</option><option value="bus">🚌 Autocars uniquement</option></select></label>
 <label>À partir de<input id="earliest" type="time" value="00:00" required></label>
 <label>Jusqu’à<input id="latest" type="time" value="23:59" required></label>
-<label>Correspondances<select id="connections"><option value="yes" selected>Directs + jusqu’à 1 changement</option><option value="no">Directs uniquement</option></select></label>
+<label>Correspondances<select id="connections"><option value="two" selected>Directs + jusqu’à 2 changements</option><option value="yes">Directs + jusqu’à 1 changement</option><option value="no">Directs uniquement</option></select></label>
 <label>Marge de sécurité<select id="buffer"><option value="very_cautious" selected>Très prudente (recommandée)</option><option value="prudent">Équilibrée (plus de choix)</option></select></label>
 </div>
 <button id="search" type="submit" class="primary" disabled>Trouver les meilleurs itinéraires</button>
@@ -44,7 +44,7 @@
 </section>
 <footer>
 <p><strong>Sources :</strong> SNCF Voyageurs, Trenitalia France, Eurostar, FlixBus, BlaBlaCar Bus — <a href="https://transport.data.gouv.fr/" target="_blank" rel="noopener noreferrer">portail national des données de transport</a>. Références et licences par fournisseur précisées ci-dessus. Site indépendant des transporteurs.</p>
-<p>Prototype : trajets directs et jusqu’à une correspondance. Par défaut : au moins 45 min train/train, 60 min entre transporteurs ferroviaires, 90 min avec un autocar et 120 min avant un Eurostar. Les réglages peuvent être modifiés. Les liaisons entre arrêts voisins non vérifiés à pied doivent être contrôlées. Les lieux de départ, de correspondance et d’arrivée exacts sont indiqués dans les résultats. Vérifiez chaque proposition auprès du transporteur.</p>
+<p>Prototype : trajets directs et jusqu’à deux correspondances avec marges de sécurité, sans garantie de protection si l’un des véhicules est retardé. Par défaut : au moins 45 min train/train, 60 min entre transporteurs ferroviaires, 90 min avec un autocar et 120 min avant un Eurostar. Les réglages peuvent être modifiés. Les liaisons entre arrêts voisins non vérifiés à pied doivent être contrôlées. Les lieux de départ, de correspondance et d’arrivée exacts sont indiqués dans les résultats. Vérifiez chaque proposition auprès du transporteur.</p>
 </footer>
 </main>
 </body></html>
