@@ -364,7 +364,7 @@ $('copy-invitation').addEventListener('click',async()=>{
       'Ouvrez « Mes choix », inscrivez X dans la colonne jaune sur un ALLER et un RETOUR,'+
       ' puis renvoyez-moi le fichier enregistré en pièce jointe.',
       'Aucun billet n’est réservé à ce stade : les horaires et tarifs seront vérifiés avant achat.',
-      '','Merci !'].join('\\n');
+      '','Merci !'].join('\n');
     await navigator.clipboard.writeText(message);
     msg($('copy-invitation-status'),'✅ Message copié : collez-le dans votre e-mail avec le fichier Excel.');
   }catch(error){
