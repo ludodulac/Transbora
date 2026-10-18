@@ -128,6 +128,55 @@ function stationRecord(feed,index) {
     station:feed.data.stations[index]};
 }
 
+export function officialIndex(document) {
+  const map=new Map();
+  for(const rule of document?.trainRules||[]) {
+    const [a,b,t1,t2,minutes,from,to]=rule;
+    if(!/^\\d{7}$/.test(a)||!/^\\d{7}$/.test(b) ||
+       !/^\\d+$/.test(t1)||!/^\\d+$/.test(t2) ||
+       !Number.isInteger(minutes)||minutes< -1||minutes>720 ||
+       !/^\\d{4}-\\d\\d-\\d\\d$/.test(from)||!/^\\d{4}-\\d\\d-\\d\\d$/.test(to))continue;
+    const k=[a,b,t1,t2].join(':');
+    if(!map.has(k))map.set(k,[]);
+    map.get(k).push({minutes,from,to});
+  }
+  return map;
+}
+function sncfUic(station) {
+  const m=String(station?.[0]||'').match(/^StopArea:OCE(\\d{8})$/);
+  return m?m[1].slice(0,7):null;
+}
+export function assessTransfer(first,second,context,opts={}) {
+  if(first.tripKey===second.tripKey)return null;
+  const arrivalFeed=context.get(first.providerId), departureFeed=context.get(second.providerId);
+  if(!arrivalFeed||!departureFeed)return null;
+  const a=stationRecord(arrivalFeed,first.toIndex),b=stationRecord(departureFeed,second.fromIndex);
+  const proximity=compatible(a,b);
+  if(!proximity)return null;
+  const rule=transferRule(arrivalFeed,a,b);
+  if(rule?.[0]===3)return null;
+  let minSec=Math.max(margin(a,b,opts.profile),rule?.[1]||0);
+  let source='marge de précaution';
+  if(first.providerId==='sncf'&&second.providerId==='sncf'&&opts.officialRules){
+    const firstCode=sncfUic(a.station),secondCode=sncfUic(b.station);
+    if(firstCode&&secondCode&&first.number&&second.number){
+      const rules=opts.officialRules.get([firstCode,secondCode,first.number,second.number].join(':'))||[];
+      const active=rules.filter(r=>opts.date>=r.from&&opts.date<=r.to);
+      if(active.some(r=>r.minutes===-1))return null;
+      if(active.length){
+        minSec=Math.max(minSec,...active.map(r=>r.minutes*60));
+        source='règle SNCF spécifique au couple de trains + marge de précaution';
+      }
+    }
+  }
+  const wait=second.departure-first.arrival;
+  if(wait<minSec || wait>MAX_WAIT || wait<=0)return null;
+  return {station:first.to,departureStation:second.from,
+    waitingSeconds:wait,minimumSeconds:minSec,source,
+    proximity:proximity.sameStation?'same_station':'nearby_unverified',
+    metres:proximity.distanceMeters,risk:wait-minSec<15*60?'marge limitée':'marge confortable'};
+}
+
 export function findConnections(feeds, params, opts={}) {
   const requested=dayNum(params.date);
   if (!Number.isFinite(requested) || normalizeStop(params.from)===normalizeStop(params.to))return [];
@@ -183,23 +232,12 @@ export function findConnections(feeds, params, opts={}) {
       if(!secondStation)continue;
       const proximity=compatible(arrival,secondStation);
       if(!proximity)continue;
-      const secondFeed=context.get(secondStation.source.id);
-      const rule=transferRule(originFeed,arrival,secondStation);
-      if(rule?.[0]===3)continue; // explicitly forbidden GTFS transfer
       for(const second of stationLegs.get(key)||[]){
-        if(second.tripKey===first.tripKey)continue;
-        const minSec=Math.max(margin(arrival,secondStation,opts.profile),rule?.[1]||0);
-        const wait=second.departure-first.arrival;
-        if(wait<minSec)continue;
-        if(wait>MAX_WAIT)break;
-        if(second.arrival<=first.arrival)continue;
+        if(second.departure-first.arrival>MAX_WAIT)break;
+        const transfer=assessTransfer(first,second,context,{...opts,date:params.date});
+        if(!transfer || second.arrival<=first.arrival)continue;
         const elapsed=second.arrival-first.departure;
-        if(elapsed > DAY*2)continue;
-        const risk=wait-minSec<15*60?'marge limitée':'marge confortable';
-        const transfer={station:first.to,departureStation:second.from,
-          waitingSeconds:wait,minimumSeconds:minSec,
-          proximity:proximity.sameStation?'same_station':'nearby_unverified',
-          metres:proximity.distanceMeters, risk};
+        if(elapsed>DAY*2)continue;
         const id=first.id+'+'+second.id;
         outputs.set(id,{id,departure:first.departure,arrival:second.arrival,
           from:first.from,to:second.to,legs:[first,second],
