@@ -53,7 +53,7 @@ def resolve(source):
     if not isinstance(payload,dict) or not isinstance(payload.get("resources"),list):
         raise ValueError("Dataset metadata invalid")
     choices=[r for r in payload["resources"]
-             if str(r.get("format","")).strip().lower() in {"gtfs","zip"}
+             if str(r.get("format","")).strip().lower() in {"gtfs","gtfs.zip","gtfs-zip","zip"}
              and not any(word in (str(r.get("title",""))+" "+str(r.get("description",""))).lower()
                          for word in ("temps réel","temps reel","real-time","realtime","gtfs-rt","siri","protobuf"))
              and r.get("url") and r.get("type") not in {"api","documentation"}]
