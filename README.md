@@ -18,10 +18,10 @@ Application indépendante pour gagner du temps lors de la préparation d'horaire
 
 1. Saisir deux noms de ville, de gare ou d'arrêt (ex. Lorient et Paris), une date, une plage horaire.
 2. Filtrer trains, autocars ou tous.
-3. Rechercher les **trajets directs ou jusqu'à une correspondance** dans les horaires théoriques publics, avec les gares/arrêts exacts et les horaires en heure de Paris.
-4. Cocher les horaires à transmettre, puis copier un texte professionnel indiquant compagnie, arrêts et heures.
+3. Rechercher les **trajets directs ou jusqu'à **deux correspondances**** dans les horaires théoriques publics, avec les gares/arrêts exacts et les horaires en heure de Paris.
+4. Sélectionner le nombre maximal de changements et la marge de sécurité ; puis cocher les horaires à transmettre, puis copier un texte professionnel indiquant compagnie, arrêts et heures.
 
-Les correspondances utilisent des marges conservatrices et la proximité physique documentée des gares ; [voir les règles](docs/correspondances.md). Pas de prix, de places disponibles, de réservation ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : horaires affichés en heure de Paris, vérifier l'heure locale et les contrôles auprès du transporteur.**
+Les correspondances utilisent des marges conservatrices et la proximité physique documentée des gares ; [voir les règles](docs/correspondances.md) et [la mission 004](docs/routage-mission-004.md). Pas de prix, de places disponibles, de réservation ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : horaires affichés en heure de Paris, vérifier l'heure locale et les contrôles auprès du transporteur.**
 
 ## Publication sur GitHub Pages
 
@@ -45,6 +45,7 @@ node --check site/app-multi.mjs
 
 ```bash
 python scripts/build_sources.py --output site/data
+python scripts/build_mct.py --output site/data/mct.json --allow-unavailable
 ```
 
 Utilise le GTFS SNCF officiel et l'[API catalogue data.gouv.fr](https://www.data.gouv.fr/api/1/) pour retrouver les autres GTFS statiques. Pas de jeton ni de clé API payante. Les données ouvertes ont **des licences propres à chaque fournisseur**, indiquées dans [l'étude des transporteurs](docs/transporteurs-supplementaires.md).
