@@ -73,11 +73,11 @@ export function proposalText(journeys, params) {
     'Date de départ : '+parisDate(params.date),''];
   for(let i=0;i<journeys.length;i++){
     const j=journeys[i];
-    const legs=j.legs?.length===2?j.legs:[j];
+    const legs=j.legs?.length>=2?j.legs:[j];
     const dateSuffix=parisDate(params.date,j.arrival)!==parisDate(params.date,j.departure)?' ('+parisDate(params.date,j.arrival)+')':'';
     lines.push((i+1)+'. '+parisDate(params.date,j.departure)+' '+parisTime(params.date,j.departure)
       +' — '+parisTime(params.date,j.arrival)+dateSuffix+' | '+durationText(j.arrival-j.departure)
-      +' | '+(legs.length===1?'Direct':'1 correspondance'));
+      +' | '+(legs.length===1?'Direct':(legs.length-1)+' correspondance(s)'));
     for(const [index,leg] of legs.entries()){
       const departureSuffix=parisDate(params.date,leg.departure)!==parisDate(params.date)?' ('+parisDate(params.date,leg.departure)+')':'';
       const arrivalSuffix=parisDate(params.date,leg.arrival)!==parisDate(params.date)?' ('+parisDate(params.date,leg.arrival)+')':'';
@@ -86,13 +86,13 @@ export function proposalText(journeys, params) {
         +' : '+leg.from+' '+parisTime(params.date,leg.departure)+departureSuffix
         +' → '+leg.to+' '+parisTime(params.date,leg.arrival)+arrivalSuffix);
     }
-    if(j.transfer){
-      lines.push('   Correspondance à '+j.transfer.station
-        +(j.transfer.station!==j.transfer.departureStation
-          ?' → '+j.transfer.departureStation:'')
-        +' : '+durationText(j.transfer.waitingSeconds)+' disponibles'
-        +' (marge de sécurité retenue '+durationText(j.transfer.minimumSeconds)+').');
-      if(j.transfer.proximity==='nearby_unverified')
+    for(const [changeIndex,change] of (j.transfers|| (j.transfer?[j.transfer]:[])).entries()){
+      lines.push('   Changement '+(changeIndex+1)+' à '+change.station
+        +(change.station!==change.departureStation?' → '+change.departureStation:'')
+        +' : '+durationText(change.waitingSeconds)+' disponibles'
+        +' (marge de prudence retenue '+durationText(change.minimumSeconds)+').'
+        +(change.source?.includes('SNCF')?' Règle SNCF spécifique vérifiée.':''));
+      if(change.proximity==='nearby_unverified')
         lines.push('   ATTENTION : arrêts proches géographiquement, trajet piéton non vérifié.');
     }
     lines.push('');
