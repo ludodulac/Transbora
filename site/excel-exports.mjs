@@ -170,12 +170,12 @@ function statusTab(book,participants,options,choices){
   participants.forEach((p,i)=>{
     const plan=options.get(p.id),ch=choices?.[p.id]||{};
     const outbound=plan?.outward.find(x=>x.key===ch.A),back=plan?.returning.find(x=>x.key===ch.R);
-    const display=j=>j?parisDate(j.date,j.departure)+' '+parisTime(j.date,j.departure):'En attente';
+    const display=j=>j?parisDate(j.date,j.departure)+' '+parisTime(j.date,j.departure):'Non choisi';
     const departureDay=plan?.outwardDate||'—',returnDay=plan?.returnDate||'—';
     const row=i+8;
     sheet.getRow(row).values=[,p.id,displayName(p),p.departure,
-      outbound?display({...outbound,date:departureDay}):'En attente',
-      back?display({...back,date:returnDay}):'En attente',
+      outbound?display({...outbound,date:departureDay}):plan?.outward.length?'Non choisi':'Aucun trajet',
+      back?display({...back,date:returnDay}):plan?.returning.length?'Non choisi':'Aucun trajet',
       departureDay,returnDay,(!outbound||!back)?'En attente':'À réserver',''];
     sheet.getRow(row).height=42;
     sheet.getRow(row).eachCell(cell=>{cell.font={name:'Aptos',size:10,color:{argb:'FF'+INK}};
