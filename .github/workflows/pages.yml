@@ -1,4 +1,4 @@
-name: Transbora - horaires SNCF et publication
+name: Transbora - horaires multimodaux et publication
 on:
   push:
     branches: [main]
@@ -28,7 +28,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Tests de recherche dans le navigateur
         run: node --test tests/*.test.mjs
-      - name: Telecharger les vraies donnees SNCF
+      - name: Telecharger les horaires des cinq transporteurs
         run: python scripts/build_sources.py --output site/data
       - name: Verifier le fichier genere
         run: |
