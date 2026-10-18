@@ -58,7 +58,7 @@ def resolve(source):
                          for word in ("temps réel","temps reel","real-time","realtime","gtfs-rt","siri","protobuf"))
              and r.get("url") and r.get("type") not in {"api","documentation"}]
     if not choices:
-        raise ValueError(f"No static GTFS resource for {slug}; resources: "+repr([(r.get("title"), r.get("format"), r.get("type")) for r in payload["resources"]])[:450])
+        raise ValueError(f"No static GTFS resource for {slug}; resources: "+repr([(r.get("title"), r.get("format"), r.get("type")) for r in payload["resources"]])[:700])
     # A dataset is expected to contain exactly one static GTFS.
     # Refuse ambiguity rather than silently choosing wrong train data.
     if len(choices)!=1:
@@ -94,7 +94,7 @@ def build_all(destination, selected=None):
             if source.get("required"):required_ok=True
             print(source["id"],"OK",record["trips"],"trips",out.stat().st_size,"bytes")
         except Exception as error:
-            record.update(status="unavailable",message=str(error)[:180])
+            record.update(status="unavailable",message=str(error)[:700])
             print(source["id"],"UNAVAILABLE:",record["message"])
         result["sources"].append(record)
     if not required_ok and (selected is None or "sncf" in selected):
