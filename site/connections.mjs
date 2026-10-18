@@ -132,10 +132,10 @@ export function officialIndex(document) {
   const map=new Map();
   for(const rule of document?.trainRules||[]) {
     const [a,b,t1,t2,minutes,from,to]=rule;
-    if(!/^\\d{7}$/.test(a)||!/^\\d{7}$/.test(b) ||
-       !/^\\d+$/.test(t1)||!/^\\d+$/.test(t2) ||
+    if(!/^\d{7}$/.test(a)||!/^\d{7}$/.test(b) ||
+       !/^\d+$/.test(t1)||!/^\d+$/.test(t2) ||
        !Number.isInteger(minutes)||minutes< -1||minutes>720 ||
-       !/^\\d{4}-\\d\\d-\\d\\d$/.test(from)||!/^\\d{4}-\\d\\d-\\d\\d$/.test(to))continue;
+       !/^\d{4}-\d\d-\d\d$/.test(from)||!/^\d{4}-\d\d-\d\d$/.test(to))continue;
     const k=[a,b,t1,t2].join(':');
     if(!map.has(k))map.set(k,[]);
     map.get(k).push({minutes,from,to});
@@ -143,7 +143,7 @@ export function officialIndex(document) {
   return map;
 }
 function sncfUic(station) {
-  const m=String(station?.[0]||'').match(/^StopArea:OCE(\\d{8})$/);
+  const m=String(station?.[0]||'').match(/^StopArea:OCE(\d{8})$/);
   return m?m[1].slice(0,7):null;
 }
 export function assessTransfer(first,second,context,opts={}) {
