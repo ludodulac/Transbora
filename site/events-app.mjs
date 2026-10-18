@@ -3,6 +3,7 @@ import {prepareFeeds,planEvent,eventBoundaries} from './event-planner.mjs';
 import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
+import {buildFormsRows,googleSheetTSV} from './google-forms-export.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -72,10 +73,10 @@ function updateButtons(){
   const hasPeople=participants.length>0;
   $('search-everyone').disabled=isBusy||!hasPeople||!manifest;
   const havePlans=hasSearched&&plans.size>0;
-  for(const id of ['export-organizer','export-personal-zip','export-followup']){
+  for(const id of ['export-organizer','export-personal-zip','export-followup','prepare-google-group','prepare-google-individual']){
     $(id).disabled=isBusy||!havePlans;
   }
-  for(const id of ['export-organizer','export-personal-zip']){
+  for(const id of ['export-organizer','export-personal-zip','prepare-google-group','prepare-google-individual']){
     $(id).hidden=!havePlans;
   }
   $('individual-details').hidden=!havePlans;
@@ -356,6 +357,55 @@ $('search-everyone').addEventListener('click',async()=>{
     $('progress-box').hidden=true;busy(false);
   }
 });
+// Google Sheets is private and owned by the logged-in user. The public repo
+// never contains their Sheet identifier nor personal event data.
+const GOOGLE_SHEET_STORE='transbora_google_sheet_url_v1';
+function validSheetUrl(value) {
+  return /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+(?:\/.*)?$/.test(value);
+}
+function setGoogleSheetLink(value){
+  const safe=value.trim();
+  if(!validSheetUrl(safe))throw new Error('Utilisez le lien complet d’un fichier Google Sheets.');
+  localStorage.setItem(GOOGLE_SHEET_STORE,safe);
+  $('open-google-sheet').href=safe;
+  $('open-replies-google').href=safe;
+  $('google-sheet-url').value=safe;
+}
+try{
+  const saved=localStorage.getItem(GOOGLE_SHEET_STORE);
+  if(saved&&validSheetUrl(saved))setGoogleSheetLink(saved);
+}catch(_error){/* Private browsing may disable persistent storage. */}
+
+$('save-google-sheet').addEventListener('click',()=>{
+  try{
+    setGoogleSheetLink($('google-sheet-url').value);
+    msg($('google-forms-status'),'✅ Lien Google Sheets enregistré dans ce navigateur.');
+  }catch(error){msg($('google-forms-status'),error.message,true);}
+});
+async function prepareGoogleForms(mode){
+  try{
+    if(!hasSearched)throw new Error('Lancez d’abord la recherche des trajets.');
+    const event=readEvent();
+    const data=buildFormsRows(event,participants,plans,mode);
+    const table=googleSheetTSV(data);
+    try{
+      await navigator.clipboard.writeText(table);
+      msg($('google-forms-status'),
+        '✅ '+data.rows.length+' propositions copiées. Ouvrez Google Sheets, feuille Propositions, touchez A1, puis Coller. Enfin : menu Transbora → Créer les formulaires.');
+    }catch(error){
+      const fallback=$('google-copy-fallback');
+      fallback.value=table;
+      fallback.hidden=false;
+      fallback.focus();
+      fallback.select();
+      msg($('google-forms-status'),
+        'Copie automatique refusée : copiez le tableau sélectionné ci-dessous, puis collez-le en Propositions!A1.',true);
+    }
+  }catch(error){msg($('google-forms-status'),error.message,true);}
+}
+$('prepare-google-group').addEventListener('click',()=>prepareGoogleForms('collectif'));
+$('prepare-google-individual').addEventListener('click',()=>prepareGoogleForms('individuel'));
+
 $('export-organizer').addEventListener('click',async()=>{
   try{
     busy(true);
@@ -445,7 +495,7 @@ $('import-replies').addEventListener('change',async e=>{
 
 /** One active wizard screen and one main footer action, never a long scrolling form. */
 const screenIds=['etape-1','etape-2','etape-3','etape-4'];
-const screenTitles=['Événement','Voyageurs','Trajets','Excel'];
+const screenTitles=['Événement','Voyageurs','Trajets','Formulaires'];
 function showStep(number,{focus=true}={}){
   activeStep=Math.max(1,Math.min(4,number));
   currentView='wizard';

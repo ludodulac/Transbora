@@ -131,3 +131,24 @@ progress{width:100%;height:12px}
 .check-journey input{width:20px!important;height:20px!important;min-height:20px!important;accent-color:#087f82;flex:0 0 auto;margin:0}
 .travel-date small{display:block;font-size:.75rem;font-weight:500;color:#617d85;margin:-3px 0 2px}
 .travel-date:has(input:disabled){opacity:.5}
+
+
+/* Primary Google Forms hand-off. Excel is an optional legacy workflow. */
+.google-steps{background:#f0f8f8;border:1px solid #d0e8e6;border-radius:15px;padding:20px;margin-top:21px;display:grid;gap:12px;font-size:.91rem;line-height:1.5;color:#345b67}
+.google-steps>strong{font-size:1.05rem;color:#174450}
+.google-steps>div:not(.google-actions){display:flex;gap:10px;align-items:flex-start}
+.google-steps>div:not(.google-actions)>span{background:#cee9e3;border-radius:50%;width:25px;height:25px;display:grid;place-items:center;color:#006e72;font-weight:900;flex:0 0 auto}
+.google-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding-top:7px}
+.sheet-action{display:inline-block;text-align:center;background:#0b7c81;color:#fff!important;font-weight:850;padding:12px 17px;text-decoration:none;border-radius:11px;line-height:1.4}
+.sheet-action:hover{background:#07656b}
+.google-config{min-width:210px;flex:1;background:#fff;border:1px solid #d2e7e9;border-radius:11px;padding:10px 13px}
+.google-config summary{font-weight:750;cursor:pointer;color:#286776}
+.google-config label{font-size:.83rem;margin:15px 0;display:flex;flex-direction:column;gap:7px}
+.google-config input{font-size:.85rem;min-height:43px;max-width:100%}
+.google-config p{font-size:.8rem;line-height:1.55;color:#66818a}
+.google-fallback{width:100%;min-height:115px;border:2px solid #d8b186;border-radius:8px;font-size:.76rem}
+.legacy-excel{margin-top:20px}
+.legacy-actions{display:grid;gap:10px;padding:0 16px 16px}
+.legacy-actions button{min-height:46px}
+.simplified-exports .export-card{min-height:215px}
+@media(max-width:620px){.google-steps{padding:16px}.google-actions{flex-direction:column;align-items:stretch}.google-actions>*{width:100%}.simplified-exports .export-card{min-height:174px}}
