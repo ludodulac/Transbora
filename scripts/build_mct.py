@@ -70,5 +70,14 @@ def build(dest):
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--output",type=Path,default=Path("site/data/mct.json"))
+    p.add_argument("--allow-unavailable",action="store_true")
     args=p.parse_args()
-    build(args.output)
+    try:
+        build(args.output)
+    except Exception as e:
+        if not args.allow_unavailable:
+            raise
+        args.output.parent.mkdir(parents=True,exist_ok=True)
+        args.output.write_text(json.dumps({"meta":{"status":"unavailable","source":URL,
+          "message":str(e)[:200]},"trainRules":[]},ensure_ascii=False),encoding="utf-8")
+        print("SNCF official MCT source unavailable:",str(e)[:200])
