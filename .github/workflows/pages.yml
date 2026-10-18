@@ -26,8 +26,12 @@ jobs:
           node-version: '22'
       - name: Tests du moteur de donnees
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Installer les outils de test Excel (versions figées)
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Tests de recherche dans le navigateur
         run: node --test tests/*.test.mjs
+      - name: Verifier l’application événements
+        run: node --check site/events-app.mjs
       - name: Telecharger les horaires des cinq transporteurs
         run: python scripts/build_sources.py --output site/data
       - name: Récupérer les règles officielles SNCF (repli explicite si indisponibles)
