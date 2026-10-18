@@ -52,7 +52,7 @@ test('different Paris stations are not interchangeable',()=>{
 test('only geolocated same-zone cross-carrier transfers are allowed',()=>{
   const close=[stations[0],point('x','Nantes TGV',47.2185,-1.542),stations[2]];
   assert.equal(findConnections([feed([A]),feed([GOOD],'trenitalia','rail',[],close)],params).length,1);
-  assert.equal(findConnections([feed([A]),feed([GOOD],'trenitalia','rail',[],close,'Europe/London')],params).length,0);
+  assert.equal(findConnections([feed([A]),feed([GOOD],'trenitalia','rail',[],close,'Europe/London')],params).length,1); // London GTFS time is converted to Paris before matching
   assert.equal(findConnections([feed([A]),feed([GOOD],'trenitalia','rail',[],[
     stations[0],point('x','Nantes TGV',null,null),stations[2]])],params).length,0);
 });
