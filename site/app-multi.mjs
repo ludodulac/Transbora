@@ -16,7 +16,7 @@ function message(text,isError=false){
 }
 function coverage(source){
   if(source.status!=='ok')return source.label+': indisponible';
-  return source.label+': '+dateText(source.first)+' – '+dateText(source.last);
+  return source.label+': '+dateText(source.first)+' – '+dateText(source.last)+' · '+source.license;
 }
 function localToday(){
   const parts=new Intl.DateTimeFormat('en-US',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Europe/Paris'}).formatToParts(new Date());
