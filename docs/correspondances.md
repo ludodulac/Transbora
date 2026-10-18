@@ -9,7 +9,7 @@ Une correspondance consiste à enchaîner des **segments de trajets qui circulen
 - Les deux trajets circulent à la date de service sélectionnée, y compris les exceptions `calendar_dates.txt` et les trains après minuit (heures GTFS supérieures à 24:00).
 - On peut **descendre** au point de changement du premier véhicule et **monter** dans le second selon les attributs GTFS `drop_off_type` et `pickup_type`.
 - Ce sont deux trajets distincts : on ne compte pas artificiellement comme une correspondance deux étapes du même train.
-- Le transfert a lieu dans la même station du même fichier, ou entre deux fournisseurs si des coordonnées officielles situent les arrêts à **moins de 100 mètres** et qu'ils utilisent le même fuseau GTFS connu.
+- Le transfert a lieu dans la même station du même fichier, ou entre deux fournisseurs si des coordonnées officielles situent les arrêts à **moins de 100 mètres** et que leurs fuseaux GTFS soient connus : les horaires sont convertis sur une base commune (Europe/Paris) avant la comparaison.
 - Pour deux arrêts géographiquement proches, le trajet piéton **n'est pas vérifié** : le logiciel l'indique explicitement. Deux gares éloignées portant le même nom de ville ne sont **pas** interchangeables.
 - Un transfert interdit par le `transfer_type=3` générique du fichier GTFS est exclu. Si un `min_transfer_time` est communiqué, la marge retenue ne peut pas être inférieure à cette valeur.
 - Les attentes de plus de 4 heures sont exclues des correspondances habituelles ; elles pourraient faire l'objet d'une recherche « longue escale » distincte.
@@ -17,7 +17,7 @@ Une correspondance consiste à enchaîner des **segments de trajets qui circulen
 
 ## Marges de sécurité proposées
 
-| Situation | Mode prudent (par défaut) | Mode très prudent |
+| Situation | Mode équilibré | Mode très prudent (par défaut) |
 | --- | --- | --- |
 | Train → train, même fournisseur/gare | 30 minutes | 45 minutes |
 | Train → train, compagnies différentes | 40 minutes | 60 minutes |
@@ -36,7 +36,7 @@ Les itinéraires sont classés par **durée totale du trajet**, en privilégiant
 
 - Pas de deux correspondances ou davantage.
 - Pas de trajet piéton calculé, de métro urbain ni de transfert entre gares éloignées (ex. Paris Montparnasse → Paris Gare de Lyon).
-- Les fuseaux sont contrôlés pour un rapprochement **inter-fournisseurs**. Les horaires transfrontaliers affichés restent à vérifier dans l'heure locale de chaque gare ; la conversion détaillée des heures de chaque arrêt n'est pas développée.
+- Les horaires GTFS des différents opérateurs (UTC, Europe/Paris, Europe/Brussels, etc.) sont convertis vers un affichage commun en **heure de Paris**. Les horaires transfrontaliers affichés ne correspondent donc pas nécessairement à l'heure locale (notamment au Royaume-Uni) : les vérifier directement auprès du transporteur.
 - Pas de garantie commerciale, de gestion d'un billet direct, de prix, de place disponible, de retard ou d'annulation en temps réel.
 - La proximité géographique seule n'est pas une preuve d'un chemin praticable. Vérifier l'accessibilité, les contrôles et les temps de marche réels avec le transporteur.
 - Le classement ne tient pas compte des historiques de retards ni des jours d'affluence.
