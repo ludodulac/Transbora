@@ -355,6 +355,22 @@ $('export-personal-zip').addEventListener('click',async()=>{
     status(participants.length+' fichiers personnels regroupés en un ZIP, prêt à être partagé individuellement.');
   }catch(error){status(error.message,true);}finally{busy(false);}
 });
+$('copy-invitation').addEventListener('click',async()=>{
+  try{
+    const event=readEvent();
+    const message=['Bonjour,','',
+      'Pour préparer votre déplacement pour '+event.title+' à '+event.destination+
+      ', vous trouverez ci-joint un fichier Excel avec plusieurs propositions d’horaires.',
+      'Ouvrez « Mes choix », inscrivez X dans la colonne jaune sur un ALLER et un RETOUR,'+
+      ' puis renvoyez-moi le fichier enregistré en pièce jointe.',
+      'Aucun billet n’est réservé à ce stade : les horaires et tarifs seront vérifiés avant achat.',
+      '','Merci !'].join('\\n');
+    await navigator.clipboard.writeText(message);
+    msg($('copy-invitation-status'),'✅ Message copié : collez-le dans votre e-mail avec le fichier Excel.');
+  }catch(error){
+    msg($('copy-invitation-status'),'Copie non disponible : '+error.message,true);
+  }
+});
 $('import-replies').addEventListener('change',async e=>{
   const files=[...(e.target.files||[])];
   if(!files.length)return;
