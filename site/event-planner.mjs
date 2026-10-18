@@ -2,7 +2,7 @@
 import {searchFeed,normalizeStop} from './search-multi.mjs';
 import {findConnections,officialIndex} from './connections.mjs';
 import {findTwoChanges} from './connections-two.mjs';
-import {parisInstant} from './time-zones.mjs';
+import {parisInstant,parisDate} from './time-zones.mjs';
 import {queryKey,itineraryKey} from './events-model.mjs';
 const MAX_ROUTES=3;
 const DAY_MS=86400000;
@@ -153,8 +153,24 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       }).sort((a,b)=>rank(a,dir.kind,a.date,boundary)-rank(b,dir.kind,b.date,boundary)
         ||(a.changes||0)-(b.changes||0)
         ||(+parisInstant(a.date,a.departure))-(+parisInstant(b.date,b.departure)));
-      if(dir.kind==='A')entries.outward=ranked.slice(0,max);
-      else entries.returning=ranked.slice(0,max);
+      // A same-day train should not hide every viable earlier-day/next-day
+      // alternative when the result cap is small. Offer one per calendar
+      // departure day first, then fill spare slots by global merit.
+      const balanced=[],selected=new Set(),coveredDays=new Set();
+      for(const journey of ranked){
+        const day=parisDate(journey.date,journey.departure);
+        if(coveredDays.has(day))continue;
+        balanced.push(journey);selected.add(journey.key);coveredDays.add(day);
+        if(balanced.length>=max)break;
+      }
+      if(balanced.length<max)for(const journey of ranked){
+        if(selected.has(journey.key))continue;
+        balanced.push(journey);selected.add(journey.key);
+        if(balanced.length>=max)break;
+      }
+      balanced.sort((a,b)=>rank(a,dir.kind,a.date,boundary)-rank(b,dir.kind,b.date,boundary));
+      if(dir.kind==='A')entries.outward=balanced;
+      else entries.returning=balanced;
     }
     plans.set(p.id,entries);
     progress(i+1,participants.length,p);
