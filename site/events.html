@@ -28,9 +28,9 @@
   <a href="./index.html" class="drawer-link">🚆 Recherche simple</a></nav>
   <h3>Mode d’emploi</h3>
   <p class="drawer-highlight">Créez un événement, ajoutez les voyageurs, cherchez leurs horaires, puis exportez les Excel.</p>
-  <h3>1 · Événement</h3><p>Renseignez le nom, la destination et les horaires. Les dates de voyage et les marges se trouvent dans « Options ».</p>
+  <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Laissez les dates de voyage vides pour utiliser les dates de l’événement.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
-  <h3>3 · Recherche</h3><p>Un clic recherche les allers et les retours de tous les participants. Les réglages permettent de choisir les transports et le nombre de correspondances.</p>
+  <h3>3 · Recherche</h3><p>Un clic recherche les trajets souhaités de tous les participants. Les réglages permettent de choisir les transports et le nombre de correspondances.</p>
   <h3>4 · Excel</h3><p>Choisissez « Un Excel pour tous » ou « Un Excel par personne ». Les cellules jaunes marquées « X » servent de cases universelles, y compris sur téléphone. Les fichiers individuels sont également disponibles séparément.</p>
   <h3>Réponses</h3><p>Quand les fichiers complétés reviennent, ouvrez « Réponses » dans ce menu, importez les Excel et téléchargez le tableau pour préparer les réservations.</p>
   <h3>Précautions</h3><p>Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
@@ -49,19 +49,23 @@
    <div class="screen-heading"><span class="screen-icon">01</span><h1 id="step-one-heading" tabindex="-1">Événement</h1></div>
    <div class="wizard-fields">
     <label>Nom<input id="event-title" placeholder="Ex. Congrès" maxlength="90" autocomplete="off" required></label>
-    <label>Destination<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" autocomplete="off" required><datalist id="event-stations"></datalist></label>
-    <div class="date-group"><span class="field-group-label">Début</span>
+    <label>Lieu<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" autocomplete="off" required><datalist id="event-stations"></datalist></label>
+    <div class="date-group"><span class="field-group-label">Début de l’événement</span>
      <div class="date-time-row"><label>Date<input id="event-start-date" type="date" required></label><label>Heure<input id="event-start-time" type="time" value="14:00" required></label></div>
     </div>
-    <div class="date-group"><span class="field-group-label">Fin</span>
+    <div class="date-group"><span class="field-group-label">Fin de l’événement</span>
      <div class="date-time-row"><label>Date<input id="event-end-date" type="date" required></label><label>Heure<input id="event-end-time" type="time" value="18:00" required></label></div>
     </div>
     <details class="settings-fold"><summary>Options</summary>
       <div class="fold-fields">
-       <label>Aller<input id="event-outward-date" type="date"></label>
-       <label>Retour<input id="event-return-date" type="date"></label>
-       <label>Avant début<select id="arrival-margin"><option value="60">1 h</option><option value="90" selected>1 h 30</option><option value="120">2 h</option></select></label>
-       <label>Après fin<select id="departure-margin"><option value="30">30 min</option><option value="45" selected>45 min</option><option value="60">1 h</option><option value="90">1 h 30</option></select></label>
+       <fieldset class="journey-selection"><legend>Trajets souhaités</legend>
+         <label class="check-journey"><input id="include-outward" type="checkbox" checked> Aller</label>
+         <label class="check-journey"><input id="include-return" type="checkbox" checked> Retour</label>
+       </fieldset>
+       <label class="travel-date">Date aller <small>Vide = début de l’événement</small><input id="event-outward-date" type="date"></label>
+       <label class="travel-date">Date retour <small>Vide = fin de l’événement</small><input id="event-return-date" type="date"></label>
+       <label>Arriver avant<select id="arrival-margin"><option value="60">1 h</option><option value="90" selected>1 h 30</option><option value="120">2 h</option></select></label>
+       <label>Repartir après<select id="departure-margin"><option value="30">30 min</option><option value="45" selected>45 min</option><option value="60">1 h</option><option value="90">1 h 30</option></select></label>
       </div>
     </details>
    </div>
