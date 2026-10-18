@@ -154,7 +154,7 @@ function rowsFor(participants,options,choices,direction){
     items.forEach((j,i)=>{
       const key=j.key;
       out.push({participant:p,option:j,number:i+1,direction,key,
-        date:direction==='A'?plan.outwardDate:plan.returnDate,
+        date:j.date||(direction==='A'?plan.outwardDate:plan.returnDate),
         choice:choices?.[p.id]?.[direction]===key?'X':''});
     });
   }
@@ -175,9 +175,9 @@ function statusTab(book,event,participants,options,choices){
     const row=i+8;
     const wantsA=event.includeOutward!==false,wantsR=event.includeReturn!==false;
     sheet.getRow(row).values=[,p.id,displayName(p),p.departure,
-      !wantsA?'Non demandé':outbound?display({...outbound,date:departureDay}):plan?.outward.length?'Non choisi':'Aucun trajet',
-      !wantsR?'Non demandé':back?display({...back,date:returnDay}):plan?.returning.length?'Non choisi':'Aucun trajet',
-      wantsA?departureDay:'—',wantsR?returnDay:'—',
+      !wantsA?'Non demandé':outbound?display({...outbound,date:outbound.date||departureDay}):plan?.outward.length?'Non choisi':'Aucun trajet',
+      !wantsR?'Non demandé':back?display({...back,date:back.date||returnDay}):plan?.returning.length?'Non choisi':'Aucun trajet',
+      wantsA?(outbound?.date||departureDay):'—',wantsR?(back?.date||returnDay):'—',
       (wantsA&&!outbound)||(wantsR&&!back)?'En attente':'À réserver',''];
     sheet.getRow(row).height=42;
     sheet.getRow(row).eachCell(cell=>{cell.font={name:'Aptos',size:10,color:{argb:'FF'+INK}};
