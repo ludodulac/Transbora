@@ -140,9 +140,16 @@ $('search-form').addEventListener('submit',async event=>{
       }catch(e){failures.push('calcul à deux changements : '+e.message);}
     }
   }
-  // Meilleurs temps de trajet en premier, puis départ le plus tôt à durée égale.
-  results.sort((a,b)=>(a.arrival-a.departure)-(b.arrival-b.departure)
-    ||(a.changes||0)-(b.changes||0)||a.departure-b.departure);
+  // Balance door-to-door duration and the operational risk of more changes.
+  // Indicative heuristic, not an observed delay probability or a guarantee.
+  const merit=j=>{
+    const transfers=j.transfers||(j.transfer?[j.transfer]:[]);
+    return j.arrival-j.departure + transfers.length*20*60
+      +transfers.filter(t=>t.waitingSeconds-t.minimumSeconds<15*60).length*15*60
+      +transfers.filter(t=>t.proximity!=='same_station').length*25*60;
+  };
+  results.sort((a,b)=>merit(a)-merit(b)||(a.changes||0)-(b.changes||0)
+    ||a.arrival-b.arrival);
   $('search').disabled=false;
   message(directCount+' directs · '+single+' avec 1 changement · '+double+' avec 2 changements trouvés'
     +(failures.length?' (recherche partielle : '+failures.join(', ')+').':'.')
@@ -158,7 +165,7 @@ function render(failures=[]){
   $('count').textContent=results.length+' résultat(s)';
   $('explanation').textContent=results.length>100
     ? 'Les 100 premiers résultats sont affichés. Affinez la plage horaire pour les autres.'
-    :results.length?'Classés par durée totale. Chaque correspondance indique son lieu exact, son attente et sa marge minimale de sécurité.'
+    :results.length?'Classés selon un compromis entre durée et nombre de changements (pénalité de prudence par correspondance). Chaque transfert indique le lieu exact et la marge prévue.'
     :'Aucun itinéraire trouvé dans les sources chargées : les horaires et les possibilités de correspondance ne sont pas exhaustifs.';
   const fragment=document.createDocumentFragment();
   for(const journey of results.slice(0,100)){
