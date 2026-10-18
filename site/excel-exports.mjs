@@ -66,7 +66,7 @@ function notesSheet(book){
   title(s,'📘 MODE D’EMPLOI','Un fichier Excel pensé pour tous les téléphones et ordinateurs.',3);
   const instructions=[
     ['1 · Sélection','Dans les feuilles de propositions, inscrivez X dans la cellule jaune de votre trajet préféré.'],
-    ['2 · Aller / Retour','Choisissez au maximum UN trajet ALLER et UN trajet RETOUR par personne.'],
+    ['2 · Aller / Retour','Choisissez au maximum UN trajet pour chaque sens demandé (aller, retour ou les deux).'],
     ['3 · Enregistrement','Enregistrez le fichier Excel (.xlsx) sans effacer les colonnes masquées.'],
     ['4 · Retour','Renvoyez le fichier modifié à Jeanne par e-mail ou messagerie. Elle peut le réimporter dans Transbora.'],
     ['5 · Réservation','Les choix sont des demandes. Jeanne confirme prix, place et horaires avant d’acheter les billets.'],
@@ -160,7 +160,7 @@ function rowsFor(participants,options,choices,direction){
   }
   return out;
 }
-function statusTab(book,participants,options,choices){
+function statusTab(book,event,participants,options,choices){
   const sheet=book.addWorksheet('Réservations');
   setWidths(sheet,[14,24,21,22,24,25,21,23,28]);
   title(sheet,'📋 TABLEAU DE RÉSERVATION','Après réception des choix : vérifier horaires, disponibilité et prix avant chaque achat.',9);
@@ -173,10 +173,12 @@ function statusTab(book,participants,options,choices){
     const display=j=>j?parisDate(j.date,j.departure)+' '+parisTime(j.date,j.departure):'Non choisi';
     const departureDay=plan?.outwardDate||'—',returnDay=plan?.returnDate||'—';
     const row=i+8;
+    const wantsA=event.includeOutward!==false,wantsR=event.includeReturn!==false;
     sheet.getRow(row).values=[,p.id,displayName(p),p.departure,
-      outbound?display({...outbound,date:departureDay}):plan?.outward.length?'Non choisi':'Aucun trajet',
-      back?display({...back,date:returnDay}):plan?.returning.length?'Non choisi':'Aucun trajet',
-      departureDay,returnDay,(!outbound||!back)?'En attente':'À réserver',''];
+      !wantsA?'Non demandé':outbound?display({...outbound,date:departureDay}):plan?.outward.length?'Non choisi':'Aucun trajet',
+      !wantsR?'Non demandé':back?display({...back,date:returnDay}):plan?.returning.length?'Non choisi':'Aucun trajet',
+      wantsA?departureDay:'—',wantsR?returnDay:'—',
+      (wantsA&&!outbound)||(wantsR&&!back)?'En attente':'À réserver',''];
     sheet.getRow(row).height=42;
     sheet.getRow(row).eachCell(cell=>{cell.font={name:'Aptos',size:10,color:{argb:'FF'+INK}};
       cell.alignment={vertical:'middle',wrapText:true};cell.border={bottom:thin};
@@ -193,7 +195,7 @@ function titleSheet(book,event,n,covered,mode){
   title(sheet,'TRANSBORA · '+(mode==='organizer'?'DOSSIER ÉVÉNEMENT':'PROPOSITIONS PERSONNELLES'),
     'Prêt à envoyer · Consultez « Aide » puis sélectionnez vos trajets en marquant X.',8);
   const rows=[
-    ['Événement',event.title],['Destination',event.destination],['Participants',n],
+    ['Événement',event.title],['Lieu',event.destination],['Participants',n],
     ['Début',event.startDate+' à '+event.startTime],
     ['Fin',event.endDate+' à '+event.endTime],
     ['Options disponibles',covered],
@@ -237,17 +239,19 @@ export function buildTemplate(Excel){
 }
 export function buildOrganizer(Excel,event,participants,options,choices={}){
   const book=workbook(Excel);
-  const a=rowsFor(participants,options,choices,'A'),r=rowsFor(participants,options,choices,'R');
+  const a=event.includeOutward===false?[]:rowsFor(participants,options,choices,'A');
+  const r=event.includeReturn===false?[]:rowsFor(participants,options,choices,'R');
   titleSheet(book,event,participants.length,a.length+r.length,'organizer');
-  statusTab(book,participants,options,choices);
-  optionsSheet(book,'Allers',a,event);
-  optionsSheet(book,'Retours',r,event);
+  statusTab(book,event,participants,options,choices);
+  if(event.includeOutward!==false)optionsSheet(book,'Allers',a,event);
+  if(event.includeReturn!==false)optionsSheet(book,'Retours',r,event);
   notesSheet(book);
   return book;
 }
 export function buildIndividual(Excel,event,participant,options,choices={}){
   const book=workbook(Excel);
-  const a=rowsFor([participant],options,choices,'A'),r=rowsFor([participant],options,choices,'R');
+  const a=event.includeOutward===false?[]:rowsFor([participant],options,choices,'A');
+  const r=event.includeReturn===false?[]:rowsFor([participant],options,choices,'R');
   titleSheet(book,event,1,a.length+r.length,'individual');
   optionsSheet(book,'Mes choix',[...a,...r],event,{individual:true});
   notesSheet(book);

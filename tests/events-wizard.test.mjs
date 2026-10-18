@@ -54,6 +54,11 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   await import('../site/events-app.mjs');
   await settle();
   const $=id=>window.document.getElementById(id);
+  assert.equal($('event-start-date').value,'');
+  assert.equal($('event-end-date').value,'');
+  assert.equal($('event-outward-date').value,'');
+  assert.equal($('event-return-date').value,'');
+  assert.match($('etape-1').querySelector('details > summary').textContent,/Aller \+ retour/);
   assert.equal($('etape-1').hidden,false);
   for(let i=2;i<=4;i++)assert.equal($('etape-'+i).hidden,true);
   assert.equal($('step-progress').getAttribute('aria-valuenow'),'1');
@@ -70,8 +75,17 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.ok($('global-status').classList.contains('has-error'));
   set(window.document,'event-title','Festival');
   set(window.document,'event-destination','Paris');
-  for(const id of ['event-start-date','event-end-date','event-outward-date','event-return-date'])
-    set(window.document,id,first);
+  set(window.document,'event-start-date',first);
+  assert.equal($('event-end-date').value,first,'The event end defaults to the changed start, never to a stale date');
+  assert.equal($('event-outward-date').value,'','Travel dates remain empty unless explicitly overridden');
+  assert.equal($('event-return-date').value,'');
+  $('include-return').checked=false;
+  $('include-return').dispatchEvent(new window.Event('change',{bubbles:true}));
+  assert.equal($('event-return-date').disabled,true);
+  assert.match($('etape-1').querySelector('details > summary').textContent,/Aller$/);
+  $('include-return').checked=true;
+  $('include-return').dispatchEvent(new window.Event('change',{bubbles:true}));
+  assert.equal($('event-return-date').disabled,false);
   click(window.document,'wizard-next');
   assert.equal($('etape-2').hidden,false);
   assert.equal($('etape-1').hidden,true);

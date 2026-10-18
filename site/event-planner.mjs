@@ -86,8 +86,8 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     const outwardDate=p.outwardDate||event.outwardDate||event.startDate;
     const returnDate=p.returnDate||event.returnDate||event.endDate;
     const directions=[
-      {kind:'A',from:p.departure,to:event.destination,date:outwardDate},
-      {kind:'R',from:event.destination,to:p.departure,date:returnDate}
+      ...(event.includeOutward===false?[]:[{kind:'A',from:p.departure,to:event.destination,date:outwardDate}]),
+      ...(event.includeReturn===false?[]:[{kind:'R',from:event.destination,to:p.departure,date:returnDate}])
     ];
     const entries={outwardDate,returnDate,outward:[],returning:[]};
     for(const queryDirection of directions){
