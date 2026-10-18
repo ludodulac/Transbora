@@ -17,3 +17,31 @@ jobs:
           node-version: '22'
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: node --test tests/*.test.mjs
+
+  live-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test des vrais flux GTFS publics
+        run: python scripts/build_sources.py --output site/data
+      - name: Rapport de couverture
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest=json.loads(Path('site/data/manifest.json').read_text())
+          for src in manifest['sources']:
+              print(src['label'],src['status'],src.get('trips',0),
+                    src.get('first',''),src.get('last',''),src.get('message',''))
+          assert manifest['sources'][0]['status']=='ok'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feed-validation
+          path: site/data/manifest.json
+          if-no-files-found: ignore
