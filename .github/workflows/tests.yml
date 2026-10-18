@@ -16,7 +16,11 @@ jobs:
         with:
           node-version: '22'
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - run: npm install --ignore-scripts --no-audit --no-fund
       - run: node --test tests/*.test.mjs
+      - run: node --check site/events-app.mjs
+      - run: node --check site/event-planner.mjs
+      - run: node --check site/excel-exports.mjs
       - run: node --check site/app-multi.mjs
 
   live-sources:
