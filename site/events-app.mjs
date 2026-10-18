@@ -83,7 +83,7 @@ function updateButtons(){
     search.hidden=!isThird || havePlans;
     next.disabled=isBusy;
     $('wizard-back').hidden=activeStep===1;
-    $('wizard-actions').hidden=activeStep===4;
+    $('wizard-actions').hidden=false;
   }
 }
 function invalidate(){
