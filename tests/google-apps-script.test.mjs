@@ -101,3 +101,23 @@ test('Form responses are appended automatically with no manual Excel upload',()=
  x.sandbox.synchroniserReponsesTransbora();
  assert.equal(x.sheet.Réponses.values.length,2);
 });
+
+
+test('forms for 27 travelers are created in two resumable batches with only one trigger',()=>{
+ const x=runtime();
+ const template=x.sheet.Propositions.values[1];
+ for(let i=2;i<=27;i++){
+   const id='P-'+String(i).padStart(3,'0');
+   x.sheet.Propositions.values.push([...template.slice(0,3),id,'Test',String(i),
+     'Brest',...template.slice(7)]);
+ }
+ x.sandbox.creerFormulairesTransbora();
+ assert.equal(x.forms.length,20);
+ assert.equal(x.triggers.length,1);
+ x.sandbox.creerFormulairesTransbora();
+ assert.equal(x.forms.length,27);
+ assert.equal(x.triggers.length,1);
+ assert.equal(x.sheet.Liens.values.length,28);
+ x.sandbox.creerFormulairesTransbora();
+ assert.equal(x.forms.length,27);
+});
