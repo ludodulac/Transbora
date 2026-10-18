@@ -5,33 +5,35 @@
 <meta name="description" content="Transbora : horaires de train théoriques prêts à copier">
 <title>Transbora — Horaires de trains</title>
 <link rel="stylesheet" href="./style.css">
-<script type="module" src="./app.mjs"></script>
+<script type="module" src="./app-multi.mjs"></script>
 </head>
 <body>
 <header><div class="container bar"><strong>🚆 Transbora</strong><span>Propositions de trajets</span></div></header>
 <main class="container">
 <section class="hero"><p class="eyebrow">RECHERCHER · CHOISIR · COPIER</p>
 <h1>Des horaires prêts à proposer.</h1>
-<p>Recherchez les trains directs, sélectionnez les horaires utiles, copiez une proposition claire dans votre document ou e-mail.</p></section>
+<p>Comparez les horaires théoriques de plusieurs compagnies ferroviaires et d’autocars, sélectionnez vos trajets et copiez une proposition prête à transmettre.</p></section>
 <section class="panel">
 <h2>Rechercher un trajet</h2>
 <p id="status" role="status" class="notice">Chargement des données SNCF…</p>
 <form id="search-form">
 <div class="fields">
-<label>Gare de départ<input id="origin" list="stations" placeholder="Ex. Lorient" required disabled autocomplete="off"></label>
-<label>Gare d’arrivée<input id="destination" list="stations" placeholder="Ex. Paris Montparnasse" required disabled autocomplete="off"></label>
+<label>Ville ou arrêt de départ<input id="origin" list="stations" placeholder="Ex. Lorient" required disabled autocomplete="off" minlength="3"></label>
+<label>Ville ou arrêt d’arrivée<input id="destination" list="stations" placeholder="Ex. Paris" required disabled autocomplete="off" minlength="3"></label>
 <datalist id="stations"></datalist>
 <label>Date de départ<input id="date" type="date" required disabled></label>
+<label>Mode de transport<select id="mode"><option value="all">🚆 Train + 🚌 Autocar</option><option value="rail">🚆 Trains uniquement</option><option value="bus">🚌 Autocars uniquement</option></select></label>
 <label>À partir de<input id="earliest" type="time" value="00:00" required></label>
 <label>Jusqu’à<input id="latest" type="time" value="23:59" required></label>
 </div>
-<button id="search" type="submit" class="primary" disabled>Rechercher les trains directs</button>
+<button id="search" type="submit" class="primary" disabled>Rechercher les trajets directs</button>
 </form>
-<p class="warning">⚠️ Horaires théoriques seulement, non garantis : ni prix, ni places disponibles, ni retards en temps réel. Confirmer auprès du transporteur.</p>
+<p class="warning">⚠️ Horaires théoriques indicatifs, sans prix, places disponibles, annulations ou retards en temps réel. Résultats directs uniquement, sans correspondance. Pour les trajets internationaux, vérifier les heures locales auprès du transporteur.</p>
 </section>
 <section class="panel" id="result-section" hidden>
 <div class="row"><h2>Horaires trouvés</h2><strong id="count"></strong></div>
 <p id="explanation" class="muted"></p>
+<p id="sources" class="muted"></p>
 <div id="results" class="results" aria-live="polite"></div>
 <div class="buttons"><button id="all" type="button" class="secondary">Tout sélectionner</button>
 <button id="none" type="button" class="secondary">Tout désélectionner</button>
@@ -39,8 +41,8 @@
 <p id="copy-status" class="muted" role="status"></p>
 </section>
 <footer>
-<p><strong>Source :</strong> <a href="https://transport.data.gouv.fr/datasets/horaires-sncf" target="_blank" rel="noopener noreferrer">Données SNCF Voyageurs ouvertes</a> (ODbL et conditions particulières). Site indépendant, sans affiliation avec la SNCF ni Trainline.</p>
-<p>Prototype : trains directs seulement, sans correspondances. Consultez le transporteur avant toute réservation.</p>
+<p><strong>Sources :</strong> SNCF Voyageurs, Trenitalia France, Eurostar, FlixBus, BlaBlaCar Bus — <a href="https://transport.data.gouv.fr/" target="_blank" rel="noopener noreferrer">portail national des données de transport</a>. Références et licences par fournisseur précisées ci-dessus. Site indépendant des transporteurs.</p>
+<p>Prototype : trajets directs uniquement, sans correspondances. Les lieux de départ et d’arrivée exacts sont indiqués dans les résultats. Vérifiez chaque proposition auprès du transporteur.</p>
 </footer>
 </main>
 </body></html>
