@@ -17,6 +17,7 @@ jobs:
           node-version: '22'
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: node --test tests/*.test.mjs
+      - run: node --check site/app-multi.mjs
 
   live-sources:
     runs-on: ubuntu-latest
@@ -39,6 +40,24 @@ jobs:
                     src.get('first',''),src.get('last',''),src.get('message',''))
           assert manifest['sources'][0]['status']=='ok'
           PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Recherche reelle Lorient Paris (controle indicatif)
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {searchFeed} from './site/search-multi.mjs';
+          const data=JSON.parse(fs.readFileSync('site/data/sncf.json','utf8'));
+          const source={id:'sncf',label:'SNCF Voyageurs',mode:'rail'};
+          const results=searchFeed(data,{
+            from:'Lorient',to:'Paris',date:'2026-11-25',
+            earliest:'00:00',latest:'23:59'
+          },source);
+          console.log('Lorient -> Paris 25/11/2026:',results.length,'trains directs');
+          console.log(results.slice(0,3).map(r=>[r.from,r.to,r.departure,r.arrival]));
+          if(!results.length)throw new Error('Aucun train direct Lorient-Paris, vérifier le moteur de recherche');
+          JS
       - uses: actions/upload-artifact@v4
         if: always()
         with:
