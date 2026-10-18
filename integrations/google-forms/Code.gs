@@ -6,6 +6,7 @@
  * Puis revenir au Sheet, actualiser, menu Transbora > Créer les formulaires.
  *
  * AUCUNE application Web, aucun déploiement public, aucun jeton dans GitHub.
+ * Les réponses sont lues chaque heure (ou immédiatement via le menu Sheets).
  * L'utilisateur garde la main sur les autorisations Google.
  *
  * Entrée : coller depuis transbora/events.html en A1 de "Propositions".
@@ -19,6 +20,7 @@ var TRANSBORA={
 function onOpen(){
   SpreadsheetApp.getUi().createMenu('Transbora')
     .addItem('Créer les formulaires','creerFormulairesTransbora')
+    .addItem('Actualiser les réponses','synchroniserReponsesTransbora')
     .addItem('Vérifier les feuilles','verifierFeuillesTransbora')
     .addToUi();
 }
@@ -114,8 +116,8 @@ function prepareForm_(ss,input,people,label,indexSheet){
   if(folderParents.hasNext()){
     DriveApp.getFileById(form.getId()).moveTo(folderParents.next());
   }
-  // Register only after the form exists, so test responses reach the same Sheet.
-  ScriptApp.newTrigger('onTransboraFormSubmit').forForm(form).onFormSubmit().create();
+  // Single hourly sync for all forms: Google Apps Script permits only
+  // 20 simultaneous triggers per user/script; no per-form trigger is created.
   return {url:form.getPublishedUrl(),edit:form.getEditUrl(),id:form.getId()};
 }
 
@@ -150,6 +152,7 @@ function creerFormulairesTransbora(){
         form.url,form.edit,form.id,new Date()]);
       created++;
     });
+    installerSynchronisationTransbora_();
     ss.setActiveSheet(links);
     ui.alert('Formulaires prêts',
       created+' nouveau(x) formulaire(s), '+reused+' déjà présent(s).\n'+
@@ -167,6 +170,37 @@ function verifierFeuillesTransbora(){
   SpreadsheetApp.getUi().alert(missing.length?
     'Feuilles manquantes : '+missing.join(', '):
     'Toutes les feuilles Transbora sont présentes. Copiez les propositions en Propositions!A1.');
+}
+
+/** One trigger for all events avoids Google's limit of 20 triggers per script. */
+function installerSynchronisationTransbora_(){
+  var handler='synchroniserReponsesTransbora';
+  var present=ScriptApp.getProjectTriggers().some(function(t){
+    return t.getHandlerFunction()===handler;
+  });
+  if(!present)ScriptApp.newTrigger(handler).timeBased().everyHours(1).create();
+}
+
+/** Re-run from the Transbora menu to see choices immediately.
+ * The hourly trigger automatically synchronizes when the menu isn't opened.
+ */
+function synchroniserReponsesTransbora(){
+  var id=PropertiesService.getScriptProperties().getProperty('TRANSBORA_SPREADSHEET_ID');
+  if(!id)throw new Error('Configurez le tableau en créant les formulaires.');
+  var ss=SpreadsheetApp.openById(id);
+  var links=ss.getSheetByName('Liens').getDataRange().getValues().slice(1);
+  var scanned=0;
+  for(var i=0;i<links.length;i++){
+    var formId=String(links[i][7]||'');
+    if(!formId)continue;
+    var form=FormApp.openById(formId);
+    var answers=form.getResponses();
+    for(var j=0;j<answers.length;j++){
+      onTransboraFormSubmit({source:form,response:answers[j]});
+      scanned++;
+    }
+  }
+  return scanned;
 }
 
 /** Installed FORM submission trigger; never call manually. */
