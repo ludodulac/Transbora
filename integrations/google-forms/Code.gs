@@ -143,10 +143,10 @@ function creerFormulairesTransbora(){
     var batches=data.mode==='collectif'?
       [{key:'TOUS',name:'Organisateur',participants:people}]:
       people.map(function(p){return {key:p.id,name:p.name,participants:[p]};});
-    var created=0,reused=0;
-    // Apps Script may have creation quotas: resume by rerunning menu.
-    batches.slice(0,20).forEach(function(batch){
-      if(existing.has(batch.key)){reused++;return;}
+    var pending=batches.filter(function(batch){return !existing.has(batch.key);});
+    var created=0,reused=batches.length-pending.length;
+    // Apps Script may have creation quotas: resume with NEXT uncreated travelers.
+    pending.slice(0,20).forEach(function(batch){
       var form=prepareForm_(ss,data,batch.participants,batch.name,index);
       links.appendRow([data.dossier,data.event,data.mode,batch.key,batch.name,
         form.url,form.edit,form.id,new Date()]);
@@ -156,7 +156,7 @@ function creerFormulairesTransbora(){
     ss.setActiveSheet(links);
     ui.alert('Formulaires prêts',
       created+' nouveau(x) formulaire(s), '+reused+' déjà présent(s).\n'+
-      (batches.length>20?'Jusqu’à 20 voyageurs par exécution : relancez le menu pour la suite.\n':'')+
+      (pending.length>20?'Encore '+(pending.length-20)+' formulaire(s) à créer : relancez le menu.\n':'')+
       'Les liens sont dans la feuille « Liens ». Partagez uniquement les URL participant.',
       ui.ButtonSet.OK);
   } finally {
