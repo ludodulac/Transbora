@@ -96,7 +96,7 @@ export function proposalText(journeys, params) {
     lines.push('');
   }
   lines.push('Horaires théoriques indicatifs. Ni réservation, ni garantie de correspondance, ni protection automatique en cas de retard.',
-    'Les marges sont des précautions générales, pas des garanties : vérifier billets, règles de correspondance, quais, contrôles et horaires auprès des transporteurs.',
+    'Vérifier les horaires, billets, règles de correspondance, quais et contrôles auprès des transporteurs : les marges sont des précautions, pas des garanties.',
     'Pour les trajets internationaux, vérifier les heures locales auprès des compagnies.');
   return lines.join('\n');
 }
