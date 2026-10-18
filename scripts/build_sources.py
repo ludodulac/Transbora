@@ -56,7 +56,7 @@ def resolve(source):
              if str(r.get("format","")).strip().lower() in {"gtfs","gtfs.zip","gtfs-zip","zip"}
              and not any(word in (str(r.get("title",""))+" "+str(r.get("description",""))).lower()
                          for word in ("temps réel","temps reel","real-time","realtime","gtfs-rt","siri","protobuf"))
-             and r.get("url") and r.get("type") not in {"api","documentation"}]
+             and r.get("url") and r.get("type") != "documentation"]
     if not choices:
         raise ValueError(f"No static GTFS resource for {slug}; resources: "+repr([(r.get("title"), r.get("format"), r.get("type")) for r in payload["resources"]])[:700])
     # A dataset is expected to contain exactly one static GTFS.
