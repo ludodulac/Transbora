@@ -13,7 +13,7 @@ const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
-  'event-end-time','event-outward-date','event-return-date','arrival-margin','departure-margin',
+  'event-end-time','event-outward-date','event-return-date','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
 
 function node(tag,cls,value){
@@ -48,13 +48,18 @@ function readEvent(){
   const destination=$('event-destination').value.trim();
   const startDate=$('event-start-date').value,endDate=$('event-end-date').value;
   const startTime=$('event-start-time').value,endTime=$('event-end-time').value;
+  const includeOutward=$('include-outward').checked;
+  const includeReturn=$('include-return').checked;
   const outwardDate=$('event-outward-date').value||startDate;
   const returnDate=$('event-return-date').value||endDate;
+  if(!includeOutward&&!includeReturn)
+    throw new Error('Sélectionnez au moins un trajet : aller ou retour.');
   if(!title||!destination||destination.length<3||!startDate||!endDate||!startTime||!endTime)
-    throw new Error('Renseignez le nom, la destination et les dates/heures de début et de fin.');
+    throw new Error('Indiquez le nom, le lieu, le début et la fin de l’événement.');
   if(!isoDate(startDate)||!isoDate(endDate)||!isoDate(outwardDate)||!isoDate(returnDate))
     throw new Error('Date d’événement, d’aller ou de retour invalide.');
   const out={title,destination,startDate,startTime,endDate,endTime,outwardDate,returnDate,
+    includeOutward,includeReturn,
     arrivalMargin:Number($('arrival-margin').value),departureMargin:Number($('departure-margin').value)};
   eventBoundaries(out);
   return out;
@@ -138,10 +143,27 @@ function includeParticipants(items){
   return {added,duplicates};
 }
 async function init(){
-  $('event-start-date').value=dateParis(7);
-  $('event-end-date').value=dateParis(7);
-  $('event-outward-date').value=dateParis(7);
-  $('event-return-date').value=dateParis(7);
+  // Event dates are deliberately empty until entered. Do not silently reuse
+  // a different date for a trip (this caused the 25/29 October confusion).
+  $('event-start-date').value='';
+  $('event-end-date').value='';
+  $('event-outward-date').value='';
+  $('event-return-date').value='';
+  const updateTravelOptions=()=>{
+    $('event-outward-date').disabled=!$('include-outward').checked;
+    $('event-return-date').disabled=!$('include-return').checked;
+    $('arrival-margin').disabled=!$('include-outward').checked;
+    $('departure-margin').disabled=!$('include-return').checked;
+  };
+  updateTravelOptions();
+  for(const id of ['include-outward','include-return'])
+    $(id).addEventListener('change',updateTravelOptions);
+  $('event-start-date').addEventListener('change',()=>{
+    const end=$('event-end-date');
+    if(!end.value||end.value<$('event-start-date').value){
+      end.value=$('event-start-date').value;
+    }
+  });
   for(const id of eventFieldIds)$(id).addEventListener('change',invalidate);
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -236,8 +258,10 @@ function renderSearchResults(issues){
     const card=node('article','recap-person');
     card.append(node('strong',null,displayName(p)+' · '+p.departure));
     const line=node('div','recap-columns');
+    const requested=readEvent();
     for(const [label,list,date] of [
-      ['ALLER',plan.outward,plan.outwardDate],['RETOUR',plan.returning,plan.returnDate]
+      ...(requested.includeOutward?[['ALLER',plan.outward,plan.outwardDate]]:[]),
+      ...(requested.includeReturn?[['RETOUR',plan.returning,plan.returnDate]]:[])
     ]){
       const side=node('div','recap-side');
       side.append(node('span','pill',label+' · '+date));
@@ -311,7 +335,9 @@ $('search-everyone').addEventListener('click',async()=>{
       });
     plans=result.plans;hasSearched=true;
     const gaps=participants.reduce((total,p)=>{
-      const plan=plans.get(p.id);return total+(plan.outward.length?0:1)+(plan.returning.length?0:1);
+      const plan=plans.get(p.id);
+      return total+(event.includeOutward&&!plan.outward.length?1:0)
+        +(event.includeReturn&&!plan.returning.length?1:0);
     },0);
     renderSearchResults([...prepared.issues,...result.issues]);
     renderIndividualButtons(event);
@@ -333,7 +359,7 @@ $('export-organizer').addEventListener('click',async()=>{
     const event=readEvent();
     await download(buildOrganizer(excelReady(),event,participants,plans,choices),
       'Transbora_GROUPE_'+fileName(event.title));
-    status('Classeur du groupe téléchargé : Allers, Retours, Réservations et Aide.');
+    status('Classeur du groupe téléchargé : trajets demandés, réservations et aide.');
   }catch(error){status(error.message,true);}finally{busy(false);}
 });
 $('export-followup').addEventListener('click',async()=>{
