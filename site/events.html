@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Transbora événements : importez la liste des voyageurs, recherchez les trajets et créez de beaux fichiers Excel à compléter.">
+<title>Événements et fichiers Excel — Transbora</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./events.css">
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script type="module" src="./events-app.mjs"></script>
+</head>
+<body>
+<header class="event-header">
+ <div class="container event-nav">
+  <a class="brand" href="./events.html">🚆 Transbora</a>
+  <div class="event-nav-links"><a class="active" href="./events.html">Événements</a><a href="./index.html">Recherche simple</a></div>
+  <button type="button" id="help-open" aria-expanded="false" aria-controls="help-drawer" aria-label="Ouvrir le mode d’emploi" class="hamburger"><span></span><span></span><span></span></button>
+ </div>
+</header>
+<div class="drawer-backdrop" id="help-backdrop" hidden></div>
+<aside id="help-drawer" class="help-drawer" aria-label="Mode d’emploi" aria-hidden="true" tabindex="-1" inert>
+ <div class="drawer-head"><strong>✨ Comment ça marche ?</strong><button id="help-close" type="button" aria-label="Fermer l’aide">✕</button></div>
+ <div class="help-body">
+ <p class="drawer-highlight">Un événement → des voyageurs → un seul clic pour rechercher les propositions → de vrais Excel.</p>
+ <h3>1. Créer l’événement</h3><p>Indiquez la destination, le début et la fin. Transbora tient compte des heures pour ne pas proposer un train trop tardif.</p>
+ <h3>2. Ajouter les voyageurs</h3><p>Ajoutez-les directement ou téléchargez le modèle Excel, remplissez la feuille <strong>Participants</strong> puis importez-la ici. Trois colonnes obligatoires : prénom, nom, ville de départ.</p>
+ <h3>3. Rechercher tous les déplacements</h3><p>Le logiciel recherche les allers et retours, réutilise les recherches identiques et présente au plus quelques propositions par personne. Vérifiez les gares et les horaires auprès des compagnies.</p>
+ <h3>4. Choisir le mode d’envoi</h3>
+ <p><strong>Organisateur :</strong> un seul Excel pour toute l’équipe, avec feuilles ALLERS, RETOURS et RÉSERVATIONS.</p>
+ <p><strong>Voyageurs :</strong> un Excel personnel par personne, ou une archive ZIP contenant tous les fichiers individuels.</p>
+ <h3>5. Faire cocher sans complication</h3><p>Dans le fichier Excel, la colonne jaune <strong>CHOIX X</strong> sert de case à cocher universelle. Il suffit de taper <strong>X</strong> en face d’une proposition aller et d’une proposition retour. Cette solution évite les contrôles de formulaire qui se comportent différemment sur mobile.</p>
+ <h3>6. Centraliser pour réserver</h3><p>Récupérez les Excel modifiés par e-mail, puis réimportez-les dans Transbora. Téléchargez le tableau de suivi mis à jour pour préparer les réservations.</p>
+ <h3>Vie privée</h3><p>Les noms saisis ne sont pas enregistrés sur un serveur Transbora : le traitement se fait dans ce navigateur. Si vous quittez cette page, le brouillon est perdu. Sauvegardez votre Excel avant de fermer.</p>
+ <h3>Attention</h3><p>Les horaires sont théoriques et ne prouvent ni la disponibilité de places, ni le tarif, ni une correspondance garantie. Vérifiez toujours avant l’achat.</p>
+ </div>
+</aside>
+<main class="container event-main">
+ <section class="event-hero">
+  <span class="eyebrow">TRANSPORTS DE GROUPE • EXCEL EN 4 ÉTAPES</span>
+  <h1>Organisez les trajets de tout un événement.</h1>
+  <p>Plusieurs personnes, plusieurs villes : Transbora prépare leurs propositions de trains et d’autocars, puis des Excel élégants et faciles à renvoyer.</p>
+  <div class="steps"><a href="#etape-1">01 · Événement</a><a href="#etape-2">02 · Voyageurs</a><a href="#etape-3">03 · Trajets</a><a href="#etape-4">04 · Excel</a></div>
+ </section>
+ <p id="global-status" class="notice" role="status">Chargement des sources de trajets…</p>
+ <section class="panel event-panel" id="etape-1">
+  <div class="section-heading"><div class="section-icon">1</div><div><span class="overline">PRÉPARATION</span><h2>Votre événement</h2><p class="muted">Saisissez ces informations une seule fois pour toutes les personnes.</p></div></div>
+  <div class="fields event-fields">
+   <label>Nom de l’événement<input id="event-title" value="" placeholder="Ex. Rencontres à Paris" maxlength="90" required></label>
+   <label>Ville de destination<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" required><datalist id="event-stations"></datalist></label>
+   <label>Date de début<input id="event-start-date" type="date"></label>
+   <label>Début à<input id="event-start-time" type="time" value="14:00"></label>
+   <label>Date de fin<input id="event-end-date" type="date"></label>
+   <label>Fin à<input id="event-end-time" type="time" value="18:00"></label>
+   <label>Date des allers <small>(modifiable par voyageur)</small><input id="event-outward-date" type="date"></label>
+   <label>Date des retours <small>(modifiable par voyageur)</small><input id="event-return-date" type="date"></label>
+   <label>Arriver avant le début <small>(marge pour rejoindre le lieu)</small>
+    <select id="arrival-margin"><option value="60">1 heure</option><option value="90" selected>1 h 30 (conseillé)</option><option value="120">2 heures</option></select></label>
+   <label>Repartir après la fin <small>(marge pour rejoindre la gare)</small>
+    <select id="departure-margin"><option value="30">30 minutes</option><option value="45" selected>45 minutes</option><option value="60">1 heure</option><option value="90">1 h 30</option></select></label>
+  </div>
+ </section>
+ <section class="panel event-panel" id="etape-2">
+  <div class="section-heading"><div class="section-icon">2</div><div><span class="overline">VOYAGEURS</span><h2>Ajoutez vos participants</h2><p class="muted">Une liste Excel ou quelques noms saisis directement.</p></div></div>
+  <div class="import-card">
+   <div><strong>📥 Vous avez déjà une liste ?</strong><p>Téléchargez le modèle, remplissez les trois colonnes obligatoires, puis importez votre .xlsx. Les dates individuelles sont facultatives.</p>
+   <p class="muted small">En-têtes attendus : <strong>Prénom · Nom · Ville de départ</strong>. Jusqu’à 100 participants.</p></div>
+   <div class="import-actions">
+    <button id="download-template" type="button" class="secondary">⬇ Télécharger le modèle Excel</button>
+    <label class="upload-button" for="import-participants">📁 Importer un Excel</label>
+    <input id="import-participants" class="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+   </div>
+  </div>
+  <div class="separator"><span>OU AJOUTER À LA MAIN</span></div>
+  <form id="manual-person" class="manual-form">
+   <label>Prénom<input id="add-first" placeholder="Ex. Sophie" maxlength="90" required></label>
+   <label>Nom<input id="add-last" placeholder="Ex. Martin" maxlength="90" required></label>
+   <label>Départ<input id="add-from" list="event-stations" placeholder="Ex. Brest" maxlength="140" required></label>
+   <button class="secondary" type="submit">+ Ajouter</button>
+  </form>
+  <div class="section-subheading"><h3>Liste des voyageurs <span id="participants-total" class="chip">0</span></h3><button type="button" class="text-button" id="clear-participants">Tout effacer</button></div>
+  <div id="participants-list" class="people-list" aria-live="polite"><p class="muted">Aucun voyageur ajouté.</p></div>
+  <p id="import-status" role="status" class="muted"></p>
+ </section>
+ <section class="panel event-panel" id="etape-3">
+  <div class="section-heading"><div class="section-icon">3</div><div><span class="overline">MOTEUR DE RECHERCHE</span><h2>Les trajets de tout le monde</h2><p class="muted">Les mêmes villes et mêmes dates sont regroupées automatiquement.</p></div></div>
+  <div class="fields event-fields compact">
+   <label>Transports<select id="ev-mode"><option value="all">Trains + autocars</option><option value="rail">Trains uniquement</option><option value="bus">Autocars uniquement</option></select></label>
+   <label>Correspondances<select id="ev-connections"><option value="yes" selected>Jusqu’à 1 changement</option><option value="two">Jusqu’à 2 changements</option><option value="no">Directs seulement</option></select></label>
+   <label>Sécurité des changements<select id="ev-buffer"><option value="very_cautious" selected>Très prudente</option><option value="prudent">Équilibrée</option></select></label>
+   <label>Propositions par trajet<select id="ev-count"><option value="2">2</option><option value="3" selected>3 (recommandé)</option><option value="4">4</option><option value="5">5</option></select></label>
+  </div>
+  <button type="button" class="primary main-cta" id="search-everyone" disabled>🔎 Rechercher tous les allers et retours</button>
+  <p class="muted small">Le logiciel propose des trajets qui arrivent avant le début de l’événement et repartent après sa fin. Résultats indicatifs, sans tarifs ni réservation.</p>
+  <div id="progress-box" class="progress-box" hidden><div class="progress-label" id="progress-label">Recherche…</div><progress id="progress" max="100" value="0"></progress></div>
+  <div id="journey-recap" class="recap-list" aria-live="polite"></div>
+ </section>
+ <section class="panel event-panel" id="etape-4">
+  <div class="section-heading"><div class="section-icon">4</div><div><span class="overline">PARTAGE & RÉSERVATION</span><h2>Vos fichiers Excel</h2><p class="muted">Deux façons de demander les choix, plus un suivi des billets à réserver.</p></div></div>
+  <div class="export-grid">
+   <article class="export-card"><div class="export-icon">👥</div><h3>Un organisateur décide pour tous</h3><p>Un seul classeur contenant les allers, les retours, la liste des voyageurs et le tableau de réservation.</p><button type="button" class="primary" id="export-organizer" disabled>⬇ Excel du groupe</button></article>
+   <article class="export-card"><div class="export-icon">👤</div><h3>Chacun choisit ses horaires</h3><p>Un fichier Excel personnalisé par voyageur, réunis dans une seule archive ZIP. Chaque personne ne voit que ses trajets.</p><button type="button" class="primary" id="export-personal-zip" disabled>⬇ Tous les Excel en ZIP</button></article>
+  </div>
+  <div class="section-subheading"><h3>Téléchargement individuel</h3></div>
+  <p class="muted">Vous pouvez aussi télécharger un fichier pour une seule personne et le joindre à votre message.</p>
+  <div id="individual-files" class="individual-files"><p class="muted">Ajoutez des personnes et lancez la recherche.</p></div>
+  <div class="reply-panel">
+   <h3>✅ Les réponses sont revenues ?</h3><p>Ouvrez les fichiers Excel reçus (individuels ou celui de l’organisateur). Transbora lit les <strong>X</strong> et prépare la liste des choix pour la réservation.</p>
+   <label class="upload-button" for="import-replies">📂 Importer les Excel complétés</label>
+   <input id="import-replies" class="sr-only" type="file" accept=".xlsx" multiple>
+   <p id="reply-status" role="status" class="muted"></p>
+   <button type="button" class="secondary" id="export-followup" disabled>⬇ Télécharger le suivi des réservations actualisé</button>
+  </div>
+  <p class="warning">⚠️ Ces Excel sont des propositions de voyage, pas des billets. Vérifiez horaires, prix, places, protection des correspondances et identité avant de réserver. Les données personnelles restent dans ce navigateur et dans les fichiers que vous partagez.</p>
+ </section>
+ <footer class="event-footer"><p>Transbora · Projet indépendant · Sources : horaires théoriques publics SNCF, Trenitalia, Eurostar, FlixBus et BlaBlaCar Bus, selon disponibilité. Le moteur et les fichiers personnels sont exécutés localement dans votre navigateur.</p><p><a href="./index.html">Revenir à la recherche simple</a> · <button type="button" id="footer-help" class="text-button">Aide & mode d’emploi</button></p></footer>
+</main>
+</body>
+</html>
