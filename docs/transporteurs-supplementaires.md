@@ -2,7 +2,7 @@
 
 ## Décision
 
-**Conserver les sources ouvertes pour les horaires théoriques** au lieu d'acheter immédiatement l'accès à un agrégateur privé. Le moteur initial couvre **seulement la SNCF et les trains directs** ; les opérateurs ci-dessous sont **identifiés, non encore intégrés**.
+**Conserver les sources ouvertes pour les horaires théoriques** au lieu d'acheter immédiatement l'accès à un agrégateur privé. Le moteur multimodal a été implémenté dans la PR #1. Les cinq téléchargements GTFS ont été **vérifiés lors du workflow GitHub du 18 octobre 2026**. La recherche reste limitée aux trajets directs et la page publique doit être validée après déploiement.
 
 | Fournisseur | Type | Source publique vérifiée | Couverture annoncée au 18/10/2026 |
 | --- | --- | --- | --- |
@@ -35,4 +35,4 @@ Les données ouvertes ne comprennent **pas les prix, l'inventaire de places, ni 
 
 ## Statut
 
-**Étude réalisée ; sources complémentaires non connectées.** Conserver le périmètre SNCF initial jusqu'à ce que son pipeline GitHub et ses horaires soient validés.
+**Implémentation réalisée dans la PR #1 et les cinq sources GTFS téléchargées avec succès pendant l'essai GitHub Actions du 18/10/2026.** La validité des résultats doit encore être confrontée à des horaires des transporteurs dans le navigateur après publication. Les correspondances, les prix et les horaires transfrontaliers en heure locale ne sont pas encore validés.

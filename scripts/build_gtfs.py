@@ -29,7 +29,7 @@ def seconds(text):
         raise ValueError(f"Invalid GTFS time: {text}")
     return h*3600+m*60+s
 
-def build(z):
+def build(z, mode='rail', provider='SNCF'):
     for info in z.infolist():
         if info.file_size > 600_000_000 or ".." in Path(info.filename).parts:
             raise ValueError("Invalid ZIP member")
@@ -53,7 +53,8 @@ def build(z):
     routes = {}
     for item in rows(z, "routes.txt"):
         category = int(item.get("route_type") or -1)
-        if category == 2 or 100 <= category <= 199:
+        if ((mode == 'rail' and (category == 2 or 100 <= category <= 199))
+                or (mode == 'bus' and (category == 3 or 700 <= category <= 799))):
             routes[item["route_id"]] = (item.get("route_short_name") or item.get("route_long_name") or "Train").strip()
     trips = {}
     for item in rows(z, "trips.txt"):
@@ -61,7 +62,7 @@ def build(z):
             trips[item["trip_id"]] = [item["service_id"], routes[item["route_id"]],
                 item.get("trip_headsign", ""), item.get("trip_short_name", "")]
     if not trips:
-        raise ValueError("No rail services found")
+        raise ValueError(f"No {mode} services found")
     stops = {}
     for item in rows(z, "stops.txt"):
         stops[item["stop_id"]] = [item.get("stop_name", "").strip(), item.get("parent_station", "").strip()]
@@ -116,7 +117,7 @@ def build(z):
         active.append((tid, items))
         station_ids.update(x[1] for x in items)
     if not active:
-        raise ValueError("No active scheduled trains")
+        raise ValueError(f"No active {mode} journeys")
     ordered = sorted(station_ids, key=lambda x: (stops.get(x, [x])[0].casefold(), x))
     station_index = {sid:i for i,sid in enumerate(ordered)}
     masks_used = sorted({masks[trips[tid][0]] for tid, _ in active})
@@ -129,25 +130,29 @@ def build(z):
             [[station_index[i[1]], *i[2:]] for i in items]])
     return {"meta": {"first":first.isoformat(), "last":last.isoformat(),
             "generated":datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "source": URL, "kind":"planned_only", "trains":len(output), "stations":len(ordered)},
+            "source": URL, "provider":provider, "mode":mode, "kind":"planned_only", "trains":len(output), "stations":len(ordered)},
             "stations":[[sid, stops.get(sid, [sid])[0] or sid] for sid in ordered],
             "services":encoded, "trips":output}
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path)
+    parser.add_argument("--url", default=URL)
+    parser.add_argument("--mode", choices=["rail", "bus"], default="rail")
+    parser.add_argument("--provider", default="SNCF")
     parser.add_argument("--output", type=Path, default=Path("site/data/trains.json"))
     args = parser.parse_args()
     if args.input:
         raw = args.input.read_bytes()
     else:
-        request = Request(URL, headers={"User-Agent":"Transbora/0.1"})
+        request = Request(args.url, headers={"User-Agent":"Transbora/0.2"})
         with urlopen(request, timeout=75) as response:
             raw = response.read(60_000_001)
     if len(raw) > 60_000_000:
         raise ValueError("Source ZIP too large")
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
-        data = build(z)
+        data = build(z, mode=args.mode, provider=args.provider)
+    data['meta']['source'] = str(args.input) if args.input else args.url
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(data["meta"], "output_bytes", args.output.stat().st_size)

@@ -1,41 +1,58 @@
-# 🚆 Transbora
+# 🚆 Transbora — recherche multimodale de propositions de transport
 
-Projet indépendant destiné à **éviter de recopier des horaires de train** : chercher un trajet, sélectionner les horaires de départ et d'arrivée, puis copier directement une proposition.
+Application indépendante pour gagner du temps lors de la préparation d'horaires à proposer : rechercher des trajets directs en train ou en autocar, en cocher plusieurs, **copier une proposition**.
 
-## Où en sommes-nous ?
+## Compagnies prévues et état
 
-- ✅ Recherche documentée : voir [le choix technique](docs/choix-technique.md).
-- ✅ Moteur de lecture du GTFS public SNCF dans `scripts/build_gtfs.py`.
-- ✅ Recherche de trajets **directs**, filtrage par date et plage horaire : `site/engine.mjs`.
-- ✅ Page de recherche et copie dans le presse-papiers : `site/index.html`, `site/app.mjs`.
-- ✅ Tests unitaires Python/JavaScript dans `tests/`.
-- ✅ Workflow quotidien GitHub Actions pour télécharger les horaires SNCF et publier le site.
-- ⬜ Vérifier la première exécution GitHub Actions, les horaires avec un cas réel, et le site public.
-- ⬜ Ajouter les correspondances après validation de l'usage.
+| Fournisseur | Transport | Données |
+|---|---|---|
+| SNCF Voyageurs | Train (TGV, TER, Intercités) | GTFS officiel ; obligatoire pour publier le site |
+| Trenitalia France | Train | GTFS du catalogue data.gouv.fr |
+| Eurostar | Train | GTFS du catalogue data.gouv.fr |
+| FlixBus | Autocar | GTFS du catalogue data.gouv.fr |
+| BlaBlaCar Bus | Autocar | GTFS du catalogue data.gouv.fr |
 
-## Activer la page web
+**Important :** La présence du code ne garantit pas qu'un flux a été chargé. Les réussites/échecs et périodes d'horaires sont vérifiées dans GitHub Actions et affichées source par source sur le site.
 
-Dans ce dépôt : **Settings → Pages → Build and deployment → Source : GitHub Actions**.
+## Ce que permet le prototype
 
-Ensuite, consulter l'onglet **Actions** ; le workflow « Transbora - horaires SNCF et publication » doit réussir pour publier une page accessible. L'adresse attendue **après validation effective du déploiement** est :
+1. Saisir deux noms de ville, de gare ou d'arrêt (ex. Lorient et Paris), une date, une plage horaire.
+2. Filtrer trains, autocars ou tous.
+3. Rechercher les **trajets directs uniquement** dans les horaires théoriques publics disponibles, avec l'arrêt exact à chaque extrémité.
+4. Cocher les horaires à transmettre, puis copier un texte professionnel indiquant compagnie, arrêts et heures.
 
-https://ludodulac.github.io/Transbora/
+Pas de correspondances, de prix, de places disponibles, de réservation, ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : vérifier les fuseaux horaires et heures locales auprès du transporteur**, la conversion n'est pas encore validée.
 
-Le site ne fonctionne pas si le téléchargement des données réelles a échoué : les heures ne sont jamais inventées.
+## Publication sur GitHub Pages
 
-## Exécuter les tests sans service payant
+Sur le dépôt GitHub, sous **Settings → Pages**, choisir **Source : GitHub Actions**.
+
+Workflow : `.github/workflows/pages.yml` (push sur main, manuel, quotidien). Il lance les tests, télécharge les horaires et publie le site. Les données statiques sont générées dans l'artefact Pages et ne sont pas ajoutées dans Git.
+
+Adresse attendue **après le succès de la publication** : https://ludodulac.github.io/Transbora/
+
+Le workflow refuse une publication si le flux SNCF essentiel ne marche pas. L'échec d'un autre opérateur est explicitement indiqué sur la page.
+
+## Vérifier le code
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py' -v
 node --test tests/*.test.mjs
+node --check site/app-multi.mjs
 ```
 
-## Générer des données réelles localement
+## Construire les données ouvertes
 
 ```bash
-python scripts/build_gtfs.py --output site/data/trains.json
+python scripts/build_sources.py --output site/data
 ```
 
-Les données du fichier ZIP GTFS SNCF sont celles du programme théorique, **pas** des disponibilités commerciales ou du temps réel. Les données sont publiées sous licence ODbL et conditions particulières ; l'attribution apparaît sur le site.
+Utilise le GTFS SNCF officiel et l'[API catalogue data.gouv.fr](https://www.data.gouv.fr/api/1/) pour retrouver les autres GTFS statiques. Pas de jeton ni de clé API payante. Les données ouvertes ont **des licences propres à chaque fournisseur**, indiquées dans [l'étude des transporteurs](docs/transporteurs-supplementaires.md).
 
-**Version 1 :** trains directs uniquement. Tarifs, réservations, correspondances, perturbations et billets non couverts. Vérifier les horaires auprès du transporteur avant achat.
+## Fiabilité et garde-fous
+
+- Horaires **théoriques**, susceptibles de changer, à vérifier avant réservation.
+- Chaque source a sa propre plage de dates ; « aucun résultat » ne prouve pas qu'aucun train ou car n'existe.
+- Ne jamais inventer les horaires, les places ou les prix.
+- Aucune donnée client nominative n'est nécessaire au prototype.
+- Le code et les données générées sont publiés en open source sous réserve des licences des jeux de données ; ne pas confondre la licence des données et celle du code.

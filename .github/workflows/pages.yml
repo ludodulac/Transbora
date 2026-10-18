@@ -29,17 +29,21 @@ jobs:
       - name: Tests de recherche dans le navigateur
         run: node --test tests/*.test.mjs
       - name: Telecharger les vraies donnees SNCF
-        run: python scripts/build_gtfs.py --output site/data/trains.json
+        run: python scripts/build_sources.py --output site/data
       - name: Verifier le fichier genere
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          data = json.loads(Path('site/data/trains.json').read_text())
-          assert len(data['trips']) > 100, 'Nombre de trains anormal'
-          assert len(data['stations']) > 100, 'Nombre de gares anormal'
+          manifest = json.loads(Path('site/data/manifest.json').read_text())
+          assert manifest['available'] >= 1
+          assert manifest['sources'][0]['id'] == 'sncf'
+          assert manifest['sources'][0]['status'] == 'ok'
+          data = json.loads(Path('site/data/sncf.json').read_text())
+          assert len(data['trips']) > 100
+          assert len(data['stations']) > 100
           assert data['meta']['first'] <= data['meta']['last']
-          print(data['meta'])
+          print('Sources :', [(s['id'],s['status']) for s in manifest['sources']])
           PY
       - uses: actions/upload-pages-artifact@v4
         with:
