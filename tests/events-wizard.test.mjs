@@ -21,6 +21,7 @@ async function settle(){
 test('four screen wizard, concise form, progress, search and separate replies',async()=>{
   const dom=new JSDOM(html,{url:'https://ludodulac.github.io/Transbora/events.html',pretendToBeVisual:true});
   const {window}=dom;window.scrollTo=()=>{};
+  window.HTMLElement.prototype.scrollIntoView=()=>{};
   globalThis.window=window;
   globalThis.document=window.document;
   Object.defineProperty(globalThis,'navigator',{value:window.navigator,configurable:true});
@@ -95,6 +96,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('search-everyone').hidden,true);
   assert.equal($('wizard-next').hidden,false);
   assert.ok($('journey-recap').textContent.includes('Sophie'));
+  assert.equal($('global-status').classList.contains('has-error'),false,
+    'A successful search must not be masked by an error from navigation');
   click(window.document,'wizard-next');
   assert.equal($('etape-4').hidden,false);
   assert.equal($('export-organizer').hidden,false);
