@@ -18,10 +18,10 @@ Application indépendante pour gagner du temps lors de la préparation d'horaire
 
 1. Saisir deux noms de ville, de gare ou d'arrêt (ex. Lorient et Paris), une date, une plage horaire.
 2. Filtrer trains, autocars ou tous.
-3. Rechercher les **trajets directs uniquement** dans les horaires théoriques publics disponibles, avec l'arrêt exact à chaque extrémité.
+3. Rechercher les **trajets directs ou jusqu'à une correspondance** dans les horaires théoriques publics, avec les gares/arrêts exacts et les horaires en heure de Paris.
 4. Cocher les horaires à transmettre, puis copier un texte professionnel indiquant compagnie, arrêts et heures.
 
-Pas de correspondances, de prix, de places disponibles, de réservation, ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : vérifier les fuseaux horaires et heures locales auprès du transporteur**, la conversion n'est pas encore validée.
+Les correspondances utilisent des marges conservatrices et la proximité physique documentée des gares ; [voir les règles](docs/correspondances.md). Pas de prix, de places disponibles, de réservation ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : horaires affichés en heure de Paris, vérifier l'heure locale et les contrôles auprès du transporteur.**
 
 ## Publication sur GitHub Pages
 
