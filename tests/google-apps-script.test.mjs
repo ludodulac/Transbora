@@ -9,8 +9,17 @@ function testSheet(matrix) {
   getDataRange(){return {getDisplayValues:()=>rows,getValues:()=>rows};},
   getLastRow(){return rows.length;},
   getRange(start,col,count,width){
-   return {getDisplayValues:()=>rows.slice(start-1,start-1+count).map(row=>row.slice(col-1,col-1+width))};
+   return {
+    getDisplayValues:()=>rows.slice(start-1,start-1+count).map(row=>row.slice(col-1,col-1+width)),
+    setValues(data){
+      data.forEach((entry,i)=>{
+        while(rows.length<start+i)rows.push([]);
+        for(let j=0;j<entry.length;j++)rows[start+i-1][col+j-1]=entry[j];
+      });
+    }
+   };
   },
+  clearContents(){rows.length=0;},
   appendRow(row){rows.push(row.slice());},
   values:rows
  };
@@ -31,6 +40,7 @@ function runtime(){
  };
  const spreadsheet={
   getId:()=> 'private-test-sheet',
+  getUrl:()=> 'https://docs.google.com/spreadsheets/d/private-test-sheet/edit',
   getSheetByName:(name)=>sheet[name],
   setActiveSheet:()=>{}
  };
@@ -61,7 +71,9 @@ function runtime(){
   ScriptApp:{getProjectTriggers:()=>triggers.map(t=>({getHandlerFunction:()=>t})),
     newTrigger:(name)=>({timeBased(){return this;},everyHours(){return this;},
       create(){triggers.push(name)}})},
-  LockService:{getDocumentLock:()=>({tryLock:()=>true,waitLock:()=>{},releaseLock:()=>{}})},
+  LockService:{getDocumentLock:()=>({tryLock:()=>true,waitLock:()=>{},releaseLock:()=>{}}),
+    getScriptLock:()=>({tryLock:()=>true,waitLock:()=>{},releaseLock:()=>{}})},
+  HtmlService:{createHtmlOutput:(html)=>({html,setTitle(title){this.title=title;return this;}})},
   Date,Map,Set,String,Array,console
  };
  vm.runInNewContext(source,sandbox,{filename:'Code.gs'});
@@ -120,4 +132,36 @@ test('forms for 27 travelers are created in two resumable batches with only one 
  assert.equal(x.sheet.Liens.values.length,28);
  x.sandbox.creerFormulairesTransbora();
  assert.equal(x.forms.length,27);
+});
+
+
+test('one-click private web app creates Forms and returns actual participant links',()=>{
+ const x=runtime();
+ x.sandbox.verifierFeuillesTransbora();
+ const headers=[...x.sheet.Propositions.values[0]];
+ const rows=x.sheet.Propositions.values.slice(1).map(r=>[...r]);
+ const result=x.sandbox.doPost({parameter:{payload:JSON.stringify({headers,rows})}});
+ assert.ok(result.html.includes('Vos formulaires sont prêts'));
+ assert.ok(result.html.includes('docs.google.com/forms'));
+ assert.ok(result.html.includes('private-test-sheet'));
+ assert.equal(x.forms.length,1);
+ assert.equal(x.sheet.Liens.values.length,2);
+ assert.equal(x.triggers.length,1);
+ const repeated=x.sandbox.doPost({parameter:{payload:JSON.stringify({headers,rows})}});
+ assert.equal(x.forms.length,1,'same event ID must never create duplicate Forms');
+ assert.ok(repeated.html.includes('déjà enregistré'));
+});
+test('private web app rejects spreadsheet formula injection and mixed batch IDs',()=>{
+ const x=runtime();
+ x.sandbox.verifierFeuillesTransbora();
+ const headers=[...x.sheet.Propositions.values[0]],rows=x.sheet.Propositions.values.slice(1).map(r=>[...r]);
+ rows[0][4]='=HYPERLINK("evil")';
+ const first=x.sandbox.doPost({parameter:{payload:JSON.stringify({headers,rows})}});
+ assert.ok(first.html.includes('Création impossible'));
+ assert.equal(x.forms.length,0);
+ assert.equal(x.sheet.Propositions.values.length,4,'invalid request must not erase existing sheet rows');
+ rows[0][4]='Sophie';rows[1][0]='EV-OTHER';
+ const second=x.sandbox.doPost({parameter:{payload:JSON.stringify({headers,rows})}});
+ assert.ok(second.html.includes('Création impossible'));
+ assert.equal(x.forms.length,0);
 });
