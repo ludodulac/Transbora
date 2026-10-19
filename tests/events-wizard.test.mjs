@@ -133,6 +133,15 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('etape-4').hidden,false);
   assert.equal($('prepare-native-individual').hidden,false);
   assert.equal($('prepare-native-group').hidden,false);
+  assert.match($('owner-code-setup').textContent,/Ce code existe déjà/);
+  // Replies cannot open a non-existent dossier; guide user back to link creation.
+  click(window.document,'open-replies');
+  assert.equal($('reply-screen').hidden,false);
+  assert.equal($('replies-no-folder').hidden,false);
+  assert.equal($('replies-has-folder').hidden,true);
+  click(window.document,'go-create-links');
+  assert.equal($('reply-screen').hidden,true);
+  assert.equal($('etape-4').hidden,false);
   $('native-master-key').value='test-private-admin';
   click(window.document,'prepare-native-individual');
   await new Promise(resolve=>setTimeout(resolve,50));
@@ -148,6 +157,10 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('native-ready').hidden,false);
   assert.match($('native-status-link').href,/suivi\.html#event=/);
   assert.match($('native-share-links').textContent,/Sophie/);
+  assert.equal($('native-share-links').querySelectorAll('a[href*="choix.html"]').length,1,
+    'Created links must be visible as working destination URLs, not just generic Drive/home links');
+  assert.equal($('replies-no-folder').hidden,true);
+  assert.equal($('replies-has-folder').hidden,false);
   assert.equal($('export-organizer').hidden,false);
   assert.equal($('export-personal-zip').hidden,false);
   assert.equal($('wizard-next').hidden,true);
@@ -159,6 +172,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   click(window.document,'menu-replies');
   assert.equal($('wizard-shell').hidden,true);
   assert.equal($('reply-screen').hidden,false);
+  assert.equal($('replies-no-folder').hidden,true);
+  assert.equal($('open-replies-native').href.includes('suivi.html#event='),true);
   assert.equal($('step-progress').getAttribute('aria-valuenow'),'4');
   assert.equal($('help-open').getAttribute('aria-expanded'),'false');
   assert.ok($('import-replies'));
