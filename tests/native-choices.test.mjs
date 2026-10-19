@@ -86,9 +86,9 @@ test('owner can revoke all links and permanently delete saved responses',async()
  assert.equal((await f.call('view',{token:c.links[0].token})).status,404);
  assert.equal(f.stores.get('transbora-choice-replies').size,0);
 });
-test('participant capability links expire and do not enable access after 45 days',async()=>{
+test('participant capability links expire after the event and retention period',async()=>{
  const f=fixture(),c=(await f.call('create',{event:f.event,people:f.people,mode:'individual'},'very-private-secret-123')).data;
- f.time.now+=46*24*3600*1000;
+ f.time.now+=100*24*3600*1000;
  assert.equal((await f.call('view',{token:c.links[0].token})).status,410);
  assert.equal((await f.call('submit',{token:c.links[0].token,answers:[]})).status,410);
 });
