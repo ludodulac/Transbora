@@ -119,7 +119,7 @@ export function allOptions(feeds,query,config,officialRules=new Map()){
   const chosen=feeds.filter(x=>config.mode==='all'||x.source.mode===config.mode);
   let list=[];
   for(const f of chosen){
-    if(query.date<f.data.meta.first||query.date>f.data.meta.last)continue;
+    if(query.date<f.data.meta.first||query.date>shiftDate(f.data.meta.last,1))continue;
     list.push(...searchFeed(f.data,query,f.source));
   }
   if(config.connections!=='no'){
@@ -141,10 +141,11 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     if(!min||!publishedEnd)return {choices:[],searched:[],covered:false};
     const deadline=travelBoundary(event,kind);
     const boundaryDay=kind==='A'?event.startDate:event.endDate;
+    const finalClockDay=shiftDate(publishedEnd,1);
     const starting=kind==='A'?
-      [boundaryDay,publishedEnd].sort()[0]:
+      [boundaryDay,finalClockDay].sort()[0]:
       [boundaryDay,min].sort().at(-1);
-    const ending=kind==='A'?min:publishedEnd;
+    const ending=kind==='A'?min:finalClockDay;
     let current=explicit.length?explicit[0]:starting;
     if(explicit.length===0 && (kind==='A'?current<ending:current>ending))
       return {choices:[],searched:[],covered:false};
@@ -155,7 +156,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       searched.push(date);
       const query={...queryData,date,earliest:'00:00',latest:'23:59'};
       const k=queryKey(query,settings);
-      covered ||=coverage.selected.some(f=>date>=f.data.meta.first&&date<=f.data.meta.last);
+      covered ||=coverage.selected.some(f=>date>=f.data.meta.first&&date<=shiftDate(f.data.meta.last,1));
       try{
         if(!cache.has(k))cache.set(k,allOptions(feeds,query,settings,officialRules));
         for(const route of pickItineraries(cache.get(k),query,event,kind,{maximum:200})){
