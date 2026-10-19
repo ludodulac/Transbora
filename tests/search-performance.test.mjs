@@ -20,7 +20,7 @@ test('unknown origin terminates quickly without scanning all dates',async()=>{
  const result=await planEvent(event,[p],[feed],setting,new Map(),()=>{},
    {maxDurationMs:10000,maxDirectionMs:10000});
  assert.equal(result.partial,false);
- assert.ok(result.issues.some(x=>/gare ou ville absente/i.test(x)));
+ assert.ok(result.issues.some(x=>/départ non reconnu|destination non reconnue/i.test(x)));
  assert.equal(result.plans.get('P-001').outward.length,0);
 });
 
