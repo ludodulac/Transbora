@@ -408,7 +408,8 @@ async function createNativeLinks(mode){
     const people=buildChoicePeople(event,participants,plans);
     busy(true);shareStatus('Création des liens privés…');
     const result=await api('create',{event,people,mode},master);
-    $('native-master-key').value='';
+    // Keep the owner code in this open page so another event does not
+    // require pasting it again. Nothing is sent to travelers or localStorage.
     renderPublished(result,mode);
   }catch(error){
     msg($('native-status'),error.message,true);
