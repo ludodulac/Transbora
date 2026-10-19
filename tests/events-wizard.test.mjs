@@ -24,6 +24,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   window.HTMLElement.prototype.scrollIntoView=()=>{};
   globalThis.window=window;
   globalThis.document=window.document;
+  globalThis.location=window.location;
+  globalThis.sessionStorage=window.sessionStorage;
   Object.defineProperty(globalThis,'navigator',{value:window.navigator,configurable:true});
   globalThis.confirm=()=>true;
 
@@ -41,8 +43,16 @@ test('four screen wizard, concise form, progress, search and separate replies',a
       [0,'TGV','','402',[[1,75600,75600,1,0],[0,85800,85800,0,1]]]
     ]
   };
-  globalThis.fetch=async url=>{
+  const apiCalls=[];
+  globalThis.fetch=async (url,opts={})=>{
     const path=String(url);
+    if(path==='/api/transbora'){
+      const input=JSON.parse(opts.body||'{}');apiCalls.push(input);
+      return {ok:true,status:201,json:async()=>({
+        eventId:'event-from-server',ownerKey:'owner-private-key',
+        links:[{token:'link-from-server-token-123456789',label:'Sophie Martin',personId:'P-001'}]
+      })};
+    }
     let data;
     if(path.includes('manifest.json'))data=manifest;
     else if(path.includes('stations.json'))data=['Brest','Paris'];
@@ -120,31 +130,17 @@ test('four screen wizard, concise form, progress, search and separate replies',a
     'A successful search must not be masked by an error from navigation');
   click(window.document,'wizard-next');
   assert.equal($('etape-4').hidden,false);
-  assert.ok(!$('open-google-sheet').href.includes('/my-drive'),
-    'Never send the user to the generic Drive homepage instead of their Sheet');
-  click(window.document,'open-google-sheet');
-  assert.equal($('google-config').open,true,
-    'Missing private Google Sheet link should show setup, not navigate to Drive root');
-  set(window.document,'google-sheet-url',
-    'https://docs.google.com/spreadsheets/d/TEST_USER_PRIVATE_SHEET_ID/edit');
-  click(window.document,'save-google-sheet');
-  assert.ok($('open-google-sheet').href.endsWith('/TEST_USER_PRIVATE_SHEET_ID/edit'));
-  assert.equal($('google-flow-hint').textContent.includes('Configurez Google'),true);
-  const endpoint='https://script.google.com/macros/s/TEST_PRIVATE_WEB_APP/exec';
-  set(window.document,'google-webapp-url',endpoint);
-  click(window.document,'save-google-sheet');
-  assert.match($('google-flow-hint').textContent,/Prêt/);
-  const seen=[];
-  window.HTMLFormElement.prototype.submit=function(){
-    seen.push({action:this.action,target:this.target,
-      payload:JSON.parse(this.querySelector('[name="payload"]').value)});
-  };
-  click(window.document,'prepare-google-individual');
-  assert.equal(seen.length,1,'Configured private app should receive one actual POST');
-  assert.equal(seen[0].action,endpoint);
-  assert.equal(seen[0].target,'_blank');
-  assert.equal(seen[0].payload.headers[0],'Dossier ID');
-  assert.ok(seen[0].payload.rows.some(row=>row[4]==='Sophie'));
+  assert.equal($('prepare-native-individual').hidden,false);
+  assert.equal($('prepare-native-group').hidden,false);
+  $('native-master-key').value='test-private-admin';
+  click(window.document,'prepare-native-individual');
+  await new Promise(resolve=>setTimeout(resolve,50));
+  assert.equal(apiCalls.length,1);
+  assert.equal(apiCalls[0].mode,'individual');
+  assert.ok(apiCalls[0].people.some(p=>p.first==='Sophie'));
+  assert.equal($('native-ready').hidden,false);
+  assert.match($('native-status-link').href,/suivi\.html#event=/);
+  assert.match($('native-share-links').textContent,/Sophie/);
   assert.equal($('export-organizer').hidden,false);
   assert.equal($('export-personal-zip').hidden,false);
   assert.equal($('wizard-next').hidden,true);

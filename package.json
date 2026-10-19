@@ -1,7 +1,7 @@
 {
   "name": "transbora",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.12.0",
   "type": "module",
   "description": "Standalone train and coach event travel proposals",
   "scripts": {
@@ -11,5 +11,8 @@
     "exceljs": "4.4.0",
     "jszip": "3.10.1",
     "jsdom": "24.1.3"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.4"
   }
 }

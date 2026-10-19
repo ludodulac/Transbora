@@ -35,7 +35,19 @@ Pour un voyageur importé depuis Excel, une date de déplacement explicitement r
 
 **Détails et limites :** [règles de recherche par heure de présence](docs/presence-heure-010.md).
 
-## ⭐ Sélection des trajets par Google Forms (mission 008)
+## 🚆 Liens de choix Transbora natifs (mission 012) — parcours recommandé
+
+**Aucun formulaire Google à configurer pour les clients ni pour les voyageurs.** Transbora propose directement une page mobile personnelle ou collective de sélection des trajets : le participant ouvre son lien, choisit un aller et/ou un retour, confirme. L'organisateur retrouve les réponses dans son **tableau Transbora privé** (et peut exporter un suivi CSV).
+
+Le code du prototype est hébergé sur GitHub ; pour recevoir les choix il faut le **serveur Netlify** configuré dans ce dépôt (`netlify.toml`, `netlify/functions/`). Le projet personnel Netlify **transbora-ludo** a été créé et son code organisateur stocké de manière privée ; le **premier déploiement et la connexion GitHub → Netlify restent à effectuer par le propriétaire**. GitHub Pages seul ne permet pas l'enregistrement des réponses.
+
+Les participants n'ont **aucun compte à créer**. L'éditeur seul utilise un code maître privé lors de la création des liens (prévention des abus sur le prototype). **Les liens visiteurs expirent après l'événement** et sont révocables depuis le suivi.
+
+Le choix par Google Forms décrit ci-dessous est **historique** et n'est plus l'interface principale.
+
+**Documentation :** [Installation, fonctionnement, sécurité et limites](docs/choix-natifs-012.md).
+
+## Historique — Google Forms (missions 008–011, non recommandé)
 
 Transbora peut préparer une **page de choix Google Forms lisible sur téléphone** : un lien par voyageur ou un lien collectif pour l'organisateur. Les réponses arrivent dans **un Google Sheet privé** dans le Drive du propriétaire, sans Supabase, Cloudflare, base publique ni paiement.
 

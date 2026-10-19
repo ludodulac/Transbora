@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Transbora : voyages de groupe en quatre étapes, choix de trains dans Google Forms.">
+<meta name="description" content="Transbora : trajets de groupe et choix directement en ligne, sans compte Google.">
 <title>Événements — Transbora</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="./events.css">
@@ -27,12 +27,12 @@
   <button type="button" id="menu-replies" class="drawer-link">✅ Réponses</button>
   <a href="./index.html" class="drawer-link">🚆 Recherche simple</a></nav>
   <h3>Mode d’emploi</h3>
-  <p class="drawer-highlight">Créez un événement, ajoutez les voyageurs, cherchez leurs horaires, puis créez les formulaires Google.</p>
+  <p class="drawer-highlight">Créez un événement, cherchez les trajets et partagez les liens de choix directement dans Transbora.</p>
   <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Le début correspond à l'heure à laquelle les artistes doivent être présents ; la fin, au moment où ils sont libres de partir. Transbora cherche le train arrivant le plus près possible avant cette présence et le premier départ possible après la fin, avec les temps d’accès choisis. Aucune limite artificielle à deux jours.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
   <h3>3 · Recherche</h3><p>Vous pouvez indiquer une ville (Paris : toutes les gares trouvées dans les données) ou une gare précise. Le résultat affiche les gares réelles utilisées, y compris les changements. Vérifiez la gare d’arrivée par rapport au lieu de l’événement.</p>
-  <h3>4 · Formulaires</h3><p>Après configuration de votre application Web Google privée, « Créer les formulaires » ouvre directement les liens de choix. Sans cette configuration, Transbora copie les propositions : collez-les dans Propositions!A1 puis menu Google Sheets → Transbora → Créer les formulaires.</p>
-  <h3>Réponses</h3><p>Les participants cochent un seul horaire par sens dans leur Google Form. Le Google Sheet privé centralise les réponses : menu Transbora → Actualiser les réponses pour les voir immédiatement (sinon, synchronisation chaque heure). L’ancienne option Excel reste disponible.</p>
+  <h3>4 · Liens</h3><p>Créez un lien unique pour l’organisateur ou un lien personnel pour chaque voyageur. Aucune inscription Google : un lien, un choix. Pour éviter les créations abusives sur ce prototype, le créateur doit saisir son code organisateur privé une fois.</p>
+  <h3>Réponses</h3><p>Transbora enregistre les choix et les montre dans un tableau privé accessible depuis votre lien de suivi. Seul l’organisateur conserve ce lien. Les anciens exports Excel restent en option.</p>
   <h3>Précautions</h3><p>Transbora peut rechercher avant ou après l'événement selon les horaires publiés, même sur plusieurs jours ; dates de départ et d'arrivée précisées. Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
  </div>
 </aside>
@@ -41,7 +41,7 @@
   <nav class="wizard-progress" aria-label="Avancement" aria-live="polite">
    <div class="progress-top"><span id="step-counter">Étape 1 sur 4</span><span id="step-label">Événement</span></div>
    <div class="progress-track" role="progressbar" aria-label="Progression" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" id="step-progress"><div id="step-progress-fill"></div></div>
-   <div class="progress-dots" aria-hidden="true"><span>Événement</span><span>Voyageurs</span><span>Trajets</span><span>Formulaires</span></div>
+   <div class="progress-dots" aria-hidden="true"><span>Événement</span><span>Voyageurs</span><span>Trajets</span><span>Liens</span></div>
   </nav>
   <p id="global-status" class="system-status" role="status" aria-live="polite"></p>
 
@@ -110,34 +110,28 @@
     <article class="export-card">
      <div class="export-icon" aria-hidden="true">👥</div>
      <h2>Un lien pour tous</h2>
-     <button type="button" class="primary download-action google-export" id="prepare-google-group" hidden disabled>Créer les formulaires</button>
+     <button type="button" class="primary download-action" id="prepare-native-group" hidden disabled>Créer le lien</button>
     </article>
     <article class="export-card">
      <div class="export-icon" aria-hidden="true">👤</div>
      <h2>Un lien par personne</h2>
-     <button type="button" class="primary download-action google-export" id="prepare-google-individual" hidden disabled>Créer les formulaires</button>
+     <button type="button" class="primary download-action" id="prepare-native-individual" hidden disabled>Créer les liens</button>
     </article>
    </div>
-   <div class="google-steps" id="google-steps" aria-live="polite">
-    <strong>Formulaires Google</strong>
-    <p id="google-flow-hint">Une seule configuration Google, puis les liens des voyageurs en un clic.</p>
-    <div class="google-actions">
-      <details id="google-config" class="google-config">
-       <summary>⚙ Configurer Google</summary>
-       <label>Adresse Google Sheets<input type="url" id="google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off"></label>
-       <label>Application Google privée<input type="url" id="google-webapp-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
-       <button type="button" class="secondary" id="save-google-sheet">Enregistrer</button>
-       <p>L’application Web est facultative : elle crée les formulaires automatiquement après installation sur ton compte Google. <a href="https://github.com/ludodulac/Transbora/blob/main/docs/google-forms-011.md" target="_blank" rel="noopener noreferrer">Installation une seule fois ↗</a></p>
-      </details>
-      <a id="open-google-sheet" href="#" target="_blank" rel="noopener noreferrer" class="sheet-action">📋 Ouvrir mon tableau Google Sheets ↗</a>
-    </div>
-    <p id="google-forms-status" class="inline-feedback" role="status"></p>
-    <details class="settings-fold manual-google" id="manual-google">
-      <summary>Sans connexion automatique</summary>
-      <p>Appuyez sur « Copier les propositions », ouvrez votre tableau Google Sheets, puis collez dans <strong>Propositions → A1</strong>. Menu « Transbora → Créer les formulaires » (sur ordinateur).</p>
-      <button type="button" class="secondary" id="copy-google-manual">📋 Copier les propositions</button>
-    </details>
-    <textarea id="google-copy-fallback" class="google-fallback" hidden readonly aria-label="Tableau à copier manuellement"></textarea>
+   <div class="google-steps" id="native-links-area">
+    <p>Vos voyageurs choisissent directement sur leur téléphone, sans Excel ni Google.</p>
+    <label class="master-code">Code organisateur
+      <input id="native-master-key" type="password" autocomplete="off" placeholder="Code privé de votre installation" maxlength="160">
+    </label>
+    <p class="small">Ce code protège la création des événements. Les participants n’en ont jamais besoin.</p>
+    <p id="native-status" class="inline-feedback" role="status"></p>
+    <section id="native-ready" hidden>
+      <h3>Liens prêts</h3>
+      <div id="native-share-links" class="individual-files"></div>
+      <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Voir les réponses ↗</a></div>
+      <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>
+      <p class="small">Gardez votre lien « Voir les réponses » privé : il permet de consulter le suivi des réservations.</p>
+    </section>
    </div>
    <details class="settings-fold legacy-excel" id="legacy-excel">
     <summary>Export Excel (optionnel)</summary>
@@ -166,8 +160,8 @@
   <div class="screen-heading"><span class="screen-icon">✓</span><h1 id="replies-heading">Réponses</h1></div>
   <button type="button" id="back-to-wizard" class="text-button">← Événement</button>
   <div class="reply-panel">
-   <a id="open-replies-google" class="sheet-action" href="https://drive.google.com/drive/u/0/my-drive" target="_blank" rel="noopener noreferrer">📋 Voir Google Sheets ↗</a>
-   <p class="muted">Les réponses sont synchronisées chaque heure dans « Réponses ». Pour les voir immédiatement, menu Transbora → Actualiser les réponses dans Google Sheets.</p>
+   <a id="open-replies-native" class="sheet-action" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir mon suivi ↗</a>
+   <p class="muted">Les réponses s’affichent dans votre tableau privé Transbora. Aucun fichier à récupérer.</p>
    <details class="settings-fold legacy-excel" style="width:100%">
     <summary>Anciennes réponses Excel</summary>
     <label class="upload-button" for="import-replies">📂 Importer Excel</label>
@@ -179,7 +173,7 @@
  </section>
  <footer class="event-footer">
   <p>⚠️ Horaires indicatifs : vérifiez prix, places et correspondances avant réservation.</p>
-  <p>🔒 Les choix partagés restent dans votre Google Drive privé ; la session Transbora n’est pas sauvegardée.</p>
+  <p>🔒 Les réponses sont privées, les liens expirent après 45 jours et le suivi n’est accessible qu’avec votre lien organisateur.</p>
  </footer>
 </main>
 </body>
