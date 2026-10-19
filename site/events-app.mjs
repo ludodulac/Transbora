@@ -307,7 +307,7 @@ function showJourney(j,day){
 function prettyTravelDate(value){
   // parisDate() yields DD/MM/YYYY; construct the local calendar date
   // without browser-dependent parsing or local timezone shifts.
-  const match=/^(\\d{2})\/(\\d{2})\/(\\d{4})$/.exec(value);
+  const match=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
   if(!match)return value;
   const [,day,month,year]=match;
   return new Intl.DateTimeFormat('fr-FR',{
