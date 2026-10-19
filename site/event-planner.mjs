@@ -6,9 +6,7 @@ import {parisInstant,parisDate} from './time-zones.mjs';
 import {queryKey,itineraryKey} from './events-model.mjs';
 const MAX_ROUTES=3;
 const DAY_MS=86400000;
-const MAX_ADJACENT_DAYS=7;
-// Calendar arithmetic in UTC avoids accidentally skipping/duplicating a date
-// at Europe/Paris DST changes in March/October.
+// Calendar shifts avoid local DST hazards: dates are dates, not 24-hour local clocks.
 export function shiftDate(iso,days){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(iso))throw new Error('Date de voyage invalide');
   const base=Date.parse(iso+'T12:00:00Z');
@@ -16,20 +14,61 @@ export function shiftDate(iso,days){
     throw new Error('Date de voyage invalide');
   return new Date(base+days*DAY_MS).toISOString().slice(0,10);
 }
+/** The event is a PRESENCE boundary, not a prescribed travel date.
+ * The search discovers dates progressively from the published timetables.
+ * Individual Excel dates, when provided deliberately, remain strict overrides.
+ */
 export function travelDates(event,p,kind){
-  // Explicit dates from either the individual traveler or the event are exact:
-  // never override a deliberate date with other calendar days.
-  const outgoing=kind==='A';
-  const explicit=p?.[outgoing?'outwardDate':'returnDate'] ||
-    (outgoing?event.outwardDate:event.returnDate) || '';
-  if(explicit)return [shiftDate(explicit,0)];
-  const day=outgoing?event.startDate:event.endDate;
-  const days=Math.max(0,Math.min(MAX_ADJACENT_DAYS,
-    Number(outgoing?event.daysBefore:event.daysAfter) || 0));
-  const dates=[];
-  for(let d=outgoing?-days:0;d<=(outgoing?0:days);d++)
-    dates.push(shiftDate(day,d));
-  return dates;
+  const outbound=kind==='A';
+  const forced=p?.[outbound?'outwardDate':'returnDate']||
+    (outbound?event.outwardDate:event.returnDate)||'';
+  return forced?[shiftDate(forced,0)]:[];
+}
+function absTime(route){
+  return +parisInstant(route.date,route.departure);
+}
+export function travelBoundary(event,kind){
+  const limits=eventBoundaries(event);
+  const margin=Number(kind==='A'?event.arrivalMargin:event.departureMargin);
+  const minutes=Number.isFinite(margin)?margin:60;
+  return (kind==='A'?limits.start-minutes*60000:limits.end+minutes*60000);
+}
+function tiePenalty(route){
+  const transfers=route.transfers||(route.transfer?[route.transfer]:[]);
+  const changes=transfers.length;
+  const short=transfers.filter(t=>t.waitingSeconds-t.minimumSeconds<15*60).length;
+  const walk=transfers.filter(t=>t.proximity!=='same_station').length;
+  return changes*1800+short*900+walk*1800+(route.arrival-route.departure)*0.05;
+}
+/** Primary criterion is closeness to the PRESENCE/departure boundary.
+ * Allers: latest station arrival <= boundary; retours: earliest
+ * station departure >= boundary. Change count & journey length break ties.
+ */
+export function compareJourneys(a,b,kind,boundary){
+  const time=j=>+parisInstant(j.date,kind==='A'?j.arrival:j.departure);
+  const gapA=Math.abs(time(a)-boundary),gapB=Math.abs(time(b)-boundary);
+  return gapA-gapB||tiePenalty(a)-tiePenalty(b)
+    ||(a.changes||0)-(b.changes||0)
+    ||absTime(a)-absTime(b);
+}
+function publishedRange(feeds,config){
+  const selected=feeds.filter(f=>config.mode==='all'||f.source.mode===config.mode);
+  const min=selected.map(f=>f.data.meta?.first).filter(Boolean).sort()[0];
+  const max=selected.map(f=>f.data.meta?.last).filter(Boolean).sort().at(-1);
+  return {selected,min,max};
+}
+function maximumPathSeconds(feeds,config){
+  const {selected}=publishedRange(feeds,config);
+  let longest=0;
+  for(const feed of selected)for(const trip of feed.data.trips){
+    const stops=trip[4]||[];
+    if(stops.length<2)continue;
+    const duration=stops.at(-1)[1]-stops[0][2];
+    if(Number.isFinite(duration))longest=Math.max(longest,duration);
+  }
+  const changes=config.connections==='two'?2:config.connections==='no'?0:1;
+  // GTFS changes allow up to four hours' wait per interchange.
+  return Math.max(86400,(changes+1)*longest+changes*14400);
 }
 function sec(value){
   const [h,m]=String(value||'').split(':').map(Number);
@@ -42,37 +81,24 @@ export function eventBoundaries(event) {
   return {start:+start,end:+end};
 }
 export function rank(route,direction,eventDate,boundary){
-  const changes=route.transfers||(route.transfer?[route.transfer]:[]);
-  const elapsed=route.arrival-route.departure;
-  const changePenalty=changes.length*25*60;
-  const walkPenalty=changes.filter(c=>c.proximity!=='same_station').length*30*60;
-  const tightPenalty=changes.filter(c=>c.waitingSeconds-c.minimumSeconds<15*60).length*20*60;
-  const departureMs=+parisInstant(eventDate,route.departure);
-  const arrivalMs=+parisInstant(eventDate,route.arrival);
-  // Favor arriving around 2h before the event and returning soon after it ends,
-  // but never discard safe journeys to force a perfect timing.
-  const schedulePenalty=direction==='A'?
-    Math.max(0,(boundary-arrivalMs-90*60000)/1000)*0.25 :
-    Math.max(0,(departureMs-boundary-45*60000)/1000)*0.25;
-  return elapsed+changePenalty+walkPenalty+tightPenalty+schedulePenalty;
+  const date=route.date||eventDate;
+  const time=+parisInstant(date,direction==='A'?route.arrival:route.departure);
+  return Math.abs(boundary-time);
 }
 export function pickItineraries(all,query,event,direction,{maximum=MAX_ROUTES}={}){
-  const bounds=eventBoundaries(event);
-  const eventTime=direction==='A' ? bounds.start-Number(event.arrivalMargin||90)*60000 :
-    bounds.end+Number(event.departureMargin||45)*60000;
-  const day=query.date,seen=new Set(),valid=[];
+  const deadline=travelBoundary(event,direction),day=query.date,seen=new Set(),valid=[];
   for(const route of all){
-    const dep=+parisInstant(day,route.departure),arr=+parisInstant(day,route.arrival);
-    if(direction==='A'&&arr>eventTime)continue;
-    if(direction==='R'&&dep<eventTime)continue;
-    if(!Number.isFinite(dep)||!Number.isFinite(arr)||arr<=dep)continue;
+    const departure=+parisInstant(day,route.departure);
+    const arrival=+parisInstant(day,route.arrival);
+    if(!Number.isFinite(departure)||!Number.isFinite(arrival)||arrival<=departure)continue;
+    if(direction==='A'&&arrival>deadline)continue;
+    if(direction==='R'&&departure<deadline)continue;
     const key=itineraryKey(route);
     if(seen.has(key))continue;
     seen.add(key);
     valid.push({...route,key,date:day});
   }
-  valid.sort((a,b)=>rank(a,direction,day,eventTime)-rank(b,direction,day,eventTime)||
-    (a.changes||0)-(b.changes||0));
+  valid.sort((a,b)=>compareJourneys(a,b,direction,deadline));
   return valid.slice(0,maximum);
 }
 export async function prepareFeeds(manifest,fetcher=fetch){
@@ -93,7 +119,7 @@ export function allOptions(feeds,query,config,officialRules=new Map()){
   const chosen=feeds.filter(x=>config.mode==='all'||x.source.mode===config.mode);
   let list=[];
   for(const f of chosen){
-    if(query.date<f.data.meta.first||query.date>f.data.meta.last)continue;
+    if(query.date<f.data.meta.first||query.date>shiftDate(f.data.meta.last,1))continue;
     list.push(...searchFeed(f.data,query,f.source));
   }
   if(config.connections!=='no'){
@@ -107,74 +133,78 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
   eventBoundaries(event);
   const cache=new Map(),plans=new Map(),issues=[];
   const max=Math.max(1,Math.min(5,Number(settings.maxOptions)||3));
-  const haveCoverage=feeds.some(f=>f.data?.meta?.first&&f.data?.meta?.last);
+  const coverage=publishedRange(feeds,settings);
+  const maxPath=maximumPathSeconds(feeds,settings);
+  async function searchDirection(queryData,p,kind){
+    const explicit=travelDates(event,p,kind);
+    const {min,max:publishedEnd}=coverage;
+    if(!min||!publishedEnd)return {choices:[],searched:[],covered:false};
+    const deadline=travelBoundary(event,kind);
+    const boundaryDay=kind==='A'?event.startDate:event.endDate;
+    const finalClockDay=shiftDate(publishedEnd,1);
+    const starting=kind==='A'?
+      [boundaryDay,finalClockDay].sort()[0]:
+      [boundaryDay,min].sort().at(-1);
+    const ending=kind==='A'?min:finalClockDay;
+    let current=explicit.length?explicit[0]:starting;
+    if(explicit.length===0 && (kind==='A'?current<ending:current>ending))
+      return {choices:[],searched:[],covered:false};
+    let covered=false;
+    const searched=[],found=new Map();
+    while(explicit.length?(searched.length<1):(kind==='A'?current>=ending:current<=ending)){
+      const date=current;
+      searched.push(date);
+      const query={...queryData,date,earliest:'00:00',latest:'23:59'};
+      const k=queryKey(query,settings);
+      covered ||=coverage.selected.some(f=>date>=f.data.meta.first&&date<=shiftDate(f.data.meta.last,1));
+      try{
+        if(!cache.has(k))cache.set(k,allOptions(feeds,query,settings,officialRules));
+        for(const route of pickItineraries(cache.get(k),query,event,kind,{maximum:200})){
+          if(!found.has(route.key))found.set(route.key,route);
+        }
+      }catch(error){
+        issues.push(p.first+' '+p.last+' / '+kind+' le '+date+' : '+error.message);
+      }
+      const best=[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline));
+      if(!explicit.length&&best.length>=max){
+        if(kind==='R')break; // later dates cannot depart before earlier dates.
+        // A train departing BEFORE this date might still arrive very close
+        // to the deadline if it crosses midnight (or several days).
+        // Stop only when such a departure cannot beat our last candidate.
+        const previous=shiftDate(date,-1);
+        const latestOlderArrival=+parisInstant(previous,86400)+maxPath*1000;
+        const selectedArrival=+parisInstant(best[max-1].date,best[max-1].arrival);
+        if(latestOlderArrival<selectedArrival)break;
+      }
+      if(explicit.length)break;
+      current=shiftDate(current,kind==='A'?-1:1);
+      // Yield between timetable days so mobile UIs can repaint.
+      if(searched.length%2===0)await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    return {choices:[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max),
+      searched,covered};
+  }
   for(let i=0;i<participants.length;i++){
     const p=participants[i];
-    const outwardDates=travelDates(event,p,'A'),returnDates=travelDates(event,p,'R');
-    const entries={outwardDate:outwardDates.at(-1),returnDate:returnDates[0],
-      outwardDates,returnDates,outward:[],returning:[]};
-    const directions=[
-      ...(event.includeOutward===false?[]:[{kind:'A',from:p.departure,to:event.destination,dates:outwardDates}]),
-      ...(event.includeReturn===false?[]:[{kind:'R',from:event.destination,to:p.departure,dates:returnDates}])
-    ];
-    for(const dir of directions){
-      if(normalizeStop(dir.from)===normalizeStop(dir.to)){
+    const entries={outwardDate:event.startDate,returnDate:event.endDate,
+      outwardDates:[],returnDates:[],outward:[],returning:[]};
+    for(const kind of ['A','R']){
+      if(kind==='A'&&event.includeOutward===false)continue;
+      if(kind==='R'&&event.includeReturn===false)continue;
+      const from=kind==='A'?p.departure:event.destination;
+      const to=kind==='A'?event.destination:p.departure;
+      if(normalizeStop(from)===normalizeStop(to)){
         issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
         continue;
       }
-      const options=[];
-      let anyCoveredDay=false;
-      for(const date of dir.dates){
-        const query={from:dir.from,to:dir.to,date,earliest:'00:00',latest:'23:59'};
-        const key=queryKey(query,settings);
-        if(feeds.some(f=>date>=f.data.meta.first&&date<=f.data.meta.last))anyCoveredDay=true;
-        try{
-          if(!cache.has(key))cache.set(key,allOptions(feeds,query,settings,officialRules));
-          // Limit after collecting all requested days, never per date: prevents
-          // Monday's first 3 options from hiding a better Sunday night train.
-          options.push(...pickItineraries(cache.get(key),query,event,dir.kind,{maximum:150}));
-        }catch(err){
-          issues.push(p.first+' '+p.last+' / '+dir.kind+' le '+date+' : '+err.message);
-        }
-      }
-      if(!anyCoveredDay && haveCoverage)
-        issues.push(p.first+' '+p.last+' : horaires non publiés pour '+dir.kind+' du '+
-          dir.dates[0]+' au '+dir.dates.at(-1)+'.');
-      const boundary=dir.kind==='A'
-        ? +parisInstant(event.startDate,sec(event.startTime))-Number(event.arrivalMargin??90)*60000
-        : +parisInstant(event.endDate,sec(event.endTime))+Number(event.departureMargin??45)*60000;
-      // All candidates have their own reference service date: compare true
-      // instants, not displayed HH:mm strings, when ranking overnight routes.
-      const dedup=new Set();
-      const ranked=options.filter(j=>{
-        const fingerprint=j.key;
-        if(dedup.has(fingerprint))return false;
-        dedup.add(fingerprint);return true;
-      }).sort((a,b)=>rank(a,dir.kind,a.date,boundary)-rank(b,dir.kind,b.date,boundary)
-        ||(a.changes||0)-(b.changes||0)
-        ||(+parisInstant(a.date,a.departure))-(+parisInstant(b.date,b.departure)));
-      // A same-day train should not hide every viable earlier-day/next-day
-      // alternative when the result cap is small. Offer one per calendar
-      // departure day first, then fill spare slots by global merit.
-      const balanced=[],selected=new Set(),coveredDays=new Set();
-      for(const journey of ranked){
-        const day=parisDate(journey.date,journey.departure);
-        if(coveredDays.has(day))continue;
-        balanced.push(journey);selected.add(journey.key);coveredDays.add(day);
-        if(balanced.length>=max)break;
-      }
-      if(balanced.length<max)for(const journey of ranked){
-        if(selected.has(journey.key))continue;
-        balanced.push(journey);selected.add(journey.key);
-        if(balanced.length>=max)break;
-      }
-      balanced.sort((a,b)=>rank(a,dir.kind,a.date,boundary)-rank(b,dir.kind,b.date,boundary));
-      if(dir.kind==='A')entries.outward=balanced;
-      else entries.returning=balanced;
+      const {choices,searched,covered}=await searchDirection({from,to},p,kind);
+      if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||event.startDate;}
+      else{entries.returning=choices;entries.returnDates=searched;entries.returnDate=searched[0]||event.endDate;}
+      if(!covered)issues.push(p.first+' '+p.last+' : aucun horaire publié pour '+(kind==='A'?'l’aller':'le retour')+
+        ' autour de l’heure demandée.');
     }
     plans.set(p.id,entries);
     progress(i+1,participants.length,p);
-    // Release main thread periodically for responsive Android UI.
     if(i%2===0)await new Promise(resolve=>setTimeout(resolve,0));
   }
   return {plans,issues};

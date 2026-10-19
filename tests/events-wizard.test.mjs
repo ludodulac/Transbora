@@ -56,8 +56,9 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   const $=id=>window.document.getElementById(id);
   assert.equal($('event-start-date').value,'');
   assert.equal($('event-end-date').value,'');
-  assert.equal($('event-outward-date').value,'');
-  assert.equal($('event-return-date').value,'');
+  assert.equal($('event-start-time').value,$('event-end-time').value);
+  assert.equal($('arrival-margin').value,'60');
+  assert.equal($('departure-margin').value,'60');
   assert.match($('etape-1').querySelector('details > summary').textContent,/Aller \+ retour/);
   assert.equal($('etape-1').hidden,false);
   for(let i=2;i<=4;i++)assert.equal($('etape-'+i).hidden,true);
@@ -77,15 +78,18 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   set(window.document,'event-destination','Paris');
   set(window.document,'event-start-date',first);
   assert.equal($('event-end-date').value,first,'The event end defaults to the changed start, never to a stale date');
-  assert.equal($('event-outward-date').value,'','Travel dates remain empty unless explicitly overridden');
-  assert.equal($('event-return-date').value,'');
+  assert.equal($('event-end-time').value,$('event-start-time').value,
+    'End time must auto-copy from start time');
+  set(window.document,'event-start-time','16:30');
+  assert.equal($('event-end-time').value,'16:30','Changing start time must sync end time');
+  set(window.document,'event-end-time','18:00');
   $('include-return').checked=false;
   $('include-return').dispatchEvent(new window.Event('change',{bubbles:true}));
-  assert.equal($('event-return-date').disabled,true);
+  assert.equal($('departure-margin').disabled,true);
   assert.match($('etape-1').querySelector('details > summary').textContent,/Aller$/);
   $('include-return').checked=true;
   $('include-return').dispatchEvent(new window.Event('change',{bubbles:true}));
-  assert.equal($('event-return-date').disabled,false);
+  assert.equal($('departure-margin').disabled,false);
   click(window.document,'wizard-next');
   assert.equal($('etape-2').hidden,false);
   assert.equal($('etape-1').hidden,true);

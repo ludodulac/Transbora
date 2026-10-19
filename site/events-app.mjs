@@ -14,7 +14,7 @@ const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
-  'event-end-time','event-outward-date','event-return-date','days-before','days-after','include-outward','include-return','arrival-margin','departure-margin',
+  'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
 
 function node(tag,cls,value){
@@ -51,8 +51,8 @@ function readEvent(){
   const startTime=$('event-start-time').value,endTime=$('event-end-time').value;
   const includeOutward=$('include-outward').checked;
   const includeReturn=$('include-return').checked;
-  const outwardDate=$('event-outward-date').value;
-  const returnDate=$('event-return-date').value;
+  const outwardDate='';
+  const returnDate='';
   if(!includeOutward&&!includeReturn)
     throw new Error('Sélectionnez au moins un trajet : aller ou retour.');
   if(!title||!destination||destination.length<3||!startDate||!endDate||!startTime||!endTime)
@@ -61,7 +61,6 @@ function readEvent(){
     throw new Error('Date d’événement, d’aller ou de retour invalide.');
   const out={title,destination,startDate,startTime,endDate,endTime,outwardDate,returnDate,
     includeOutward,includeReturn,
-    daysBefore:Number($('days-before').value),daysAfter:Number($('days-after').value),
     arrivalMargin:Number($('arrival-margin').value),departureMargin:Number($('departure-margin').value)};
   eventBoundaries(out);
   return out;
@@ -149,28 +148,25 @@ async function init(){
   // a different date for a trip (this caused the 25/29 October confusion).
   $('event-start-date').value='';
   $('event-end-date').value='';
-  $('event-outward-date').value='';
-  $('event-return-date').value='';
   const updateTravelOptions=()=>{
     const aller=$('include-outward').checked,retour=$('include-return').checked;
-    $('event-outward-date').disabled=!aller;
-    $('event-return-date').disabled=!retour;
     $('arrival-margin').disabled=!aller;
     $('departure-margin').disabled=!retour;
-    $('days-before').disabled=!aller||Boolean($('event-outward-date').value);
-    $('days-after').disabled=!retour||Boolean($('event-return-date').value);
     const summary=$('etape-1').querySelector('details > summary');
     if(summary)summary.textContent='Options · '+(aller&&retour?'Aller + retour':aller?'Aller':retour?'Retour':'Aucun trajet');
   };
   updateTravelOptions();
-  for(const id of ['include-outward','include-return','event-outward-date','event-return-date'])
+  for(const id of ['include-outward','include-return'])
     $(id).addEventListener('change',updateTravelOptions);
-  $('event-start-date').addEventListener('change',()=>{
-    const end=$('event-end-date');
-    if(!end.value||end.value<$('event-start-date').value){
-      end.value=$('event-start-date').value;
-    }
-  });
+  const syncEventEnd=()=>{
+    // Set end to the same moment whenever the start changes. The user can then
+    // change either end field without having to redo the whole date or time.
+    $('event-end-date').value=$('event-start-date').value;
+    $('event-end-time').value=$('event-start-time').value;
+    invalidate();
+  };
+  for(const id of ['event-start-date','event-start-time'])
+    $(id).addEventListener('change',syncEventEnd);
   for(const id of eventFieldIds)$(id).addEventListener('change',invalidate);
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -273,9 +269,8 @@ function renderSearchResults(issues){
       ...(requested.includeReturn?[['RETOUR',plan.returning,plan.returnDates||[plan.returnDate]]]:[])
     ]){
       const side=node('div','recap-side');
-      const range=dates.length>1?dates[0]+' → '+dates.at(-1):dates[0];
-      side.append(node('span','pill',label+' · '+range));
-      if(!list.length)side.append(node('p','no-options','Aucun trajet trouvé dans cette période. Vérifiez la couverture des horaires ou élargissez les jours dans Options.'));
+      side.append(node('span','pill',label+' · meilleurs horaires'));
+      if(!list.length)side.append(node('p','no-options','Aucun horaire compatible trouvé dans les données publiées. Vérifiez les gares et les horaires des transporteurs.'));
       list.forEach((j,index)=>{
         const option=node('p','recap-route',(index+1)+'. '+showJourney(j,j.date||dates[0])+
           ' · '+(j.legs?.length?j.legs.map(t=>t.provider).join(' → '):j.provider));
