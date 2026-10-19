@@ -3,7 +3,7 @@
  * Timetables are planned, not live; no missed-connection guarantee.
  * Generic GTFS transfer rules are applied when provided.
  */
-import {matchesStop, normalizeStop} from './search-multi.mjs';
+import {stationIndexes, normalizeStop} from './search-multi.mjs';
 import {isoDateAtDay,shiftToParis,parisDate} from './time-zones.mjs';
 
 const DAY = 86400;
@@ -78,11 +78,8 @@ export function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift)
 export function enumerate(feed,params,earliest,latest,day) {
   const first=dayNum(feed.data.meta.first),last=dayNum(feed.data.meta.last);
   const initial=[],final=[];
-  const origin=new Set(), destination=new Set();
-  feed.data.stations.forEach((entry,i)=>{
-    if (matchesStop(entry[1],params.from)) origin.add(i);
-    if (matchesStop(entry[1],params.to)) destination.add(i);
-  });
+  const origin=stationIndexes(feed.data,params.from);
+  const destination=stationIndexes(feed.data,params.to);
   if (!origin.size && !destination.size) return {initial,final};
   // First leg departs on the selected date; the second can depart the next day.
   for(let serviceDay=day-1;serviceDay<=day+1;serviceDay++){
