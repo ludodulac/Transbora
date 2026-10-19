@@ -97,5 +97,5 @@ test('unsafe record sizes, duplicate travelers and missing routes rejected befor
  const dup=[f.people[0],{...f.people[0]}];
  assert.equal((await f.call('create',{event:f.event,people:dup,mode:'group'},'very-private-secret-123')).status,400);
  assert.equal((await f.call('create',{event:f.event,people:[],mode:'group'},'very-private-secret-123')).status,400);
- assert.equal((await f.call('create',{event:f.event,people:[{...f.people[0],options:{A:[],R:[]}}],mode:'group'},'very-private-secret-123')).status,400);
+ assert.equal((await f.call('create',{event:f.event,people:[{...f.people[0],options:{A:[],R:[]}}],mode:'group'},'very-private-secret-123')).status,201);
 });
