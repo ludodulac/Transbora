@@ -526,9 +526,7 @@ async function createNativeLinks(mode){
     $('native-ready').scrollIntoView({behavior:'smooth',block:'start'});
     $('native-ready').focus();
   }catch(error){
-    const message=/Code organisateur incorrect|Création non autorisée/.test(error.message)?
-      'Code non reconnu : vous ne pouvez pas en inventer un ici. Utilisez le code créé lors de l’installation. Si vous l’avez perdu, il faut le réinitialiser dans la configuration de Transbora.':
-      error.message;
+    const message=error.message;
     msg($('native-status'),message,true);
     status(message,true);
     $('native-status').scrollIntoView({behavior:'smooth',block:'center'});
