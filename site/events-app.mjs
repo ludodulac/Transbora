@@ -304,6 +304,16 @@ function showJourney(j,day){
     +' → '+parisDate(actual,j.arrival)+' '+parisTime(actual,j.arrival)+
     ' · '+durationText(j.arrival-j.departure)+' · '+(j.changes||0)+' chgt';
 }
+function prettyTravelDate(value){
+  // parisDate() yields DD/MM/YYYY; construct the local calendar date
+  // without browser-dependent parsing or local timezone shifts.
+  const match=/^(\\d{2})\/(\\d{2})\/(\\d{4})$/.exec(value);
+  if(!match)return value;
+  const [,day,month,year]=match;
+  return new Intl.DateTimeFormat('fr-FR',{
+    weekday:'long',day:'numeric',month:'long',timeZone:'UTC'
+  }).format(new Date(year+'-'+month+'-'+day+'T12:00:00Z'));
+}
 function renderSearchResults(issues){
   const holder=$('journey-recap');holder.replaceChildren();
   if(issues.length){
@@ -339,16 +349,26 @@ function renderSearchResults(issues){
           side.append(node('p','route-through','Transbora essaie automatiquement les trajets directs, puis 1 et 2 changements.'));
       }
       list.forEach((j,index)=>{
-        const option=node('div','recap-route');
-        option.append(node('strong',null,(index+1)+'. '+showJourney(j,j.date||dates[0])));
+        const option=node('article','recap-route');
+        const day=j.date||dates[0];
         const legs=j.legs?.length?j.legs:[j];
+        const operator=[...new Set(legs.map(t=>t.provider).filter(Boolean))].join(' · ');
+        option.append(node('span','route-option-heading','Option '+(index+1)+
+          (operator?' · '+operator:'')));
+        const departure=parisDate(day,j.departure),arrival=parisDate(day,j.arrival);
+        option.append(node('span','route-calendar',
+          prettyTravelDate(departure)+
+          (departure!==arrival?' → '+prettyTravelDate(arrival):'')));
+        option.append(node('strong','route-clock',
+          parisTime(day,j.departure)+' → '+parisTime(day,j.arrival)));
+        const changes=legs.length>1?legs.length-1:0;
+        option.append(node('span','route-meta',durationText(j.arrival-j.departure)+
+          ' · '+(changes===0?'Direct':changes+' correspondance'+(changes>1?'s':''))));
         const from=legs[0].from||'',to=legs.at(-1).to||'';
         if(from&&to)option.append(node('span','route-stations',from+' → '+to));
-        option.append(node('span','route-provider',
-          [...new Set(legs.map(t=>t.provider).filter(Boolean))].join(' · ')));
-        if(legs.length>1){
+        if(changes){
           const through=legs.slice(0,-1).map(x=>x.to).filter(Boolean).join(' · ');
-          if(through)option.append(node('span','route-through','Correspondance : '+through));
+          if(through)option.append(node('span','route-through','Via '+through));
         }
         side.append(option);
       });
