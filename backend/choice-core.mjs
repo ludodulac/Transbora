@@ -15,6 +15,10 @@ function equals(a,b){
   const x=Buffer.from(digest(a),'hex'),y=Buffer.from(digest(b),'hex');
   return timingSafeEqual(x,y);
 }
+function matchesStoredDigest(stored,candidate){
+  if(!/^[a-f0-9]{64}$/.test(stored))return false;
+  return timingSafeEqual(Buffer.from(stored,'hex'),Buffer.from(digest(candidate),'hex'));
+}
 function checkedEvent(e){
   if(!e||typeof e!=='object')throw new Error('Événement manquant.');
   const title=safe(e.title,90),destination=safe(e.destination,140);
@@ -128,7 +132,7 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
         const eventId=safe(body.eventId,80),ownerKey=safe(body.ownerKey,80);
         if(!eventId||!ownerKey)return failure('Lien organisateur incomplet.',401);
         const record=await events.get(prefix('e',eventId),{type:'json'});
-        if(!record||!equals(record.ownerDigest,ownerKey))
+        if(!record||!matchesStoredDigest(record.ownerDigest,ownerKey))
           return failure('Lien organisateur non reconnu.',403);
         if(op==='remove'){
           await events.delete(prefix('e',eventId));
