@@ -310,7 +310,21 @@ function renderSearchResults(issues){
     ]){
       const side=node('div','recap-side');
       side.append(node('span','pill',label+' · meilleurs horaires'));
-      if(!list.length)side.append(node('p','no-options','Aucun horaire compatible trouvé dans les données publiées. Vérifiez les gares et les horaires des transporteurs.'));
+      if(!list.length){
+        const reason=plan.reasons?.[label==='ALLER'?'A':'R'];
+        const explanations={
+          unknown_origin:'Ville de départ absente de nos horaires.',
+          unknown_destination:'Ville d’arrivée absente de nos horaires.',
+          no_published_data:'Horaires non publiés pour cette période.',
+          incomplete:'Recherche incomplète : le délai de calcul a été atteint.',
+          not_found:'Aucun trajet correspondant aux marges et aux correspondances autorisées.'
+        };
+        side.append(node('p','no-options',
+          (explanations[reason]||'Pas de proposition trouvée.')+
+          ' Cela ne signifie PAS qu’aucun train ne circule. Vérifiez aussi le site du transporteur.'));
+        if(reason==='not_found'||reason==='incomplete')
+          side.append(node('p','route-through','Pour chercher plus large : Réglages → Changements → 2 max., puis relancer.'));
+      }
       list.forEach((j,index)=>{
         const option=node('div','recap-route');
         option.append(node('strong',null,(index+1)+'. '+showJourney(j,j.date||dates[0])));
