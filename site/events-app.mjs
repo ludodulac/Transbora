@@ -493,15 +493,11 @@ function renderPublished(record,mode){
 async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
-    const master=$('native-master-key').value.trim();
-    if(!master)throw new Error('Indiquez votre code organisateur (celui de votre installation Transbora).');
     if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
     const event=readEvent();
     const people=buildChoicePeople(event,participants,plans);
     busy(true);shareStatus('Création des liens privés…');
-    const result=await api('create',{event,people,mode},master);
-    // Keep the owner code in this open page so another event does not
-    // require pasting it again. Nothing is sent to travelers or localStorage.
+    const result=await api('create',{event,people,mode});
     renderPublished(result,mode);
   }catch(error){
     msg($('native-status'),error.message,true);
