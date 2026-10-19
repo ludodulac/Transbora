@@ -87,6 +87,9 @@ export function createChoiceHandler({
         const noCodeDemo=Boolean(demoMode()&&!provided);
         if(!hasValidOwnerCode&&!noCodeDemo)
           return failure('Création non autorisée.',403);
+        const mode=body.mode;
+        if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
+        const event=checkedEvent(body.event),people=checkedPeople(body.people);
         if(noCodeDemo){
           // This is an explicitly enabled, rate-limited TEST mode on the
           // owner's Netlify site, NOT a multi-tenant production entitlement.
@@ -108,9 +111,7 @@ export function createChoiceHandler({
           }
           await quota.setJSON(key,{count:current.count+1});
         }
-        const mode=body.mode;
-        if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
-        const event=checkedEvent(body.event),people=checkedPeople(body.people);
+
         const eventId=token(),ownerKey=token();
         // Never let travelers' links expire before their event takes place.
         const expiresAt=Math.max(clock()+LIFETIME,
