@@ -182,9 +182,78 @@ function verifierFeuillesTransbora(){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var required=['Propositions','Liens','Réponses','IndexQuestions'];
   var missing=required.filter(function(name){return !ss.getSheetByName(name);});
+  if(!missing.length)PropertiesService.getScriptProperties().setProperty('TRANSBORA_SPREADSHEET_ID',ss.getId());
   SpreadsheetApp.getUi().alert(missing.length?
     'Feuilles manquantes : '+missing.join(', '):
     'Toutes les feuilles Transbora sont présentes. Copiez les propositions en Propositions!A1.');
+}
+
+/** HTML form POST from the owner's GitHub Pages site.
+ * DEPLOY ONLY WITH "Execute as: Me" and "Who has access: Only myself".
+ * Never allow anonymous/public access to this app: it can create Forms in Drive.
+ */
+function doPost(e){
+  var lock=LockService.getScriptLock();
+  if(!lock.tryLock(25000))
+    return HtmlService.createHtmlOutput('Transbora : une autre création est en cours. Réessayez.');
+  try{
+    var raw=e && e.parameter && e.parameter.payload;
+    if(typeof raw!=='string'||raw.length>650000||raw.length<10)
+      throw new Error('Envoi vide ou trop volumineux.');
+    var payload=JSON.parse(raw);
+    if(!payload||!Array.isArray(payload.headers)||!Array.isArray(payload.rows)||
+       payload.rows.length<1||payload.rows.length>1250)
+      throw new Error('Propositions invalides.');
+    var expected=TRANSBORA.headers;
+    if(expected.some(function(h,i){return h!==payload.headers[i];})||
+       payload.headers.length!==expected.length)
+      throw new Error('Colonnes de Transbora non reconnues.');
+    var rows=[expected].concat(payload.rows.map(function(row){
+      if(!Array.isArray(row)||row.length!==expected.length)throw new Error('Une ligne a un format invalide.');
+      return row.map(function(cell){
+        var x=String(cell==null?'':cell).trim();
+        if(x.length>450||/^[=+@\-]/.test(x))
+          throw new Error('Caractère dangereux dans les données du formulaire.');
+        return x.replace(/[\x00-\x1f]/g,' ');
+      });
+    }));
+    // Validate BEFORE modifying the private spreadsheet.
+    var data=parsePropositions_(rows);
+    if(data.rows.length!==payload.rows.length)
+      throw new Error('Le lot contient plusieurs dossiers différents.');
+    var sheetId=PropertiesService.getScriptProperties().getProperty('TRANSBORA_SPREADSHEET_ID');
+    if(!sheetId)throw new Error('Ouvrez votre Google Sheets, puis menu Transbora → Vérifier les feuilles.');
+    var ss=SpreadsheetApp.openById(sheetId);
+    var proposalSheet=ss.getSheetByName('Propositions');
+    if(!proposalSheet)throw new Error('Feuille Propositions introuvable.');
+    proposalSheet.clearContents();
+    proposalSheet.getRange(1,1,rows.length,expected.length).setValues(rows);
+    var result=createFormsForData_(ss,data);
+    var encode=function(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');};
+    var links=result.links.map(function(item){
+      return '<li><a target="_blank" rel="noopener noreferrer" href="'+encode(item.url)+'">'+
+         encode(item.name)+' → Choisir les trajets</a></li>';
+    }).join('');
+    var html='<!doctype html><html lang="fr"><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
+      '<title>Transbora · Formulaires prêts</title><style>'+
+      'body{font:17px system-ui;background:#f0f8f8;color:#193f4b;margin:0;padding:18px}'+
+      'main{max-width:680px;background:#fff;margin:25px auto;padding:25px;border-radius:18px}'+
+      'h1{font-size:1.55rem}li{margin:15px 0}a{color:#007d84;font-weight:700;overflow-wrap:anywhere}'+
+      '.btn{display:inline-block;background:#087b81;color:white;padding:13px 18px;border-radius:11px;text-decoration:none}'+
+      '</style></head><body><main><h1>🚆 Vos formulaires sont prêts</h1>'+
+      '<p>'+result.created+' nouveau(x), '+result.reused+' déjà enregistré(s).'+
+      (result.remaining?' Encore '+result.remaining+' : relancez la création dans Transbora.':'')+'</p>'+
+      '<ul>'+links+'</ul>'+
+      '<p><a class="btn" href="'+encode(ss.getUrl())+'">Ouvrir mon tableau Google Sheets</a></p>'+
+      '<p>Ne partagez que le lien de chaque voyageur. Aucun billet réservé.</p>'+
+      '</main></body></html>';
+    return HtmlService.createHtmlOutput(html).setTitle('Transbora — liens des voyageurs');
+  }catch(error){
+    var message=String(error.message||error).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    return HtmlService.createHtmlOutput('<h2>Création impossible</h2><p>'+message+
+      '</p><p>Revenez dans Transbora et vérifiez la configuration Google.</p>');
+  }finally{lock.releaseLock();}
 }
 
 /** One trigger for all events avoids Google's limit of 20 triggers per script. */
