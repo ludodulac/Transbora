@@ -3,11 +3,10 @@
  * sensitive: never send them to participants or embed them in exports.
  */
 export const HISTORY_KEY='transbora_owner_dossiers_v021';
-const LIMIT=300;
 export function readHistory(storage){
   try{
     const data=JSON.parse(storage?.getItem(HISTORY_KEY)||'[]');
-    return Array.isArray(data)?data.filter(valid).slice(0,LIMIT):[];
+    return Array.isArray(data)?data.filter(valid):[];
   }catch{return [];}
 }
 function valid(x){
@@ -23,7 +22,7 @@ export function registerHistory(storage,{eventId,ownerKey,event,peopleCount=0},n
     destination:String(event.destination||'').slice(0,140),
     startDate:String(event.startDate||'').slice(0,10),endDate:event.endDate,
     peopleCount:Number(peopleCount)||0,createdAt:previous?.createdAt||now};
-  const next=[entry,...current.filter(x=>x.eventId!==eventId)].slice(0,LIMIT);
+  const next=[entry,...current.filter(x=>x.eventId!==eventId)];
   try{storage.setItem(HISTORY_KEY,JSON.stringify(next));return true;}catch{return false;}
 }
 export function forgetHistory(storage,eventId){
