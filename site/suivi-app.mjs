@@ -26,6 +26,33 @@ async function refresh(){
         const status=chosen==='NONE'?'Aucun horaire souhaité':
           option?option.label:'En attente de réponse';
         row.append(node('p',null,label+' : '+status));
+        const booking=p.booking?.[dir]||null;
+        if(!option){
+          if(booking)row.append(node('p',null,'⚠️ Un billet était marqué acheté pour un ancien choix. Vérifiez-le.'));
+          continue;
+        }
+        const sameTicket=booking?.optionId===option.id;
+        if(booking){
+          row.append(node('p',null,sameTicket?
+            '✅ Billet acheté par l’organisateur.':
+            '⚠️ Choix modifié après achat : le billet enregistré correspond à un autre trajet. Vérifiez avant toute action.'));
+        }else{
+          row.append(node('p',null,'⏳ Billet à acheter par l’organisateur · prix et places non vérifiés.'));
+        }
+        const action=node('button',null,booking?'Annuler le statut « billet acheté »':'✓ Marquer billet acheté');
+        action.type='button';
+        action.addEventListener('click',async()=>{
+          if(booking&&!confirm('Retirer uniquement la mention « billet acheté » dans Transbora ? Cela n’annule PAS le billet auprès du transporteur.'))return;
+          action.disabled=true;
+          try{
+            await api('set_booking',{eventId,ownerKey,personId:p.id,direction:dir,
+              booked:!booking,optionId:option.id});
+            await refresh();
+            notice(booking?'Statut de suivi remis à « à acheter ». Aucun billet n’a été annulé.':
+              'Billet marqué comme acheté dans le suivi de l’organisateur.');
+          }catch(error){notice(error.message,true);action.disabled=false;}
+        });
+        row.append(action);
       }
       summary.append(row);
     }
@@ -71,16 +98,19 @@ $('copy-links').addEventListener('click',async()=>{
 });
 $('download').addEventListener('click',()=>{
   if(!report)return;
-  const csv=[['Voyageur','Ville de départ','Sens','Choix','Statut','Date de réponse'].join(';')];
+  const csv=[['Voyageur','Ville de départ','Sens','Choix','Statut','Date de réponse','Date de réservation confirmée'].join(';')];
   const escape=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
   for(const p of report.people){
     for(const [dir,label] of [['A','ALLER'],['R','RETOUR']]){
       if(!p.options[dir].length)continue;
       const choice=p.options[dir].find(x=>x.id===p.answer?.[dir]);
       const name=choice?.label|| (p.answer?.[dir]==='NONE'?'Aucun horaire':'—');
-      const state=!p.answer?'En attente':p.answer?.[dir]==='NONE'?'À revoir':'À réserver';
+      const booking=p.booking?.[dir];
+      const state=booking?(booking.optionId===p.answer?.[dir]?'Billet acheté':'⚠ Choix modifié après achat'):
+        !p.answer?'En attente':p.answer?.[dir]==='NONE'?'À revoir':'À acheter';
       csv.push([p.first+' '+p.last,p.departure,label,name,state,
-        p.answer?.updatedAt?new Date(p.answer.updatedAt).toLocaleString('fr-FR'):''].map(escape).join(';'));
+        p.answer?.updatedAt?new Date(p.answer.updatedAt).toLocaleString('fr-FR'):'',
+        booking?.bookedAt?new Date(booking.bookedAt).toLocaleString('fr-FR'):''].map(escape).join(';'));
     }
   }
   const blob=new Blob(['\ufeff'+csv.join('\r\n')],{type:'text/csv;charset=utf-8'});

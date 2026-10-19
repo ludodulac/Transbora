@@ -94,6 +94,7 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
       const events=getStore('transbora-event-records');
       const links=getStore('transbora-private-links');
       const replies=getStore('transbora-choice-replies');
+      const bookings=getStore('transbora-booking-states');
       if(op==='create'){
         const secret=masterKey();
         const provided=req.headers.get('x-transbora-admin')||'';
@@ -159,12 +160,39 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
         }
         return json({saved:true,count:chosen.size});
       }
-      if(op==='status'||op==='remove'||op==='switch_mode'){
+      if(op==='status'||op==='remove'||op==='switch_mode'||op==='set_booking'){
         const eventId=safe(body.eventId,80),ownerKey=safe(body.ownerKey,80);
         if(!eventId||!ownerKey)return failure('Lien organisateur incomplet.',401);
         const record=await events.get(prefix('e',eventId),{type:'json'});
         if(!record||!matchesStoredDigest(record.ownerDigest,ownerKey))
           return failure('Lien organisateur non reconnu.',403);
+        if(op==='set_booking'){
+          // A private organizer-only confirmation of an ACTUAL purchase.
+          // Never interpret an artist's choice or a GTFS timetable as a booked seat.
+          const personId=safe(body.personId,40),direction=body.direction;
+          if(!['A','R'].includes(direction))return failure('Sens de trajet invalide.');
+          const person=record.people.find(p=>p.id===personId);
+          if(!person)return failure('Voyageur inconnu.');
+          if(typeof body.booked!=='boolean')return failure('Statut de réservation invalide.');
+          const key=prefix('b',eventId+'/'+personId);
+          const state=await bookings.get(key,{type:'json'})||{A:null,R:null};
+          if(body.booked){
+            const answer=await replies.get(prefix('r',eventId+'/'+personId),{type:'json'});
+            const optionId=safe(body.optionId,180);
+            if(!answer||!optionId||answer[direction]!==optionId||optionId==='NONE'||
+              !person.options[direction].some(option=>option.id===optionId))
+              return failure('Le trajet choisi a changé : actualisez le dossier avant de confirmer un achat.',409);
+            if(state[direction] && state[direction].optionId!==optionId)
+              return failure('Un autre billet est déjà marqué acheté pour ce sens. Vérifiez-le avant de modifier le statut.',409);
+            state[direction]=state[direction]||{optionId,bookedAt:clock()};
+          }else{
+            // This updates only Transbora tracking: it cannot cancel/refund a ticket.
+            state[direction]=null;
+          }
+          if(state.A||state.R)await bookings.setJSON(key,state);
+          else await bookings.delete(key);
+          return json({saved:true,booking:state});
+        }
         if(op==='switch_mode'){
           const mode=body.mode;
           if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
@@ -184,14 +212,20 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
         if(op==='remove'){
           await events.delete(prefix('e',eventId));
           for(const l of record.shareLinks)await links.delete(prefix('t',l.token));
-          for(const p of record.people)await replies.delete(prefix('r',eventId+'/'+p.id));
+          for(const p of record.people){
+            await replies.delete(prefix('r',eventId+'/'+p.id));
+            await bookings.delete(prefix('b',eventId+'/'+p.id));
+          }
           return json({removed:true});
         }
-        const answerRows=await Promise.all(record.people.map(async p=>
-          await replies.get(prefix('r',eventId+'/'+p.id),{type:'json'})));
+        const answerRows=await Promise.all(record.people.map(p=>
+          replies.get(prefix('r',eventId+'/'+p.id),{type:'json'})));
+        const bookingRows=await Promise.all(record.people.map(p=>
+          bookings.get(prefix('b',eventId+'/'+p.id),{type:'json'})));
         return json({event:record.event,mode:record.mode,expiresAt:record.expiresAt,
           links:record.shareLinks,people:record.people.map((p,i)=>({
-            ...p,answer:answerRows[i]||null
+            ...p,answer:answerRows[i]||null,
+            booking:bookingRows[i]||{A:null,R:null}
           }))});
       }
       return failure('Action inconnue.');
