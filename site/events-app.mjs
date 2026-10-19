@@ -181,6 +181,10 @@ function includeParticipants(items){
   return {added,duplicates,corrected};
 }
 async function init(){
+  // The prototype no longer needs the old owner activation code. Remove any
+  // previous locally saved credential without touching event drafts or links.
+  try{globalThis.localStorage?.removeItem('transbora_owner_activation_v1');}catch(_e){}
+
   // Event dates are deliberately empty until entered. Do not silently reuse
   // a different date for a trip (this caused the 25/29 October confusion).
   $('event-start-date').value='';
