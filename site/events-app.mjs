@@ -426,7 +426,9 @@ async function performSearch(event,settings){
           $('search-detail').textContent='Terminé pour '+msg.name;
         }
         if(msg.type==='day')$('search-detail').textContent=msg.name+' · '+
-          (msg.kind==='A'?'Aller':'Retour')+' · '+msg.date+' ('+msg.searched+' jours analysés)';
+          (msg.kind==='A'?'Aller':'Retour')+' · '+
+          (msg.level===0?'Sans changement · ':msg.level===1?'1 changement · ':msg.level===2?'2 changements · ':'')+
+          msg.date;
         if(msg.type==='error')finish(new Error(msg.message));
         if(msg.type==='complete')finish(null,{plans:new Map(msg.plans),
           issues:msg.issues,partial:msg.partial});
