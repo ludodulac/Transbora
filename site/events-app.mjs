@@ -5,6 +5,7 @@ import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
+import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -212,7 +213,8 @@ async function init(){
     $(id).addEventListener('change',()=>{invalidate();scheduleDraft();});
     $(id).addEventListener('input',scheduleDraft);
   }
-  loadSavedDraft();
+  if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
+  else loadSavedDraft();
   updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -505,6 +507,10 @@ function renderPublished(record,mode){
   updateRepliesUI();
   try{sessionStorage.setItem('transbora_last_dashboard',dashboard);}
   catch{ /* Private mode: organizer must save the displayed link. */ }
+  const saved=registerHistory(globalThis.localStorage,{
+    eventId:record.eventId,ownerKey:record.ownerKey,
+    event:readEvent(),peopleCount:participants.length
+  });
   const host=$('native-share-links');host.replaceChildren();
   for(const link of record.links){
     const row=node('div','file-row');
@@ -518,7 +524,9 @@ function renderPublished(record,mode){
     actions.append(visit,copy);row.append(actions);host.append(row);
   }
   $('native-ready').hidden=false;
-  shareStatus(record.links.length+' lien(s) créés. Vous pouvez maintenant les envoyer.');
+  shareStatus(record.links.length+' lien(s) créés.'+
+    (saved?' Dossier ajouté à « Mes événements ».':
+     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.'));
 }
 async function createNativeLinks(mode){
   try{
@@ -711,16 +719,16 @@ $('wizard-next').addEventListener('click',()=>{
 });
 $('wizard-back').addEventListener('click',()=>{if(activeStep>1)showStep(activeStep-1);});
 $('clear-saved-draft').addEventListener('click',()=>{
-  if(!confirm('Effacer cet événement, la liste des personnes et les données sauvegardées sur cet appareil ?'))return;
+  if(!confirm('Créer un nouvel événement ? Le brouillon actuel sera remplacé, mais vos dossiers déjà créés seront conservés.'))return;
   eraseDraft(localStorage);
-  location.reload();
+  location.assign('./events.html?new=1');
 });
 $('menu-event').addEventListener('click',()=>{
   toggleHelp(false,{focus:false});
   showStep(activeStep);
 });
-$('menu-replies').addEventListener('click',showReplies);
-$('open-replies').addEventListener('click',showReplies);
+
+
 $('back-to-wizard').addEventListener('click',()=>showStep(activeStep));
 
 function toggleHelp(show,{focus=true}={}){
