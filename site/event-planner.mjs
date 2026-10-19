@@ -4,6 +4,7 @@ import {findConnections,officialIndex} from './connections.mjs';
 import {findTwoChanges} from './connections-two.mjs';
 import {parisInstant,parisDate} from './time-zones.mjs';
 import {queryKey,itineraryKey} from './events-model.mjs';
+import {canBeDirect,canBeOneChange} from './route-topology.mjs';
 const MAX_ROUTES=3;
 const DAY_MS=86400000;
 // Calendar shifts avoid local DST hazards: dates are dates, not 24-hour local clocks.
@@ -133,9 +134,10 @@ export function allOptions(feeds,query,config,officialRules=new Map()){
   return list;
 }
 export async function planEvent(event,participants,feeds,settings,officialRules=new Map(),progress=()=>{},options={}){
-  // A slow GTFS calendar or a route requiring two changes must not hang
-  // the browser for minutes. A budget produces clearly labelled partial
-  // results, never the false assertion that no train exists.
+  // Normal event searches have NO arbitrary time budget: they finish once
+  // enough valid itineraries are found and older/later service days cannot
+  // improve them, or when all the published GTFS dates have been explored.
+  // A caller may still opt into a timeout for controlled tests or audits.
   const began=Date.now();
   const duration=Number.isFinite(options.maxDurationMs)?options.maxDurationMs:Infinity;
   const perDirection=Number.isFinite(options.maxDirectionMs)?options.maxDirectionMs:Infinity;
@@ -177,7 +179,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       return {choices:[],searched:[],covered:false,reason:'no_published_data'};
     let covered=false,directionIncomplete=false;
     const searched=[],found=new Map();
-    // Auto mode is an escalating search, NOT a user-facing transfer limit.
+    // Auto mode escalates only when earlier tiers yield no valid itinerary.
     // Prefer direct trips, then one transfer, then two transfers only when
     // the earlier tier has no matching itinerary. Every leg and transfer
     // is validated by the same existing routing engines.
@@ -194,18 +196,24 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       }
       const tier=tiers[level];
       const tierConfig={...settings,connections:tier};
-      const tierStarted=Date.now();
-      // Reserve time for later levels if earlier levels find nothing.
-      const budgets=automatic&&Number.isFinite(perDirection)?
-        [perDirection*.24,perDirection*.35,perDirection*.41]:null;
-      const tierBudget=budgets?budgets[level]:Infinity;
+      options.onTier?.({person:p,kind,tier,level});
+      // There is no need to scan every service date to disprove a direct
+      // or single-change route: first rule out impossible connections in
+      // the complete timetable's station graph (independent of calendar).
+      if(automatic&&tier==='no'&&!canBeDirect(coverage.selected,queryData.from,queryData.to,settings)){
+        options.onTier?.({person:p,kind,tier,level,skipped:true});
+        continue;
+      }
+      if(automatic&&tier==='only_one'&&!canBeOneChange(coverage.selected,queryData.from,queryData.to,settings)){
+        options.onTier?.({person:p,kind,tier,level,skipped:true});
+        continue;
+      }
       let tierTruncated=false;
       let current=explicit.length?explicit[0]:starting;
       const tierFound=new Map();
       while(explicit.length?(current===explicit[0]):(kind==='A'?current>=ending:current<=ending)){
         if(cancelled())throw new Error('Recherche interrompue.');
-        if(timedOut()||Date.now()-dirStarted>perDirection ||
-            Date.now()-tierStarted>tierBudget){
+        if(timedOut()||Date.now()-dirStarted>perDirection){
           tierTruncated=true;
           directionIncomplete=true;partial=true;
           break;
