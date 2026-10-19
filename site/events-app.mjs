@@ -5,7 +5,6 @@ import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
-import {savedOwnerCode,rememberOwnerCode,forgetOwnerCode} from './owner-code.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -18,13 +17,6 @@ let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false;
-let ownerCode='';
-function updateOwnerAccess(){
-  $('owner-code-setup').hidden=Boolean(ownerCode);
-  $('owner-code-remembered').hidden=!ownerCode;
-  if(ownerCode)$('native-master-key').value='';
-}
-
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-buffer','ev-count'];
@@ -217,8 +209,6 @@ async function init(){
     $(id).addEventListener('input',scheduleDraft);
   }
   loadSavedDraft();
-  ownerCode=savedOwnerCode(globalThis.localStorage);
-  updateOwnerAccess();
   updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
