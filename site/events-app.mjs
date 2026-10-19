@@ -534,12 +534,6 @@ async function createNativeLinks(mode){
 }
 $('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
 $('prepare-native-individual').addEventListener('click',()=>createNativeLinks('individual'));
-$('forget-owner-code')?.addEventListener('click',()=>{
-  forgetOwnerCode(globalThis.localStorage);
-  ownerCode='';
-  updateOwnerAccess();
-  shareStatus('Code oublié sur cet appareil. Il sera demandé à la prochaine création de liens.');
-});
 $('native-copy-all').addEventListener('click',async()=>{
   if(!published)return;
   await copyLink(textLinks(published.links,published.mode));
