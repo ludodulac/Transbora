@@ -135,9 +135,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('prepare-native-group').hidden,false);
   assert.equal($('native-master-key'),null,'No activation code is requested in demo mode');
   assert.match($('native-links-area').textContent,/aucun code à saisir/i);
-  // Replies cannot open a non-existent dossier; guide user back to link creation.
-  click(window.document,'open-replies');
-  assert.equal($('reply-screen').hidden,false);
+  // Replies live in the saved history page, not in an empty local screen.
+  assert.equal($('reply-screen').hidden,true);
   assert.equal($('open-replies').getAttribute('href'),'./mes-evenements.html');
   assert.equal($('menu-replies').getAttribute('href'),'./mes-evenements.html');
   click(window.document,'prepare-native-individual');
