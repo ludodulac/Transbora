@@ -23,3 +23,15 @@ test('unknown origin terminates quickly without scanning all dates',async()=>{
  assert.ok(result.issues.some(x=>/gare ou ville absente/i.test(x)));
  assert.equal(result.plans.get('P-001').outward.length,0);
 });
+
+test('different carrier feeds can cover the origin and destination without premature rejection',async()=>{
+ const from={...feed,data:{...feed.data,
+   stations:[['Brest','Brest']]}};
+ const to={source:{id:'bus',label:'Bus',mode:'bus'},data:{...feed.data,
+   stations:[['Paris','Paris']]}};
+ const p={...person,outwardDate:'2026-11-25'};
+ const onlyOut={...event,includeReturn:false};
+ const res=await planEvent(onlyOut,[p],[from,to],{...setting,mode:'all'},
+   new Map(),()=>{},{maxDurationMs:10000,maxDirectionMs:10000});
+ assert.ok(!res.issues.some(x=>/gare ou ville absente/i.test(x)));
+});
