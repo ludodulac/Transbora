@@ -35,6 +35,10 @@ Pour un voyageur importé depuis Excel, une date de déplacement explicitement r
 
 **Détails et limites :** [règles de recherche par heure de présence](docs/presence-heure-010.md).
 
+## Déploiement de test Netlify
+
+La version avec enregistrement des choix se teste sur **https://transbora-ludo.netlify.app/events.html**. GitHub Pages ne permet pas l'enregistrement des réponses. Le déploiement Netlify utilise `main` et la fonction `/api/transbora`. Le code organisateur est une variable secrète Netlify, **jamais stockée dans GitHub**. Les voyageurs n'ont aucun compte à créer.
+
 ## 🚆 Liens de choix Transbora natifs (mission 012) — parcours recommandé
 
 **Aucun formulaire Google à configurer pour les clients ni pour les voyageurs.** Transbora propose directement une page mobile personnelle ou collective de sélection des trajets : le participant ouvre son lien, choisit un aller et/ou un retour, confirme. L'organisateur retrouve les réponses dans son **tableau Transbora privé** (et peut exporter un suivi CSV).
