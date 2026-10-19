@@ -27,6 +27,13 @@ self.onmessage=async message=>{
     const result=await planEvent(event,people,prepared.feeds,settings,prepared.rules,
       (done,total,p)=>self.postMessage({type:'progress',done,total,name:p.first+' '+p.last}),{
         ...limits,
+        onTier:({person,kind,tier,skipped})=>{
+          const level=tier==='no'?'sans changement':
+            tier==='only_one'?'avec 1 correspondance':'avec 2 correspondances';
+          self.postMessage({type:'stage',
+            label:person.first+' '+person.last+' · '+(kind==='A'?'Aller':'Retour')+
+              ' · '+(skipped?'aucune liaison possible ':'recherche ')+level});
+        },
         onDay:({person,kind,date,searched,level})=>{
           // Explicitly show which transfer tier is being attempted.
           if(level!=null || searched===1 || searched%3===0)self.postMessage({
