@@ -21,8 +21,6 @@ export function buildChoicePeople(event,participants,plans){
         options[dir].push({id,label:optionLabel(j,j.date||date,i+1)});
       }
     }
-    if(!options.A.length&&!options.R.length)
-      throw new Error('Aucun trajet trouvé pour '+p.first+' '+p.last+'. Vérifiez les horaires avant de partager.');
     people.push({id:p.id,first:p.first,last:p.last,departure:p.departure,options});
   }
   return people;
