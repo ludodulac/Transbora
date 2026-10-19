@@ -29,6 +29,10 @@ async function refresh(){
       }
       summary.append(row);
     }
+    $('current-share-mode').textContent=report.mode==='group'?
+      'Mode actuel : un lien collectif':'Mode actuel : un lien par voyageur';
+    $('change-mode').textContent=report.mode==='group'?
+      '↔ Remplacer par des liens individuels':'↔ Remplacer par un lien de groupe';
     const linkList=$('links');linkList.replaceChildren();
     for(const link of report.links){
       const line=node('div','share-line');
@@ -47,6 +51,19 @@ async function refresh(){
   }catch(error){notice(error.message,true);}
 }
 $('reload').addEventListener('click',refresh);
+$('change-mode').addEventListener('click',async()=>{
+  if(!report)return;
+  const mode=report.mode==='group'?'individual':'group';
+  if(!confirm('Changer de type de lien ? Les anciens liens cesseront de fonctionner. Les réponses déjà reçues seront conservées.'))return;
+  const button=$('change-mode');
+  button.disabled=true;
+  try{
+    await api('switch_mode',{eventId,ownerKey,mode});
+    await refresh();
+    notice('Liens remplacés. Le même dossier et les réponses reçues sont conservés. Envoyez les nouveaux liens.');
+  }catch(error){notice(error.message,true);}
+  finally{button.disabled=false;}
+});
 $('copy-links').addEventListener('click',async()=>{
   if(!report)return;
   try{await navigator.clipboard.writeText(textLinks(report.links,report.mode));notice('Liens copiés.');}
