@@ -96,7 +96,7 @@
    <details class="settings-fold"><summary>Réglages</summary>
     <div class="fold-fields">
      <label>Transports<select id="ev-mode"><option value="all">Train + autocar</option><option value="rail">Train</option><option value="bus">Autocar</option></select></label>
-     <label>Changements<select id="ev-connections"><option value="yes" selected>1 max.</option><option value="two">2 max.</option><option value="no">Directs</option></select></label>
+     <p class="automatic-routing">Correspondances automatiques : directs, puis 1 ou 2 changements si nécessaire.</p>
      <div class="risk-setting">
       <label>Prudence<select id="ev-buffer"><option value="very_cautious" selected>Très prudente</option><option value="prudent">Équilibrée</option></select></label>
       <details class="risk-help"><summary aria-label="Explication de la prudence">?</summary>
@@ -132,10 +132,16 @@
    </div>
    <div class="google-steps" id="native-links-area">
     <p>Vos voyageurs choisissent directement sur leur téléphone, sans Excel ni Google.</p>
-    <label class="master-code">Code organisateur
-      <input id="native-master-key" type="password" autocomplete="off" placeholder="Code privé de votre installation" maxlength="160">
-    </label>
-    <p class="small">Ce code protège la création des événements. Les participants n’en ont jamais besoin.</p>
+    <div id="owner-code-setup">
+      <label class="master-code">Code organisateur
+        <input id="native-master-key" type="password" autocomplete="off" placeholder="À saisir une seule fois" maxlength="160">
+      </label>
+      <p class="small">Votre code privé est créé à l’installation. Saisissez-le une première fois : Transbora le gardera sur cet appareil pour vos prochains événements. Les voyageurs n'en ont jamais besoin.</p>
+    </div>
+    <div id="owner-code-remembered" hidden>
+      <p class="saved-owner-code">✓ Votre code organisateur est mémorisé sur cet appareil.</p>
+      <button type="button" class="text-button" id="forget-owner-code">Oublier ce code</button>
+    </div>
     <p id="native-status" class="inline-feedback" role="status"></p>
     <section id="native-ready" hidden>
       <h3>Liens prêts</h3>
