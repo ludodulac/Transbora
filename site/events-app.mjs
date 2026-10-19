@@ -3,7 +3,7 @@ import {prepareFeeds,planEvent,eventBoundaries} from './event-planner.mjs';
 import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
-import {buildFormsRows,googleSheetTSV,FORM_HEADERS} from './google-forms-export.mjs';
+import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -13,7 +13,7 @@ const $=id=>document.getElementById(id);
 const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
-let formsBatchId=null,formsMode='individuel';
+let published=null;
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
@@ -74,10 +74,10 @@ function updateButtons(){
   const hasPeople=participants.length>0;
   $('search-everyone').disabled=isBusy||!hasPeople||!manifest;
   const havePlans=hasSearched&&plans.size>0;
-  for(const id of ['export-organizer','export-personal-zip','export-followup','prepare-google-group','prepare-google-individual']){
+  for(const id of ['export-organizer','export-personal-zip','export-followup','prepare-native-group','prepare-native-individual']){
     $(id).disabled=isBusy||!havePlans;
   }
-  for(const id of ['export-organizer','export-personal-zip','prepare-google-group','prepare-google-individual']){
+  for(const id of ['export-organizer','export-personal-zip','prepare-native-group','prepare-native-individual']){
     $(id).hidden=!havePlans;
   }
   $('individual-details').hidden=!havePlans;
@@ -94,7 +94,8 @@ function updateButtons(){
   }
 }
 function invalidate(){
-  plans=new Map();choices={};hasSearched=false;formsBatchId=null;
+  plans=new Map();choices={};hasSearched=false;published=null;
+  $('native-ready').hidden=true;
   $('journey-recap').replaceChildren();
   $('individual-files').replaceChildren(node('p','muted','Lancez la recherche.'));
   msg($('reply-status'),'');
@@ -370,124 +371,66 @@ $('search-everyone').addEventListener('click',async()=>{
 });
 // Google Sheets is private and owned by the logged-in user. The public repo
 // never contains their Sheet identifier nor personal event data.
-const GOOGLE_SHEET_STORE='transbora_google_sheet_url_v1';
-const GOOGLE_WEBAPP_STORE='transbora_google_webapp_url_v1';
-let configuredSheet='',configuredApp='';
-function validSheetUrl(value){
-  return /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+(?:\/.*)?$/.test(value);
+const shareStatus=message=>msg($('native-status'),message,false);
+async function copyLink(value){
+  try{await navigator.clipboard.writeText(value);shareStatus('✓ Lien copié.');}
+  catch{window.prompt('Copiez ce lien :',value);}
 }
-function validWebApp(value){
-  return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(value);
+function renderPublished(record,mode){
+  published={...record,mode};
+  const dashboard=statusUrl(record.eventId,record.ownerKey);
+  $('native-status-link').href=dashboard;
+  $('open-replies-native').href=dashboard;
+  try{sessionStorage.setItem('transbora_last_dashboard',dashboard);}
+  catch{ /* Private mode: organizer must save the displayed link. */ }
+  const host=$('native-share-links');host.replaceChildren();
+  for(const link of record.links){
+    const row=node('div','file-row');
+    row.append(node('strong',null,link.label));
+    const actions=node('div','file-actions');
+    const url=choiceUrl(link.token);
+    const visit=node('a','mini-button','Ouvrir ↗');
+    visit.href=url;visit.target='_blank';visit.rel='noopener noreferrer';
+    const copy=node('button','mini-button','Copier');
+    copy.type='button';copy.addEventListener('click',()=>copyLink(url));
+    actions.append(visit,copy);row.append(actions);host.append(row);
+  }
+  $('native-ready').hidden=false;
+  shareStatus(record.links.length+' lien(s) créés. Vous pouvez maintenant les envoyer.');
 }
-function applyGoogleSettings(sheet,webapp){
-  if(sheet&& !validSheetUrl(sheet))throw new Error('Le lien Google Sheets n’est pas valide.');
-  if(webapp&& !validWebApp(webapp))throw new Error('Le lien Apps Script doit se terminer par /exec.');
-  configuredSheet=sheet;
-  configuredApp=webapp;
-  $('google-sheet-url').value=sheet;
-  $('google-webapp-url').value=webapp;
-  $('open-google-sheet').href=sheet||'#';
-  $('open-replies-google').href=sheet||'#';
-  const auto=Boolean(webapp);
-  $('google-flow-hint').textContent=auto?
-    'Prêt : créez les formulaires de votre Drive privé en un clic.' :
-    'Configurez Google une seule fois pour créer les formulaires directement. Sinon, utilisez la copie manuelle.';
-  for(const id of ['prepare-google-group','prepare-google-individual'])
-    $(id).textContent=auto?'Créer les formulaires ↗':'Préparer les propositions';
-}
-try{
-  const sheet=localStorage.getItem(GOOGLE_SHEET_STORE)||'';
-  const app=localStorage.getItem(GOOGLE_WEBAPP_STORE)||'';
-  applyGoogleSettings(validSheetUrl(sheet)?sheet:'',validWebApp(app)?app:'');
-}catch(_e){applyGoogleSettings('','');}
-function promptGoogleSetup(){
-  $('google-config').open=true;
-  $('google-sheet-url').focus();
-  msg($('google-forms-status'),'Commencez par configurer le lien de votre Google Sheets (pas la racine de Drive).',true);
-}
-for(const id of ['open-google-sheet','open-replies-google']){
-  $(id).addEventListener('click',e=>{
-    if(configuredSheet)return;
-    e.preventDefault();
-    if(currentView==='replies'){
-      $('reply-screen').hidden=true;
-      currentView='wizard';
-      $('wizard-shell').hidden=false;
-      showStep(4);
-    }
-    promptGoogleSetup();
-  });
-}
-$('save-google-sheet').addEventListener('click',()=>{
+async function createNativeLinks(mode){
   try{
-    const sheet=$('google-sheet-url').value.trim();
-    const app=$('google-webapp-url').value.trim();
-    if(!sheet)throw new Error('Collez d’abord l’adresse du tableau Google Sheets.');
-    applyGoogleSettings(sheet,app);
-    try{
-      localStorage.setItem(GOOGLE_SHEET_STORE,sheet);
-      if(app)localStorage.setItem(GOOGLE_WEBAPP_STORE,app);
-      else localStorage.removeItem(GOOGLE_WEBAPP_STORE);
-    }catch(_e){}
-    msg($('google-forms-status'),app?
-      '✅ Connexion Google enregistrée dans ce navigateur. Le prochain clic ouvrira la création des formulaires.' :
-      '✅ Tableau Google Sheets enregistré. Utilisez « Sans connexion automatique » pour copier les propositions.');
-  }catch(error){msg($('google-forms-status'),error.message,true);}
+    if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
+    const master=$('native-master-key').value.trim();
+    if(!master)throw new Error('Indiquez votre code organisateur (celui de votre installation Transbora).');
+    if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
+    const event=readEvent();
+    const people=buildChoicePeople(event,participants,plans);
+    busy(true);shareStatus('Création des liens privés…');
+    const result=await api('create',{event,people,mode},master);
+    $('native-master-key').value='';
+    renderPublished(result,mode);
+  }catch(error){
+    msg($('native-status'),error.message,true);
+    status(error.message,true);
+  }finally{busy(false);}
+}
+$('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
+$('prepare-native-individual').addEventListener('click',()=>createNativeLinks('individual'));
+$('native-copy-all').addEventListener('click',async()=>{
+  if(!published)return;
+  await copyLink(textLinks(published.links,published.mode));
 });
-function currentFormsPayload(mode){
-  if(!hasSearched)throw new Error('Lancez d’abord la recherche des trajets.');
-  if(!formsBatchId)
-    formsBatchId='EV-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();
-  return buildFormsRows(readEvent(),participants,plans,mode,{batchId:formsBatchId+'-'+mode});
-}
-async function clipboardForms(mode){
-  try{
-    const data=currentFormsPayload(mode),table=googleSheetTSV(data);
-    try{
-      await navigator.clipboard.writeText(table);
-      msg($('google-forms-status'),
-        '✅ Propositions copiées. Ouvrez VOTRE Google Sheets (bouton ci-dessus), onglet Propositions, case A1, puis Coller. Menu Transbora → Créer les formulaires.');
-    }catch(_error){
-      const fallback=$('google-copy-fallback');
-      fallback.value=table;fallback.hidden=false;fallback.focus();fallback.select();
-      msg($('google-forms-status'),
-        'Votre navigateur bloque la copie automatique. Copiez le tableau sélectionné ci-dessous et collez-le dans votre Google Sheets : Propositions!A1.',true);
-    }
-  }catch(error){msg($('google-forms-status'),error.message,true);}
-}
-/** Cross-origin HTML POST: no CORS read and no published Google token.
- * Deployment must be owner-only; opens the PRIVATE result in a new tab.
- */
-function postToPrivateGoogleApp(mode){
-  if(!validWebApp(configuredApp))throw new Error('Application Google privée non configurée.');
-  const data=currentFormsPayload(mode);
-  const form=document.createElement('form');
-  form.method='POST';form.action=configuredApp;form.target='_blank';
-  form.style.display='none';
-  const input=document.createElement('input');
-  input.type='hidden';input.name='payload';
-  input.value=JSON.stringify({headers:FORM_HEADERS,rows:data.rows});
-  form.append(input);document.body.append(form);
-  try{form.submit();}finally{form.remove();}
-  msg($('google-forms-status'),
-    'Google s’ouvre dans un autre onglet pour créer et afficher les liens. Vérifiez que vous êtes connecté au bon compte.');
-}
-function prepareGoogleForms(mode){
-  formsMode=mode;
-  try{
-    if(configuredApp)postToPrivateGoogleApp(mode);
-    else{
-      $('manual-google').open=true;
-      msg($('google-forms-status'),
-        'Il manque la connexion privée Google. Vous pouvez copier les propositions ci-dessous, ou configurer l’application Google.');
-      $('google-config').open=true;
-      if(!configuredSheet)$('google-sheet-url').focus();
-    }
-  }catch(error){msg($('google-forms-status'),error.message,true);}
-}
-$('prepare-google-group').addEventListener('click',()=>prepareGoogleForms('collectif'));
-$('prepare-google-individual').addEventListener('click',()=>prepareGoogleForms('individuel'));
-$('copy-google-manual').addEventListener('click',()=>clipboardForms(formsMode));
+try{
+  const last=sessionStorage.getItem('transbora_last_dashboard')||'';
+  if(last.startsWith(location.origin+'/'))$('open-replies-native').href=last;
+}catch{}
+$('open-replies-native').addEventListener('click',event=>{
+  if($('open-replies-native').getAttribute('href')==='#'){
+    event.preventDefault();
+    msg($('reply-status'),'Créez d’abord les liens à l’étape 4. Le lien du tableau de suivi apparaîtra.',true);
+  }
+});
 
 $('export-organizer').addEventListener('click',async()=>{
   try{
@@ -578,7 +521,7 @@ $('import-replies').addEventListener('change',async e=>{
 
 /** One active wizard screen and one main footer action, never a long scrolling form. */
 const screenIds=['etape-1','etape-2','etape-3','etape-4'];
-const screenTitles=['Événement','Voyageurs','Trajets','Formulaires'];
+const screenTitles=['Événement','Voyageurs','Trajets','Liens'];
 function showStep(number,{focus=true}={}){
   activeStep=Math.max(1,Math.min(4,number));
   currentView='wizard';
