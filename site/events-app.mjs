@@ -394,7 +394,9 @@ function renderIndividualButtons(event){
 }
 /** Run expensive day-by-day GTFS scans in a worker to keep Android UI responsive. */
 async function performSearch(event,settings){
-  const limits={maxDurationMs:18000,maxDirectionMs:6000};
+  // No arbitrary deadline: stop when valid options are found or published
+  // timetables have been exhausted. Work stays in the background worker.
+  const limits={};
   const progress=(done,total,p)=>{
     $('progress').value=Math.round(done/total*100);
     $('progress-label').textContent=done+' / '+total+' voyageur(s)';
@@ -411,12 +413,10 @@ async function performSearch(event,settings){
       let completed=false;
       const finish=(error,value)=>{
         if(completed)return;
-        completed=true;clearTimeout(timer);worker.terminate();searchWorker=null;
+        completed=true;worker.terminate();searchWorker=null;
         cancelActiveSearch=null;
         if(error)reject(error);else resolve(value);
       };
-      const timer=setTimeout(()=>finish(new Error(
-        'La recherche dépasse 35 secondes. Votre événement est sauvegardé : essayez « Train » ou « Directs », puis relancez.')),35000);
       cancelActiveSearch=()=>finish(new Error('Recherche arrêtée. Votre événement et vos voyageurs sont conservés.'));
       worker.onmessage=e=>{
         const msg=e.data||{};
@@ -483,7 +483,9 @@ $('search-everyone').addEventListener('click',async()=>{
     updateButtons();
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(error){
-    status(error.message,true);
+    if(error.message==='Recherche arrêtée. Votre événement et vos voyageurs sont conservés.')
+      status(error.message,false);
+    else status(error.message,true);
   }finally{
     $('progress-box').hidden=true;busy(false);storeDraft();
   }
