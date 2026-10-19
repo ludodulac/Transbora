@@ -28,7 +28,7 @@ function refreshList(){
   for(const item of data){
     const card=node('article','history-card');
     const heading=node('h2',null,item.title);
-    const period=new Date(item.endDate+'T23:59:59').getTime()<Date.now()?'Terminé':'À venir';
+    const period=new Date(item.endDate+'T23:59:59').getTime()<Date.now()?'Passé':'À venir';
     const badge=node('span','history-badge',period);
     const info=node('p','history-details',(item.destination||'Lieu non précisé')+
       ' · '+date(item.startDate)+(item.endDate!==item.startDate?' au '+date(item.endDate):'')+
@@ -58,7 +58,8 @@ $('history-import').addEventListener('submit',async e=>{
 });
 refreshList();
 // Earlier releases saved only one private URL in the current browser session.
-const old=sessionStorage.getItem('transbora_last_dashboard')||'';
+let old='';
+try{old=sessionStorage.getItem('transbora_last_dashboard')||'';}catch(_e){}
 if(old && parseOwnerLink(old,location.origin)){
   const ref=parseOwnerLink(old,location.origin);
   if(!readHistory(localStorage).some(item=>item.eventId===ref.eventId)){
