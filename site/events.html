@@ -30,9 +30,9 @@
   <p class="drawer-highlight">Créez un événement, ajoutez les voyageurs, cherchez leurs horaires, puis créez les formulaires Google.</p>
   <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Le début correspond à l'heure à laquelle les artistes doivent être présents ; la fin, au moment où ils sont libres de partir. Transbora cherche le train arrivant le plus près possible avant cette présence et le premier départ possible après la fin, avec les temps d’accès choisis. Aucune limite artificielle à deux jours.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
-  <h3>3 · Recherche</h3><p>Un clic recherche les trajets souhaités de tous les participants. Les réglages permettent de choisir les transports et le nombre de correspondances.</p>
-  <h3>4 · Formulaires</h3><p>Choisissez un formulaire collectif ou individuel. Transbora copie les propositions. Collez-les dans le tableau privé Google Sheets, onglet Propositions, cellule A1, puis menu « Transbora → Créer les formulaires ». Les liens apparaissent dans « Liens ».</p>
-  <h3>Réponses</h3><p>Les participants cochent un seul horaire par sens dans leur Google Form. Le Google Sheet privé centralise les réponses : actualisez le menu pour les voir tout de suite (sinon, synchronisation chaque heure). L’ancienne option Excel reste disponible.</p>
+  <h3>3 · Recherche</h3><p>Vous pouvez indiquer une ville (Paris : toutes les gares trouvées dans les données) ou une gare précise. Le résultat affiche les gares réelles utilisées, y compris les changements. Vérifiez la gare d’arrivée par rapport au lieu de l’événement.</p>
+  <h3>4 · Formulaires</h3><p>Après configuration de votre application Web Google privée, « Créer les formulaires » ouvre directement les liens de choix. Sans cette configuration, Transbora copie les propositions : collez-les dans Propositions!A1 puis menu Google Sheets → Transbora → Créer les formulaires.</p>
+  <h3>Réponses</h3><p>Les participants cochent un seul horaire par sens dans leur Google Form. Le Google Sheet privé centralise les réponses : menu Transbora → Actualiser les réponses pour les voir immédiatement (sinon, synchronisation chaque heure). L’ancienne option Excel reste disponible.</p>
   <h3>Précautions</h3><p>Transbora peut rechercher avant ou après l'événement selon les horaires publiés, même sur plusieurs jours ; dates de départ et d'arrivée précisées. Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
  </div>
 </aside>
@@ -49,7 +49,7 @@
    <div class="screen-heading"><span class="screen-icon">01</span><h1 id="step-one-heading" tabindex="-1">Événement</h1></div>
    <div class="wizard-fields">
     <label>Nom<input id="event-title" placeholder="Ex. Congrès" maxlength="90" autocomplete="off" required></label>
-    <label>Lieu<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" autocomplete="off" required><datalist id="event-stations"></datalist></label>
+    <label>Lieu<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" autocomplete="off" required><small class="city-hint">Ville = toutes les gares et arrêts trouvés. Gare précise = sélection ciblée.</small><datalist id="event-stations"></datalist></label>
     <div class="date-group"><span class="field-group-label">Début de l’événement</span>
      <div class="date-time-row"><label>Date<input id="event-start-date" type="date" required></label><label>Heure<input id="event-start-time" type="time" value="14:00" required></label></div>
     </div>
@@ -110,29 +110,33 @@
     <article class="export-card">
      <div class="export-icon" aria-hidden="true">👥</div>
      <h2>Un lien pour tous</h2>
-     <button type="button" class="primary download-action google-export" id="prepare-google-group" hidden disabled>📋 Copier les propositions</button>
+     <button type="button" class="primary download-action google-export" id="prepare-google-group" hidden disabled>Créer les formulaires</button>
     </article>
     <article class="export-card">
      <div class="export-icon" aria-hidden="true">👤</div>
      <h2>Un lien par personne</h2>
-     <button type="button" class="primary download-action google-export" id="prepare-google-individual" hidden disabled>📋 Copier les propositions</button>
+     <button type="button" class="primary download-action google-export" id="prepare-google-individual" hidden disabled>Créer les formulaires</button>
     </article>
    </div>
    <div class="google-steps" id="google-steps" aria-live="polite">
-    <strong>3 gestes pour les formulaires</strong>
-    <div><span>1</span> Copier ci-dessus</div>
-    <div><span>2</span> Coller dans Google Sheets, en <b>Propositions!A1</b></div>
-    <div><span>3</span> Menu <b>Transbora → Créer les formulaires</b></div>
+    <strong>Formulaires Google</strong>
+    <p id="google-flow-hint">Une seule configuration Google, puis les liens des voyageurs en un clic.</p>
     <div class="google-actions">
-      <a id="open-google-sheet" href="https://drive.google.com/drive/u/0/my-drive" target="_blank" rel="noopener noreferrer" class="sheet-action">📋 Ouvrir Google Sheets ↗</a>
       <details id="google-config" class="google-config">
-       <summary>Configurer Drive</summary>
-       <label>Lien du tableau<input type="url" id="google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off"></label>
+       <summary>⚙ Configurer Google</summary>
+       <label>Adresse Google Sheets<input type="url" id="google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off"></label>
+       <label>Application Google privée<input type="url" id="google-webapp-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
        <button type="button" class="secondary" id="save-google-sheet">Enregistrer</button>
-       <p>Une seule fois : collez <a href="https://script.google.com/" target="_blank" rel="noopener noreferrer">le script Google</a> dans Extensions → Apps Script du tableau. <a href="https://github.com/ludodulac/Transbora/blob/main/integrations/google-forms/Code.gs" target="_blank" rel="noopener noreferrer">Voir le code ↗</a></p>
+       <p>L’application Web est facultative : elle crée les formulaires automatiquement après installation sur ton compte Google. <a href="https://github.com/ludodulac/Transbora/blob/main/docs/google-forms-011.md" target="_blank" rel="noopener noreferrer">Installation une seule fois ↗</a></p>
       </details>
+      <a id="open-google-sheet" href="#" target="_blank" rel="noopener noreferrer" class="sheet-action">📋 Ouvrir mon tableau Google Sheets ↗</a>
     </div>
     <p id="google-forms-status" class="inline-feedback" role="status"></p>
+    <details class="settings-fold manual-google" id="manual-google">
+      <summary>Sans connexion automatique</summary>
+      <p>Appuyez sur « Copier les propositions », ouvrez votre tableau Google Sheets, puis collez dans <strong>Propositions → A1</strong>. Menu « Transbora → Créer les formulaires » (sur ordinateur).</p>
+      <button type="button" class="secondary" id="copy-google-manual">📋 Copier les propositions</button>
+    </details>
     <textarea id="google-copy-fallback" class="google-fallback" hidden readonly aria-label="Tableau à copier manuellement"></textarea>
    </div>
    <details class="settings-fold legacy-excel" id="legacy-excel">
