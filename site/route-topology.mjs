@@ -54,13 +54,13 @@ export function canBeDirect(feeds,from,to,config){
  */
 export function canBeOneChange(feeds,from,to,config){
   const chosen=eligibleFeeds(feeds,config);
-  const arrivals=[],departures=[],lastSpatial=new Map();
+  const arrivals=[],departureIds=new Set(),lastSpatial=new Map();
   for(const feed of chosen){
     for(const index of allTripSegments(feed,from,'forward'))
       arrivals.push(stationRecord(feed,index));
     for(const index of allTripSegments(feed,to,'backward')){
       const stop=stationRecord(feed,index);
-      departures.push(stop);
+      departureIds.add(stop.source.id+':'+stop.index);
       const cell=geoCell(stop.station);
       if(cell){
         const id=coordKey(cell[0],cell[1]);
@@ -69,9 +69,9 @@ export function canBeOneChange(feeds,from,to,config){
       }
     }
   }
-  if(!arrivals.length||!departures.length)return false;
+  if(!arrivals.length||!departureIds.size)return false;
   for(const arrival of arrivals){
-    if(departures.some(stop=>arrival.source.id===stop.source.id&&arrival.index===stop.index))
+    if(departureIds.has(arrival.source.id+':'+arrival.index))
       return true;
     const cell=geoCell(arrival.station);
     if(!cell)continue;
