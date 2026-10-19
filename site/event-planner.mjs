@@ -1,5 +1,5 @@
 /** Plan one event for many people. Work is entirely inside the browser; no PII uploads. */
-import {searchFeed,normalizeStop} from './search-multi.mjs';
+import {searchFeed,normalizeStop,matchesStop} from './search-multi.mjs';
 import {findConnections,officialIndex} from './connections.mjs';
 import {findTwoChanges} from './connections-two.mjs';
 import {parisInstant,parisDate} from './time-zones.mjs';
@@ -129,16 +129,37 @@ export function allOptions(feeds,query,config,officialRules=new Map()){
   }
   return list;
 }
-export async function planEvent(event,participants,feeds,settings,officialRules=new Map(),progress=()=>{}){
+export async function planEvent(event,participants,feeds,settings,officialRules=new Map(),progress=()=>{},options={}){
+  // A slow GTFS calendar or a route requiring two changes must not hang
+  // the browser for minutes. A budget produces clearly labelled partial
+  // results, never the false assertion that no train exists.
+  const began=Date.now();
+  const duration=Number.isFinite(options.maxDurationMs)?options.maxDurationMs:Infinity;
+  const perDirection=Number.isFinite(options.maxDirectionMs)?options.maxDirectionMs:Infinity;
+  const timedOut=()=>Date.now()-began>duration;
+  const cancelled=()=>Boolean(options.shouldAbort?.());
   eventBoundaries(event);
   const cache=new Map(),plans=new Map(),issues=[];
+  let partial=false;
   const max=Math.max(1,Math.min(5,Number(settings.maxOptions)||3));
   const coverage=publishedRange(feeds,settings);
   const maxPath=maximumPathSeconds(feeds,settings);
   async function searchDirection(queryData,p,kind){
     const explicit=travelDates(event,p,kind);
     const {min,max:publishedEnd}=coverage;
+    const dirStarted=Date.now();
     if(!min||!publishedEnd)return {choices:[],searched:[],covered:false};
+    // Skip a costly full-calendar search when a selected source has no stop
+    // bearing the requested city/station name at all.
+    const knownPair=coverage.selected.some(f=>{
+      const stops=f.data.stations;
+      return stops.some(s=>matchesStop(s[1],queryData.from)) &&
+             stops.some(s=>matchesStop(s[1],queryData.to));
+    });
+    if(!knownPair){
+      issues.push(p.first+' '+p.last+' : gare ou ville absente des horaires disponibles pour '+kind+'.');
+      return {choices:[],searched:[],covered:false};
+    }
     const deadline=travelBoundary(event,kind);
     const boundaryDay=kind==='A'?event.startDate:event.endDate;
     const finalClockDay=shiftDate(publishedEnd,1);
@@ -152,7 +173,15 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     let covered=false;
     const searched=[],found=new Map();
     while(explicit.length?(searched.length<1):(kind==='A'?current>=ending:current<=ending)){
+      if(cancelled())throw new Error('Recherche interrompue.');
+      if(timedOut() || Date.now()-dirStarted>perDirection){
+        partial=true;
+        issues.push(p.first+' '+p.last+' : recherche '+(kind==='A'?'aller':'retour')+
+          ' incomplète (limite de temps atteinte). Affinez les réglages et relancez.');
+        break;
+      }
       const date=current;
+      options.onDay?.({person:p,kind,date,searched:searched.length+1});
       searched.push(date);
       const query={...queryData,date,earliest:'00:00',latest:'23:59'};
       const k=queryKey(query,settings);
@@ -179,13 +208,23 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       if(explicit.length)break;
       current=shiftDate(current,kind==='A'?-1:1);
       // Yield between timetable days so mobile UIs can repaint.
-      if(searched.length%2===0)await new Promise(resolve=>setTimeout(resolve,0));
+      await new Promise(resolve=>setTimeout(resolve,0));
     }
     return {choices:[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max),
       searched,covered};
   }
   for(let i=0;i<participants.length;i++){
     const p=participants[i];
+    if(cancelled())throw new Error('Recherche interrompue.');
+    if(timedOut()){
+      partial=true;
+      issues.push('Recherche partielle : limite globale de temps atteinte. Certains voyageurs restent sans proposition.');
+      // Provide empty, explicitly incomplete plans for remaining participants.
+      for(const rest of participants.slice(i))plans.set(rest.id,{
+        outwardDate:event.startDate,returnDate:event.endDate,
+        outwardDates:[],returnDates:[],outward:[],returning:[]});
+      break;
+    }
     const entries={outwardDate:event.startDate,returnDate:event.endDate,
       outwardDates:[],returnDates:[],outward:[],returning:[]};
     for(const kind of ['A','R']){
@@ -207,5 +246,5 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     progress(i+1,participants.length,p);
     if(i%2===0)await new Promise(resolve=>setTimeout(resolve,0));
   }
-  return {plans,issues};
+  return {plans,issues,partial};
 }
