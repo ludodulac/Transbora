@@ -130,6 +130,12 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.ok($('journey-recap').textContent.includes('Sophie'));
   assert.match($('journey-recap').textContent,/Brest → Paris/,
     'Result should display actual departure and arrival station names');
+  const travelCard=$('journey-recap').querySelector('.recap-route');
+  assert.ok(travelCard,'One distinct card per proposed itinerary');
+  assert.match(travelCard.querySelector('.route-option-heading').textContent,/Option 1/);
+  assert.match(travelCard.querySelector('.route-clock').textContent,/\d\d:\d\d → \d\d:\d\d/);
+  assert.match(travelCard.querySelector('.route-calendar').textContent,/novembre/);
+  assert.match(travelCard.querySelector('.route-meta').textContent,/Direct/);
   assert.equal($('global-status').classList.contains('has-error'),false,
     'A successful search must not be masked by an error from navigation');
   click(window.document,'wizard-next');
