@@ -14,8 +14,8 @@
 <body>
 <header class="event-header">
  <div class="container event-nav">
-  <a class="brand" href="./events.html">🚆 Transbora</a>
-  <span class="nav-context">Événements</span>
+  <a class="brand" href="./index.html">🚆 Transbora</a>
+
   <button type="button" id="help-open" aria-expanded="false" aria-controls="help-drawer" aria-label="Ouvrir le menu" class="hamburger"><span></span><span></span><span></span></button>
  </div>
 </header>
@@ -23,18 +23,16 @@
 <aside id="help-drawer" class="help-drawer" aria-label="Menu et aide" aria-hidden="true" tabindex="-1" inert>
  <div class="drawer-head"><strong>☰ Menu</strong><button id="help-close" type="button" aria-label="Fermer le menu">✕</button></div>
  <div class="help-body">
-  <nav class="drawer-nav" aria-label="Navigation"><button type="button" id="menu-event" class="drawer-link">📋 Événement</button>
-  <button type="button" id="menu-replies" class="drawer-link">✅ Réponses</button>
-  <button type="button" id="clear-saved-draft" class="drawer-link">🗑 Nouveau dossier</button>
-  <a href="./index.html" class="drawer-link">🚆 Recherche simple</a></nav>
-  <h3>Mode d’emploi</h3>
-  <p class="drawer-highlight">Créez un événement, cherchez les trajets et partagez les liens de choix directement dans Transbora.</p>
-  <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Le début correspond à l'heure à laquelle les artistes doivent être présents ; la fin, au moment où ils sont libres de partir. Transbora cherche le train arrivant le plus près possible avant cette présence et le premier départ possible après la fin, avec les temps d’accès choisis. Aucune limite artificielle à deux jours.</p>
-  <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
-  <h3>3 · Recherche</h3><p>Vous pouvez indiquer une ville (Paris : toutes les gares trouvées dans les données) ou une gare précise. Le résultat affiche les gares réelles utilisées, y compris les changements. Vérifiez la gare d’arrivée par rapport au lieu de l’événement.</p>
-  <h3>4 · Liens</h3><p>Pour les essais, vous n'avez aucun code à renseigner. Cliquez sur « Créer le lien du groupe » ou « Créer les liens personnels ». Transbora affiche ensuite les liens à envoyer et votre suivi privé des réponses.</p>
-  <h3>Réponses</h3><p>Transbora enregistre les choix et les montre dans un tableau privé accessible depuis votre lien de suivi. Seul l’organisateur conserve ce lien. Les anciens exports Excel restent en option.</p>
-  <h3>Précautions</h3><p>Transbora peut rechercher avant ou après l'événement selon les horaires publiés, même sur plusieurs jours ; dates de départ et d'arrivée précisées. Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
+  <nav class="drawer-nav" aria-label="Navigation">
+  <a href="./index.html" class="drawer-link">🏠 Accueil</a>
+  <a id="menu-replies" href="./mes-evenements.html" class="drawer-link">📂 Mes événements et réponses</a>
+  <button type="button" id="menu-event" class="drawer-link">✏️ Brouillon en cours</button>
+  <button type="button" id="clear-saved-draft" class="drawer-link">＋ Nouvel événement</button>
+  <a href="./recherche.html" class="drawer-link">🚆 Recherche rapide</a>
+  </nav>
+  <details class="settings-fold"><summary>Comment ça marche ?</summary>
+    <p>Créez un événement, ajoutez vos voyageurs, recherchez les horaires puis envoyez leurs liens. Vos dossiers déjà créés se retrouvent dans « Mes événements ».</p>
+  </details>
  </div>
 </aside>
 <main class="container event-main">
@@ -145,7 +143,8 @@
        <div id="native-share-links" class="individual-files"></div>
        <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>
        <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir le suivi des réponses ↗</a></div>
-       <p class="small">Le suivi est privé : conservez son lien. Les événements ne sont jamais supprimés automatiquement ; la suppression manuelle reste possible depuis le suivi.</p>
+       <p class="small">Votre événement est enregistré. Retrouvez-le dans « Mes événements » depuis ce navigateur. Ne partagez pas le lien privé de suivi.</p>
+        <div class="finished-actions"><a class="primary" href="./mes-evenements.html">📂 Mes événements</a><a class="secondary" href="./events.html?new=1">＋ Créer un autre événement</a></div>
      </section>
    </div>
    <details class="settings-fold legacy-excel" id="legacy-excel">
@@ -161,7 +160,7 @@
     <button type="button" class="text-button invite-link" id="copy-invitation" hidden>📋 Message d’envoi</button>
     <p id="copy-invitation-status" class="inline-feedback" role="status"></p>
    </details>
-   <p class="reply-shortcut"><button type="button" class="text-button" id="open-replies">✅ Voir les réponses déjà reçues →</button></p>
+   <p class="reply-shortcut"><a id="open-replies" href="./mes-evenements.html">📂 Mes événements et réponses →</a></p>
   </section>
 
   <div class="wizard-actions" id="wizard-actions">
@@ -193,8 +192,8 @@
   </div>
  </section>
  <footer class="event-footer">
-  <p>⚠️ Horaires indicatifs : vérifiez prix, places et correspondances avant réservation.</p>
-  <p>🔒 Brouillon conservé 7 jours sur cet appareil ; effacez-le dans le menu. Les tarifs ne sont pas encore disponibles en direct.</p>
+  <p>Horaires issus des données publiées par les transporteurs. Vérifiez les disponibilités avant réservation.</p>
+  <p>Brouillon local : 7 jours. Les événements créés se retrouvent dans « Mes événements » sur cet appareil. Tarifs non disponibles en direct.</p>
  </footer>
 </main>
 </body>

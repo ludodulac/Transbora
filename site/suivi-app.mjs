@@ -1,4 +1,5 @@
 import {api,choiceUrl,textLinks} from './native-choices.mjs';
+import {registerHistory,forgetHistory} from './event-history.mjs';
 const $=id=>document.getElementById(id), params=new URLSearchParams(location.hash.slice(1));
 const eventId=params.get('event'),ownerKey=params.get('key');
 let report=null;
@@ -8,6 +9,8 @@ async function refresh(){
   if(!eventId||!ownerKey){notice('Lien organisateur incomplet. Utilisez le lien privé reçu lors de la création.',true);return;}
   try{
     report=await api('status',{eventId,ownerKey});
+    // Also capture an older owner link opened directly or from another device.
+    registerHistory(globalThis.localStorage,{eventId,ownerKey,event:report.event,peopleCount:report.people.length});
     $('heading').textContent=report.event.title;
     $('description').textContent='Lieu : '+report.event.destination+
       ' · '+report.people.length+' voyageur(s)';
@@ -72,6 +75,7 @@ $('remove').addEventListener('click',async()=>{
   if(!confirm('Supprimer ce dossier, tous les liens et les réponses ? Cette action est définitive.'))return;
   try{
     await api('remove',{eventId,ownerKey});
+    forgetHistory(globalThis.localStorage,eventId);
     report=null;$('result').hidden=true;$('toolbar').hidden=true;
     history.replaceState({},'',location.pathname);
     notice('Dossier supprimé, liens désactivés.');

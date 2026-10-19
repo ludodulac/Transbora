@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Retrouvez vos événements Transbora et les réponses des voyageurs.">
+<title>Mes événements — Transbora</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./events.css">
+<script type="module" src="./mes-evenements.mjs"></script>
+</head>
+<body>
+<header class="event-header"><div class="container event-nav">
+<a class="brand" href="./index.html">🚆 Transbora</a>
+<a class="header-link" href="./events.html?new=1">＋ Nouvel événement</a>
+</div></header>
+<main class="container event-main history-main">
+ <section class="panel event-panel">
+  <div class="screen-heading"><h1>Mes événements</h1></div>
+  <p id="history-feedback" class="inline-feedback" role="status"></p>
+  <div id="history-list" class="history-list" aria-live="polite"></div>
+  <a class="primary history-new" href="./events.html?new=1">＋ Nouvel événement</a>
+ </section>
+ <details class="settings-fold history-recover">
+  <summary>Retrouver un ancien dossier avec son lien</summary>
+  <p>Collez le lien privé « Suivi des réponses » que vous aviez reçu. Transbora retrouvera ce dossier s'il existe encore.</p>
+  <form id="history-import"><label>Lien de suivi
+    <input type="url" id="history-link" required placeholder="https://transbora-ludo.netlify.app/suivi.html#event=…">
+    </label><button type="submit" class="secondary">Retrouver mon dossier</button></form>
+ </details>
+ <p class="history-privacy">Seuls les dossiers créés ou ajoutés sur cet appareil apparaissent ici. Le suivi des réponses reste accessible avec son lien privé. Conservez-le : sur un autre téléphone, il faudra le réimporter.</p>
+</main>
+</body></html>
