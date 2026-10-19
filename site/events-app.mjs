@@ -534,7 +534,7 @@ async function createNativeLinks(mode){
 }
 $('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
 $('prepare-native-individual').addEventListener('click',()=>createNativeLinks('individual'));
-$('forget-owner-code').addEventListener('click',()=>{
+$('forget-owner-code')?.addEventListener('click',()=>{
   forgetOwnerCode(globalThis.localStorage);
   ownerCode='';
   updateOwnerAccess();
