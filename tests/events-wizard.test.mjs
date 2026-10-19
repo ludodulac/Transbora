@@ -50,7 +50,7 @@ test('four screen wizard, concise form, progress, search and separate replies',a
     if(path==='/api/transbora'){
       const input=JSON.parse(opts.body||'{}');apiCalls.push(input);
       return {ok:true,status:201,json:async()=>({
-        eventId:'event-from-server',ownerKey:'owner-private-key',
+        eventId:'event-from-server-abcd1234567890123456',ownerKey:'owner-private-key-abc1234567890123456',
         links:[{token:'link-from-server-token-123456789',label:'Sophie Martin',personId:'P-001'}]
       })};
     }
@@ -138,11 +138,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   // Replies cannot open a non-existent dossier; guide user back to link creation.
   click(window.document,'open-replies');
   assert.equal($('reply-screen').hidden,false);
-  assert.equal($('replies-no-folder').hidden,false);
-  assert.equal($('replies-has-folder').hidden,true);
-  click(window.document,'go-create-links');
-  assert.equal($('reply-screen').hidden,true);
-  assert.equal($('etape-4').hidden,false);
+  assert.equal($('open-replies').getAttribute('href'),'./mes-evenements.html');
+  assert.equal($('menu-replies').getAttribute('href'),'./mes-evenements.html');
   click(window.document,'prepare-native-individual');
   await new Promise(resolve=>setTimeout(resolve,50));
   assert.equal(apiCalls.length,1);
@@ -156,29 +153,25 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.match($('native-share-links').textContent,/Sophie/);
   assert.equal($('native-share-links').querySelectorAll('a[href*="choix.html"]').length,1,
     'Created links must be visible as working destination URLs, not just generic Drive/home links');
-  assert.equal($('replies-no-folder').hidden,true);
-  assert.equal($('replies-has-folder').hidden,false);
+  const saved=JSON.parse(window.localStorage.getItem('transbora_owner_dossiers_v021'));
+  assert.equal(saved.length,1,'The newly created event is saved in Mes événements on this device');
+  assert.equal(saved[0].title,'Festival');
+  assert.equal(saved[0].eventId,'event-from-server-abcd1234567890123456');
+  assert.equal($('native-ready').querySelector('a[href="./events.html?new=1"]')!==null,true);
   assert.equal($('export-organizer').hidden,false);
   assert.equal($('export-personal-zip').hidden,false);
   assert.equal($('wizard-next').hidden,true);
   assert.equal($('wizard-back').hidden,false);
 
-  // Replies are not a fifth wizard step; menu restores the last step.
+  // Menu links to history and new events rather than opening a dead replies panel.
   click(window.document,'help-open');
   assert.equal($('help-open').getAttribute('aria-expanded'),'true');
-  click(window.document,'menu-replies');
-  assert.equal($('wizard-shell').hidden,true);
-  assert.equal($('reply-screen').hidden,false);
-  assert.equal($('replies-no-folder').hidden,true);
-  assert.equal($('open-replies-native').href.includes('suivi.html#event='),true);
-  assert.equal($('step-progress').getAttribute('aria-valuenow'),'4');
-  assert.equal($('help-open').getAttribute('aria-expanded'),'false');
-  assert.ok($('import-replies'));
-  assert.ok($('export-followup'));
-  click(window.document,'back-to-wizard');
-  assert.equal($('wizard-shell').hidden,false);
-  assert.equal($('etape-4').hidden,false);
+  assert.equal($('menu-replies').getAttribute('href'),'./mes-evenements.html');
+  assert.equal($('clear-saved-draft').textContent.includes('Nouvel événement'),true);
+  assert.equal($('help-open').getAttribute('aria-expanded'),'true');
+  assert.ok($('wizard-back'));
   assert.equal($('reply-screen').hidden,true);
+  assert.equal($('etape-4').hidden,false);
 
   assert.ok($('download-template'));
   assert.ok($('import-participants'));
