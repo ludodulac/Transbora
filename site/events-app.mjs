@@ -355,7 +355,10 @@ function renderSearchResults(issues){
         const day=j.date||dates[0];
         const legs=j.legs?.length?j.legs:[j];
         const operator=[...new Set(legs.map(t=>t.provider).filter(Boolean))].join(' · ');
-        option.append(node('span','route-option-heading','Option '+(index+1)+
+        const modes=new Set(legs.map(t=>t.mode));
+        const transport=modes.size>1?'🚆🚌 Train + autocar':
+          modes.has('bus')?'🚌 Autocar':'🚆 Train';
+        option.append(node('span','route-option-heading','Option '+(index+1)+' · '+transport+
           (operator?' · '+operator:'')));
         const departure=parisDate(day,j.departure),arrival=parisDate(day,j.arrival);
         option.append(node('span','route-calendar',
