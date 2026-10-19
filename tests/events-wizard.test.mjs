@@ -132,7 +132,7 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('etape-4').hidden,false);
   assert.equal($('prepare-native-individual').hidden,false);
   assert.equal($('prepare-native-group').hidden,false);
-  $('native-master-key').value='test-private-admin';
+  assert.equal($('native-master-key'),null,'No organizer code must be requested in demo mode');
   click(window.document,'prepare-native-individual');
   await new Promise(resolve=>setTimeout(resolve,50));
   assert.equal(apiCalls.length,1);

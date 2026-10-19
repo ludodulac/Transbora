@@ -67,7 +67,9 @@ async function takeBody(req){
   return JSON.parse(txt);
 }
 const prefix=(name,id)=>name+'/'+id;
-export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
+export function createChoiceHandler({
+  getStore,masterKey,clock=()=>Date.now(),demoMode=()=>false,clientIp=()=>null
+}){
   return async function handle(req){
     if(req.method==='GET')return json({status:'ok',service:'Transbora choix',version:1});
     if(req.method!=='POST')return failure('Méthode non autorisée',405);
@@ -81,10 +83,35 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
       if(op==='create'){
         const secret=masterKey();
         const provided=req.headers.get('x-transbora-admin')||'';
-        if(!secret||!provided||!equals(secret,provided))return failure('Code organisateur incorrect.',403);
+        const hasValidOwnerCode=Boolean(secret&&provided&&equals(secret,provided));
+        const noCodeDemo=Boolean(demoMode()&&!provided);
+        if(!hasValidOwnerCode&&!noCodeDemo)
+          return failure('Création non autorisée.',403);
         const mode=body.mode;
         if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
         const event=checkedEvent(body.event),people=checkedPeople(body.people);
+        if(noCodeDemo){
+          // This is an explicitly enabled, rate-limited TEST mode on the
+          // owner's Netlify site, NOT a multi-tenant production entitlement.
+          // Origin is a supplementary CSRF barrier; it is not authentication.
+          const origin=req.headers.get('origin')||'';
+          if(origin!==new URL(req.url).origin)return failure('Origine non autorisée.',403);
+          if((body.people?.length||0)>12)return failure('Démo : 12 voyageurs maximum.',400);
+          const quota=getStore('transbora-demo-create-quota');
+          const stamp=new Date(clock()).toISOString().slice(0,10);
+          const key='daily/'+stamp;
+          const current=await quota.get(key,{type:'json'})||{count:0};
+          if(current.count>=40)return failure('La limite des dossiers de test du jour est atteinte. Réessayez demain.',429);
+          const ip=String(clientIp(req)||'').trim();
+          if(ip){
+            const ipKey='ip/'+stamp+'/'+digest(ip);
+            const perIp=await quota.get(ipKey,{type:'json'})||{count:0};
+            if(perIp.count>=5)return failure('Limite de 5 dossiers de test par jour atteinte.',429);
+            await quota.setJSON(ipKey,{count:perIp.count+1});
+          }
+          await quota.setJSON(key,{count:current.count+1});
+        }
+
         const eventId=token(),ownerKey=token();
         // Never let travelers' links expire before their event takes place.
         const expiresAt=Math.max(clock()+LIFETIME,

@@ -32,7 +32,7 @@
   <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Le début correspond à l'heure à laquelle les artistes doivent être présents ; la fin, au moment où ils sont libres de partir. Transbora cherche le train arrivant le plus près possible avant cette présence et le premier départ possible après la fin, avec les temps d’accès choisis. Aucune limite artificielle à deux jours.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
   <h3>3 · Recherche</h3><p>Vous pouvez indiquer une ville (Paris : toutes les gares trouvées dans les données) ou une gare précise. Le résultat affiche les gares réelles utilisées, y compris les changements. Vérifiez la gare d’arrivée par rapport au lieu de l’événement.</p>
-  <h3>4 · Liens</h3><p>Créez un lien unique pour l’organisateur ou un lien personnel pour chaque voyageur. Aucune inscription Google : un lien, un choix. Pour éviter les créations abusives sur ce prototype, le créateur doit saisir son code organisateur privé une fois.</p>
+  <h3>4 · Liens</h3><p>Un lien collectif ou un lien personnel par voyageur. Aucun compte ni code à saisir pendant nos essais. Gardez confidentiel le lien de suivi des réponses.</p>
   <h3>Réponses</h3><p>Transbora enregistre les choix et les montre dans un tableau privé accessible depuis votre lien de suivi. Seul l’organisateur conserve ce lien. Les anciens exports Excel restent en option.</p>
   <h3>Précautions</h3><p>Transbora peut rechercher avant ou après l'événement selon les horaires publiés, même sur plusieurs jours ; dates de départ et d'arrivée précisées. Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
  </div>
@@ -132,10 +132,7 @@
    </div>
    <div class="google-steps" id="native-links-area">
     <p>Vos voyageurs choisissent directement sur leur téléphone, sans Excel ni Google.</p>
-    <label class="master-code">Code organisateur
-      <input id="native-master-key" type="password" autocomplete="off" placeholder="Code privé de votre installation" maxlength="160">
-    </label>
-    <p class="small">Ce code protège la création des événements. Les participants n’en ont jamais besoin.</p>
+    <p class="small">Mode test : aucun code ni compte requis. Les liens de réponse restent privés. Ne partagez que les liens destinés aux voyageurs.</p>
     <p id="native-status" class="inline-feedback" role="status"></p>
     <section id="native-ready" hidden>
       <h3>Liens prêts</h3>

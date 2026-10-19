@@ -66,6 +66,24 @@ jobs:
           console.log(results.slice(0,3).map(r=>[r.from,r.to,r.departure,r.arrival]));
           if(!results.length)throw new Error('Aucun train direct Lorient-Paris, vérifier le moteur de recherche');
           JS
+      - name: Diagnostiquer Villefranche-de-Rouergue (gare, services et départs)
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {searchFeed,stationIndexes} from './site/search-multi.mjs';
+          const dataset=JSON.parse(fs.readFileSync('site/data/sncf.json','utf8'));
+          const found=stationIndexes(dataset,'Villefranche-de-Rouergue');
+          console.log('DIAGNOSTIC Villefranche-de-Rouergue:');
+          console.log('Gares reconnues dans notre GTFS:',[...found].map(i=>dataset.stations[i][1]));
+          console.log('Période GTFS:',dataset.meta.first,'à',dataset.meta.last);
+          for(const date of ['2026-10-29','2026-10-30','2026-10-31']){
+            const routes=searchFeed(dataset,{from:'Villefranche-de-Rouergue',to:'Toulouse',
+              date,earliest:'00:00',latest:'23:59'},
+              {id:'sncf',label:'SNCF Voyageurs',mode:'rail'});
+            console.log(date,'vers Toulouse :',routes.length,
+              routes.slice(0,2).map(x=>({de:x.from,a:x.to,heure:x.departure})));
+          }
+          JS
       - name: Tester une vraie recherche avec correspondance
         run: |
           node --input-type=module <<'JS'
