@@ -3,7 +3,7 @@ export const DRAFT_KEY='transbora_event_draft_v013';
 const TTL=7*86400000;
 const ACCEPTED_FIELDS=['event-title','event-destination','event-start-date','event-start-time',
   'event-end-date','event-end-time','include-outward','include-return','arrival-margin',
-  'departure-margin','ev-mode','ev-buffer','ev-count'];
+  'departure-margin','ev-mode','ev-buffer','ev-count','ev-reduced-margin'];
 export const draftFields=ACCEPTED_FIELDS;
 export function saveDraft(storage,draft,now=Date.now()){
   try{

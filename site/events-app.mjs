@@ -20,7 +20,7 @@ let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false;
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
-  'ev-mode','ev-buffer','ev-count'];
+  'ev-mode','ev-buffer','ev-count','ev-reduced-margin'];
 
 function node(tag,cls,value){
   const item=document.createElement(tag);
@@ -72,7 +72,8 @@ function readEvent(){
 }
 function readSettings(){
   return {mode:$('ev-mode').value,connections:'auto',
-    buffer:$('ev-buffer').value,maxOptions:Number($('ev-count').value)};
+    buffer:$('ev-buffer').value,maxOptions:Number($('ev-count').value),
+    allowReducedMargin:$('ev-reduced-margin').checked};
 }
 function updateButtons(){
   const hasPeople=participants.length>0;
@@ -369,6 +370,9 @@ function renderSearchResults(issues){
         const changes=legs.length>1?legs.length-1:0;
         option.append(node('span','route-meta',durationText(j.arrival-j.departure)+
           ' · '+(changes===0?'Direct':changes+' correspondance'+(changes>1?'s':''))));
+        if(j.marginReduced)option.append(node('span','route-warning',
+          '⚠ Alternative : '+j.actualMarginMinutes+' min disponibles au lieu des '+
+          j.requestedMarginMinutes+' min demandées. L’organisateur doit valider le temps entre gare et lieu.'));
         const from=legs[0].from||'',to=legs.at(-1).to||'';
         if(from&&to)option.append(node('span','route-stations',from+' → '+to));
         if(changes){
