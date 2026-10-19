@@ -56,8 +56,6 @@ function checkedPeople(raw){
         ids.add(id);return {id,label};
       });
     }
-    if(!options.A.length&&!options.R.length)
-      throw new Error('Aucun horaire disponible pour '+first+' '+last);
     return {id,first,last,departure:from,options};
   });
 }
