@@ -25,6 +25,7 @@
  <div class="help-body">
   <nav class="drawer-nav" aria-label="Navigation"><button type="button" id="menu-event" class="drawer-link">📋 Événement</button>
   <button type="button" id="menu-replies" class="drawer-link">✅ Réponses</button>
+  <button type="button" id="clear-saved-draft" class="drawer-link">🗑 Nouveau dossier</button>
   <a href="./index.html" class="drawer-link">🚆 Recherche simple</a></nav>
   <h3>Mode d’emploi</h3>
   <p class="drawer-highlight">Créez un événement, cherchez les trajets et partagez les liens de choix directement dans Transbora.</p>
@@ -96,11 +97,22 @@
     <div class="fold-fields">
      <label>Transports<select id="ev-mode"><option value="all">Train + autocar</option><option value="rail">Train</option><option value="bus">Autocar</option></select></label>
      <label>Changements<select id="ev-connections"><option value="yes" selected>1 max.</option><option value="two">2 max.</option><option value="no">Directs</option></select></label>
-     <label>Prudence<select id="ev-buffer"><option value="very_cautious" selected>Très prudente</option><option value="prudent">Équilibrée</option></select></label>
+     <div class="risk-setting">
+      <label>Prudence<select id="ev-buffer"><option value="very_cautious" selected>Très prudente</option><option value="prudent">Équilibrée</option></select></label>
+      <details class="risk-help"><summary aria-label="Explication de la prudence">?</summary>
+        <p><strong>Très prudente :</strong> marges plus longues entre les transports : 45 min minimum entre trains dans une même gare, davantage si autocar ou compagnies différentes.</p>
+        <p><strong>Équilibrée :</strong> marges plus courtes (30 min minimum entre trains dans la même gare), mais davantage de choix. Aucun réglage ne garantit une correspondance.</p>
+      </details>
+     </div>
      <label>Propositions<select id="ev-count"><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></label>
     </div>
    </details>
-   <div id="progress-box" class="progress-box" hidden><div class="progress-label" id="progress-label">Recherche…</div><progress id="progress" max="100" value="0"></progress></div>
+   <div id="progress-box" class="progress-box" hidden>
+      <div class="progress-label" id="progress-label">Recherche…</div>
+      <progress id="progress" max="100" value="0"></progress>
+      <p class="search-detail" id="search-detail" role="status">Recherche des meilleurs horaires…</p>
+      <button id="cancel-search" type="button" class="text-button">Arrêter la recherche</button>
+    </div>
    <div id="journey-recap" class="recap-list" aria-live="polite"></div>
   </section>
 
@@ -173,7 +185,7 @@
  </section>
  <footer class="event-footer">
   <p>⚠️ Horaires indicatifs : vérifiez prix, places et correspondances avant réservation.</p>
-  <p>🔒 Les réponses sont privées, les liens expirent après 45 jours et le suivi n’est accessible qu’avec votre lien organisateur.</p>
+  <p>🔒 Brouillon conservé 7 jours sur cet appareil ; effacez-le dans le menu. Les tarifs ne sont pas encore disponibles en direct.</p>
  </footer>
 </main>
 </body>
