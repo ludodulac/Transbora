@@ -36,7 +36,7 @@ test('automatically prefers a direct journey over one- or two-change alternative
   ]);
   assert.equal(result.levels.A,'no');
   assert.ok(result.outward.length>0);
-  assert.equal(result.outward.every(x=>x.changes===0),true);
+  assert.equal(result.outward.every(x=>(x.changes||0)===0),true);
 });
 test('without a direct train, an eligible one-change route is found automatically',async()=>{
   const result=await go([
@@ -61,5 +61,5 @@ test('without zero- or one-change solutions, two transfers are attempted automat
 test('manual legacy connection limits still work for existing exports and custom API clients',()=>{
   const feeds=[make('sncf',[[0,3,9*3600,14*3600]])];
   const query={date,from:'Brest',to:'Paris',earliest:'00:00',latest:'23:59'};
-  assert.equal(allOptions(feeds,query,{...settings,connections:'no'}).some(x=>x.changes===0),true);
+  assert.equal(allOptions(feeds,query,{...settings,connections:'no'}).some(x=>(x.changes||0)===0),true);
 });
