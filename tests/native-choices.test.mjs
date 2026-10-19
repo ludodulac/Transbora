@@ -99,3 +99,52 @@ test('unsafe record sizes, duplicate travelers and missing routes rejected befor
  assert.equal((await f.call('create',{event:f.event,people:[],mode:'group'},'very-private-secret-123')).status,400);
  assert.equal((await f.call('create',{event:f.event,people:[{...f.people[0],options:{A:[],R:[]}}],mode:'group'},'very-private-secret-123')).status,201);
 });
+
+test('only the organizer can confirm purchased tickets, not travelers, and export status reflects them',async()=>{
+  const f=fixture();
+  const c=(await f.call('create',{event:f.event,people:f.people,mode:'individual'},'very-private-secret-123')).data;
+  const token=c.links[0].token;
+  const args={eventId:c.eventId,ownerKey:c.ownerKey,personId:'P-001',direction:'A',
+    optionId:'aller-1',booked:true};
+  assert.equal((await f.call('set_booking',{...args,ownerKey:'incorrect'})).status,403);
+  assert.equal((await f.call('set_booking',args)).status,409); // No traveler choice yet.
+  assert.equal((await f.call('submit',{token,answers:[
+    {personId:'P-001',A:'aller-1',R:'retour-1'}]})).status,200);
+  assert.equal((await f.call('set_booking',{...args,optionId:'aller-2'})).status,409);
+  assert.equal((await f.call('set_booking',args)).status,200);
+  let status=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
+  assert.equal(status.people[0].booking.A.optionId,'aller-1');
+  assert.equal(status.people[0].booking.R,null);
+  assert.ok(status.people[0].booking.A.bookedAt>0);
+  const artist=(await f.call('view',{token})).data;
+  assert.equal('booking' in artist.people[0],false);
+  assert.equal((await f.call('set_booking',{eventId:c.eventId,ownerKey:c.ownerKey,
+    personId:'P-001',direction:'R',optionId:'retour-1',booked:true})).status,200);
+  // The artist can update a selection after purchase, but must NOT silently
+  // erase evidence of the existing ticket.
+  assert.equal((await f.call('submit',{token,answers:[
+    {personId:'P-001',A:'aller-2',R:'retour-1'}]})).status,200);
+  status=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
+  assert.equal(status.people[0].answer.A,'aller-2');
+  assert.equal(status.people[0].booking.A.optionId,'aller-1');
+  assert.equal((await f.call('set_booking',{...args,optionId:'aller-2'})).status,409);
+  assert.equal((await f.call('set_booking',{...args,booked:false})).status,200);
+  assert.equal((await f.call('set_booking',{...args,optionId:'aller-2'})).status,200);
+  const final=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
+  assert.equal(final.people[0].booking.A.optionId,'aller-2');
+});
+test('booked markers persist through group/personal link switches and are removed with dossier',async()=>{
+  const f=fixture();
+  const c=(await f.call('create',{event:f.event,people:f.people,mode:'individual'},'very-private-secret-123')).data;
+  await f.call('submit',{token:c.links[0].token,answers:[
+    {personId:'P-001',A:'aller-1',R:'retour-1'}]});
+  await f.call('set_booking',{eventId:c.eventId,ownerKey:c.ownerKey,
+    personId:'P-001',direction:'A',optionId:'aller-1',booked:true});
+  const switched=await f.call('switch_mode',{eventId:c.eventId,ownerKey:c.ownerKey,mode:'group'});
+  assert.equal(switched.status,200);
+  let current=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
+  assert.equal(current.people[0].booking.A.optionId,'aller-1');
+  const removed=await f.call('remove',{eventId:c.eventId,ownerKey:c.ownerKey});
+  assert.equal(removed.status,200);
+  assert.equal(f.stores.get('transbora-booking-states').size,0);
+});
