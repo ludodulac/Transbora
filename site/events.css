@@ -152,3 +152,15 @@ progress{width:100%;height:12px}
 .legacy-actions button{min-height:46px}
 .simplified-exports .export-card{min-height:215px}
 @media(max-width:620px){.google-steps{padding:16px}.google-actions{flex-direction:column;align-items:stretch}.google-actions>*{width:100%}.simplified-exports .export-card{min-height:174px}}
+
+
+/* Station and destination transparency */
+.city-hint{display:block;font-size:.77rem;color:#587c85;line-height:1.4;margin-top:5px;font-weight:500}
+.recap-route{display:flex;flex-direction:column;gap:5px;overflow-wrap:anywhere}
+.recap-route strong{font-size:.86rem;font-weight:780;color:#183c49}
+.route-stations{font-size:.84rem;color:#0c6873;font-weight:800}
+.route-through,.route-provider{font-size:.78rem;color:#577681;line-height:1.35}
+.google-steps>p{margin:3px 0 8px;line-height:1.48}
+.manual-google{margin-top:7px}
+.manual-google p{padding:6px 16px 0;font-size:.87rem;line-height:1.55}
+.manual-google button{width:calc(100% - 32px);margin:0 16px 15px;min-height:44px}
