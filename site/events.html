@@ -32,7 +32,7 @@
   <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Le début correspond à l'heure à laquelle les artistes doivent être présents ; la fin, au moment où ils sont libres de partir. Transbora cherche le train arrivant le plus près possible avant cette présence et le premier départ possible après la fin, avec les temps d’accès choisis. Aucune limite artificielle à deux jours.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
   <h3>3 · Recherche</h3><p>Vous pouvez indiquer une ville (Paris : toutes les gares trouvées dans les données) ou une gare précise. Le résultat affiche les gares réelles utilisées, y compris les changements. Vérifiez la gare d’arrivée par rapport au lieu de l’événement.</p>
-  <h3>4 · Liens</h3><p>Créez un lien unique pour l’organisateur ou un lien personnel pour chaque voyageur. Aucune inscription Google : un lien, un choix. Pour éviter les créations abusives sur ce prototype, le créateur doit saisir son code organisateur privé une fois.</p>
+  <h3>4 · Liens</h3><p>Votre code d’installation a déjà été créé et communiqué. Vous ne pouvez pas inventer un nouveau code ici : il doit correspondre à celui de votre serveur Netlify. Une fois validé, il est mémorisé sur votre téléphone. Choisissez ensuite un lien commun ou un lien par voyageur et partagez les liens affichés.</p>
   <h3>Réponses</h3><p>Transbora enregistre les choix et les montre dans un tableau privé accessible depuis votre lien de suivi. Seul l’organisateur conserve ce lien. Les anciens exports Excel restent en option.</p>
   <h3>Précautions</h3><p>Transbora peut rechercher avant ou après l'événement selon les horaires publiés, même sur plusieurs jours ; dates de départ et d'arrivée précisées. Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
  </div>
@@ -118,38 +118,46 @@
 
   <section class="panel event-panel wizard-screen" id="etape-4" data-step="4" aria-labelledby="step-four-heading" hidden>
    <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading" tabindex="-1">Choix des horaires</h1></div>
-   <div class="export-grid simplified-exports">
-    <article class="export-card">
-     <div class="export-icon" aria-hidden="true">👥</div>
-     <h2>Un lien pour tous</h2>
-     <button type="button" class="primary download-action" id="prepare-native-group" hidden disabled>Créer le lien</button>
-    </article>
-    <article class="export-card">
-     <div class="export-icon" aria-hidden="true">👤</div>
-     <h2>Un lien par personne</h2>
-     <button type="button" class="primary download-action" id="prepare-native-individual" hidden disabled>Créer les liens</button>
-    </article>
-   </div>
-   <div class="google-steps" id="native-links-area">
-    <p>Vos voyageurs choisissent directement sur leur téléphone, sans Excel ni Google.</p>
-    <div id="owner-code-setup">
-      <label class="master-code">Code organisateur
-        <input id="native-master-key" type="password" autocomplete="off" placeholder="À saisir une seule fois" maxlength="160">
-      </label>
-      <p class="small">Votre code privé est créé à l’installation. Saisissez-le une première fois : Transbora le gardera sur cet appareil pour vos prochains événements. Les voyageurs n'en ont jamais besoin.</p>
-    </div>
-    <div id="owner-code-remembered" hidden>
-      <p class="saved-owner-code">✓ Votre code organisateur est mémorisé sur cet appareil.</p>
-      <button type="button" class="text-button" id="forget-owner-code">Oublier ce code</button>
-    </div>
-    <p id="native-status" class="inline-feedback" role="status"></p>
-    <section id="native-ready" hidden>
-      <h3>Liens prêts</h3>
-      <div id="native-share-links" class="individual-files"></div>
-      <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Voir les réponses ↗</a></div>
-      <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>
-      <p class="small">Gardez votre lien « Voir les réponses » privé : il permet de consulter le suivi des réservations.</p>
-    </section>
+   <p class="stage-brief">Vos voyageurs choisiront leurs horaires sur une page Transbora, sans inscription.</p>
+   <div class="native-setup" id="native-links-area">
+     <section id="owner-code-setup" class="setup-card" aria-labelledby="owner-setup-title">
+       <span class="step-kicker">Activation unique</span>
+       <h2 id="owner-setup-title">1. Saisir votre code d’installation</h2>
+       <p><strong>Ce code existe déjà.</strong> C’est celui communiqué lors de la mise en place de Transbora. <strong>Ne choisissez pas un nouveau code ici</strong> : « 1234 » ne fonctionnera pas, sauf si votre serveur a été configuré avec ce code.</p>
+       <label class="master-code" for="native-master-key">Votre code d’installation
+         <input id="native-master-key" type="password" autocomplete="off" placeholder="Coller le code fourni lors de l’installation" maxlength="160" aria-describedby="owner-code-help">
+       </label>
+       <p id="owner-code-help" class="small">Après votre première création réussie, il sera mémorisé sur ce navigateur. Vos voyageurs n’en ont jamais besoin.</p>
+     </section>
+     <div id="owner-code-remembered" class="owner-code-confirmed" hidden>
+       <p class="saved-owner-code">✓ Installation reconnue : vous n’avez plus à saisir le code.</p>
+       <button type="button" class="text-button" id="forget-owner-code">Ne plus mémoriser le code sur cet appareil</button>
+     </div>
+     <h2 class="share-heading">2. Créer les liens à envoyer</h2>
+     <div class="export-grid simplified-exports">
+       <article class="export-card">
+         <div class="export-icon" aria-hidden="true">👥</div>
+         <h3>Un lien pour tout le groupe</h3>
+         <p class="small">Une seule page contenant les choix de tous les voyageurs, à transmettre uniquement à la personne responsable du groupe.</p>
+         <button type="button" class="primary download-action" id="prepare-native-group" hidden disabled>Créer le lien du groupe</button>
+       </article>
+       <article class="export-card">
+         <div class="export-icon" aria-hidden="true">👤</div>
+         <h3>Un lien par voyageur</h3>
+         <p class="small">Chaque personne reçoit uniquement ses propres propositions et confirme ses trajets.</p>
+         <button type="button" class="primary download-action" id="prepare-native-individual" hidden disabled>Créer les liens personnels</button>
+       </article>
+     </div>
+     <p id="native-status" class="inline-feedback" role="status" aria-live="polite"></p>
+     <section id="native-ready" class="native-success" hidden tabindex="-1">
+       <span class="step-kicker">Création terminée</span>
+       <h2>3. Envoyer les liens aux voyageurs</h2>
+       <p>Appuyez sur <strong>Copier</strong> puis collez le lien dans WhatsApp, un SMS ou un e-mail. Le voyageur n’a pas de code à saisir.</p>
+       <div id="native-share-links" class="individual-files"></div>
+       <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>
+       <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir le suivi des réponses ↗</a></div>
+       <p class="small">Le suivi est privé : conservez son lien. Les événements ne sont jamais supprimés automatiquement ; la suppression manuelle reste possible depuis le suivi.</p>
+     </section>
    </div>
    <details class="settings-fold legacy-excel" id="legacy-excel">
     <summary>Export Excel (optionnel)</summary>
@@ -164,7 +172,7 @@
     <button type="button" class="text-button invite-link" id="copy-invitation" hidden>📋 Message d’envoi</button>
     <p id="copy-invitation-status" class="inline-feedback" role="status"></p>
    </details>
-   <p class="reply-shortcut"><button type="button" class="text-button" id="open-replies">✅ Voir les réponses →</button></p>
+   <p class="reply-shortcut"><button type="button" class="text-button" id="open-replies">✅ Voir les réponses déjà reçues →</button></p>
   </section>
 
   <div class="wizard-actions" id="wizard-actions">
@@ -178,8 +186,14 @@
   <div class="screen-heading"><span class="screen-icon">✓</span><h1 id="replies-heading">Réponses</h1></div>
   <button type="button" id="back-to-wizard" class="text-button">← Événement</button>
   <div class="reply-panel">
-   <a id="open-replies-native" class="sheet-action" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir mon suivi ↗</a>
-   <p class="muted">Les réponses s’affichent dans votre tableau privé Transbora. Aucun fichier à récupérer.</p>
+   <div id="replies-no-folder" class="empty-replies">
+     <p><strong>Aucun dossier de suivi n’est ouvert.</strong> Il faut d’abord créer les liens des voyageurs à l’étape 4. Le tableau de suivi sera créé en même temps.</p>
+     <button type="button" class="primary action-button" id="go-create-links">→ Aller à la création des liens</button>
+   </div>
+   <div id="replies-has-folder" hidden>
+     <p><strong>Votre tableau de suivi est prêt.</strong> Retrouvez les réponses des voyageurs dans votre dossier privé.</p>
+     <a id="open-replies-native" class="sheet-action" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir mon suivi ↗</a>
+   </div>
    <details class="settings-fold legacy-excel" style="width:100%">
     <summary>Anciennes réponses Excel</summary>
     <label class="upload-button" for="import-replies">📂 Importer Excel</label>

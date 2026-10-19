@@ -22,6 +22,18 @@ export function normalize(value){
   return plain(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 }
+/** Some Android keyboards append the chosen autocomplete place name to
+ * its previous value, e.g. "Villefranche-de-Rouergue" repeated twice.
+ * Repair ONLY exact, back-to-back repetitions; never guess a different city.
+ */
+export function deduplicateStopName(value){
+  const text=plain(value);
+  if(text.length<8 || text.length%2!==0)return text;
+  const middle=text.length/2;
+  const first=text.slice(0,middle),second=text.slice(middle);
+  return first.toLocaleLowerCase('fr-FR')===second.toLocaleLowerCase('fr-FR')?first:text;
+}
+
 export function isoDate(value){
   if(value instanceof Date && Number.isFinite(value.getTime()))return value.toISOString().slice(0,10);
   let str=plain(value);

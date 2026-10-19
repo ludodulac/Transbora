@@ -197,3 +197,40 @@ progress{width:100%;height:12px}
 @media(max-width:620px){.risk-help[open]{max-width:220px}.risk-help[open] p{max-width:185px}}
 
 .risk-help summary::after{content:none!important;display:none!important}
+
+
+/* 017 — predictable flow: activate once -> create links -> share -> followup */
+.stage-brief{font-size:.95rem;line-height:1.55;color:#56737e;margin:6px 0 18px}
+.native-setup{display:block;background:#eef9f7;padding:22px;border:1px solid #d0e7e4;border-radius:18px}
+.setup-card{padding:18px;background:#fff;border:2px solid #c9e5df;border-radius:15px;margin:0 0 20px}
+.setup-card p{font-size:.91rem;line-height:1.58;color:#3a5864;margin:12px 0}
+.step-kicker{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;font-weight:850;color:#0f7b75}
+.setup-card h2,.share-heading,.native-success h2{font-size:1.35rem;color:#163c48;margin:10px 0 12px}
+.setup-card strong{color:#163b46}
+.owner-code-confirmed{background:#d4f5e8;border:1px solid #a5e2ce;padding:12px 15px;border-radius:14px;margin:0 0 20px}
+.owner-code-confirmed p{font-weight:760;margin:2px 0 7px;color:#166456}
+.owner-code-confirmed button{font-size:.83rem}
+.share-heading{margin:20px 0}
+.native-setup .export-grid{gap:15px}
+.native-setup .export-card{padding:20px 16px;min-width:0}
+.native-setup .export-card h3{font-size:1.2rem;margin:6px 0 8px;color:#173b48}
+.native-setup .export-card .small{min-height:3em;line-height:1.48}
+.native-setup .export-card button{width:100%;min-height:56px;font-size:1rem;margin:13px 0 0}
+.native-success{margin-top:22px;border:2px solid #78cdb7;background:#fff;border-radius:18px;padding:22px 16px;scroll-margin-top:180px;outline:none}
+.native-success>p{line-height:1.5;color:#3a5864}
+.native-success .file-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;border:1px solid #d9e9e5;border-radius:13px;padding:14px 10px;background:#f5fcfa;margin:8px 0}
+.native-success .file-actions{display:flex;gap:8px;flex-wrap:wrap}
+.native-success .file-actions button,.native-success .file-actions a{min-height:43px;display:inline-flex;align-items:center;justify-content:center}
+.native-success #native-copy-all{margin-top:12px}
+.native-success .native-admin-link{margin:12px 0}
+.empty-replies{line-height:1.6;color:#33535e}
+.empty-replies p{margin:0 0 18px}
+.empty-replies button{width:100%;min-height:54px}
+#replies-has-folder{line-height:1.55}
+#replies-has-folder a{display:block}
+@media(max-width:650px){
+  .native-setup{padding:16px 12px}
+  .native-setup .export-grid{grid-template-columns:1fr!important}
+  .setup-card{padding:16px 12px}
+  .native-success{padding:20px 12px}
+}

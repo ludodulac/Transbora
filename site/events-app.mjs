@@ -1,4 +1,4 @@
-import {fromRows,displayName,plain,MAX_PARTICIPANTS,isoDate} from './events-model.mjs';
+import {fromRows,displayName,plain,MAX_PARTICIPANTS,isoDate,deduplicateStopName} from './events-model.mjs';
 import {prepareFeeds,planEvent,eventBoundaries} from './event-planner.mjs';
 import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
@@ -133,7 +133,8 @@ function loadSavedDraft(){
     if(field?.type==='checkbox')field.checked=value===true || value==='true';
     else if(field && value!==undefined)field.value=String(value);
   }
-  participants=data.participants.filter(p=>p.first&&p.last&&p.departure);
+  participants=data.participants.filter(p=>p.first&&p.last&&p.departure)
+    .map(p=>({...p,departure:deduplicateStopName(p.departure)}));
   nextId=1+Math.max(0,...participants.map(p=>Number(String(p.id).replace(/^P-/,''))||0));
   renderPeople();
   showStep(data.step,{focus:false});
@@ -171,8 +172,11 @@ function renderPeople(){
 }
 function includeParticipants(items){
   const seen=new Set(participants.map(p=>[p.first,p.last,p.departure].map(x=>x.toLowerCase()).join('|')));
-  let added=0,duplicates=0;
-  for(const incoming of items){
+  let added=0,duplicates=0,corrected=0;
+  for(const original of items){
+    const departure=deduplicateStopName(original.departure);
+    const incoming={...original,departure};
+    if(departure!==original.departure)corrected++;
     const key=[incoming.first,incoming.last,incoming.departure].map(x=>x.toLowerCase()).join('|');
     if(seen.has(key)){duplicates++;continue;}
     if(participants.length>=MAX_PARTICIPANTS)break;
@@ -182,7 +186,7 @@ function includeParticipants(items){
   }
   if(added)invalidate();
   renderPeople();scheduleDraft();
-  return {added,duplicates};
+  return {added,duplicates,corrected};
 }
 async function init(){
   // Event dates are deliberately empty until entered. Do not silently reuse
@@ -267,9 +271,10 @@ $('import-participants').addEventListener('change',async event=>{
       throw new Error('Sélectionnez un fichier .xlsx de moins de 5 Mo.');
     busy(true);
     const {participants:found,errors}=await importTemplate(excelReady(),await file.arrayBuffer());
-    const {added,duplicates}=includeParticipants(found);
+    const {added,duplicates,corrected}=includeParticipants(found);
     useResultStatus(added+' participant(s) ajouté(s) depuis '+file.name+
-      (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':''),errors);
+      (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+
+      (corrected?' · '+corrected+' ville(s) répétée(s) corrigée(s)':''),errors);
     status('Import terminé : '+participants.length+' personne(s) dans le dossier.');
   }catch(error){msg($('import-status'),error.message,true);}finally{
     busy(false);event.target.value='';
@@ -285,8 +290,10 @@ $('manual-person').addEventListener('submit',event=>{
   if(!person.first||!person.last||person.departure.length<3){
     msg($('import-status'),'Prénom, nom et lieu de départ sont obligatoires.',true);return;
   }
-  const {added,duplicates}=includeParticipants([person]);
-  useResultStatus(added?'Voyageur ajouté.':'Personne déjà présente.',duplicates?['Doublon ignoré.']:[]);
+  const {added,duplicates,corrected}=includeParticipants([person]);
+  useResultStatus((added?'Voyageur ajouté.':'Personne déjà présente.')+
+    (corrected?' Nom de ville répété automatiquement corrigé : '+deduplicateStopName(person.departure)+'.':''),
+    duplicates?['Doublon ignoré.']:[]);
   if(added)event.target.reset();
 });
 $('clear-participants').addEventListener('click',()=>{
@@ -499,6 +506,7 @@ function renderPublished(record,mode){
   const dashboard=statusUrl(record.eventId,record.ownerKey);
   $('native-status-link').href=dashboard;
   $('open-replies-native').href=dashboard;
+  updateRepliesUI();
   try{sessionStorage.setItem('transbora_last_dashboard',dashboard);}
   catch{ /* Private mode: organizer must save the displayed link. */ }
   const host=$('native-share-links');host.replaceChildren();
@@ -520,7 +528,12 @@ async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
     const master=ownerCode||$('native-master-key').value.trim();
-    if(!master)throw new Error('Saisissez une fois le code privé de votre installation Transbora.');
+    if(!master){
+      $('owner-code-setup').hidden=false;
+      $('owner-code-setup').scrollIntoView({behavior:'smooth',block:'center'});
+      $('native-master-key').focus();
+      throw new Error('Le code a déjà été créé pour votre installation. Collez le code qui vous a été communiqué, puis appuyez sur « Créer les liens ». Ne saisissez pas un nouveau code inventé.');
+    }
     if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
     const event=readEvent();
     const people=buildChoicePeople(event,participants,plans);
@@ -530,9 +543,15 @@ async function createNativeLinks(mode){
     rememberOwnerCode(globalThis.localStorage,master);
     updateOwnerAccess();
     renderPublished(result,mode);
+    $('native-ready').scrollIntoView({behavior:'smooth',block:'start'});
+    $('native-ready').focus();
   }catch(error){
-    msg($('native-status'),error.message,true);
-    status(error.message,true);
+    const message=/Code organisateur incorrect|Création non autorisée/.test(error.message)?
+      'Code non reconnu : vous ne pouvez pas en inventer un ici. Utilisez le code créé lors de l’installation. Si vous l’avez perdu, il faut le réinitialiser dans la configuration de Transbora.':
+      error.message;
+    msg($('native-status'),message,true);
+    status(message,true);
+    $('native-status').scrollIntoView({behavior:'smooth',block:'center'});
   }finally{busy(false);}
 }
 $('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
@@ -547,10 +566,23 @@ $('native-copy-all').addEventListener('click',async()=>{
   if(!published)return;
   await copyLink(textLinks(published.links,published.mode));
 });
+function updateRepliesUI(){
+  const available=$('open-replies-native').getAttribute('href')!=='#';
+  $('replies-no-folder').hidden=available;
+  $('replies-has-folder').hidden=!available;
+}
+$('go-create-links').addEventListener('click',()=>{
+  if(hasSearched)showStep(4);
+  else{
+    showStep(participants.length?3:1);
+    status('Pour obtenir les liens, terminez la recherche puis passez à l’étape 4.');
+  }
+});
 try{
   const last=sessionStorage.getItem('transbora_last_dashboard')||'';
   if(last.startsWith(location.origin+'/'))$('open-replies-native').href=last;
 }catch{}
+updateRepliesUI();
 $('open-replies-native').addEventListener('click',event=>{
   if($('open-replies-native').getAttribute('href')==='#'){
     event.preventDefault();
@@ -668,6 +700,7 @@ function showStep(number,{focus=true}={}){
   window.scrollTo({top:0,behavior:'instant'});
 }
 function showReplies(){
+  updateRepliesUI();
   currentView='replies';
   $('wizard-shell').hidden=true;
   $('reply-screen').hidden=false;
