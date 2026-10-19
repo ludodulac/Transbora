@@ -23,6 +23,18 @@ Application indépendante pour gagner du temps lors de la préparation d'horaire
 
 Les correspondances utilisent des marges conservatrices et la proximité physique documentée des gares ; [voir les règles](docs/correspondances.md) et [la mission 004](docs/routage-mission-004.md). Pas de prix, de places disponibles, de réservation ni de perturbations en direct. La recherche par nom n'est pas un calculateur géographique d'itinéraires : bien contrôler les arrêts choisis. **Trajets internationaux : horaires affichés en heure de Paris, vérifier l'heure locale et les contrôles auprès du transporteur.**
 
+## ⏰ Horaires d'événement comme moments de présence (mission 010)
+
+À l'étape Événement, le **début** indique le moment où les voyageurs doivent être **sur place** (par exemple à leur hôtel la veille), et la **fin** le moment où ils sont **libres de repartir**. Quand le début est modifié, la fin reprend automatiquement la même date et la même heure ; l'utilisateur ajuste ensuite la fin.
+
+Dans **Options**, choisir uniquement **Aller/Retour** et les temps d'accès à la gare/au lieu : **30 min, 1 h, 1 h 30 ou 2 h** pour chaque sens.
+
+Transbora recherche en priorité **le dernier train qui arrive assez tôt** pour l'aller, puis les arrivées précédentes ; et **le premier train qui part assez tard** pour le retour, puis les départs suivants. Il remonte ou avance dans les jours réellement couverts par les transporteurs **sans limite arbitraire de deux jours**, en indiquant les dates exactes des trains de nuit.
+
+Pour un voyageur importé depuis Excel, une date de déplacement explicitement renseignée reste une restriction volontaire à ce jour.
+
+**Détails et limites :** [règles de recherche par heure de présence](docs/presence-heure-010.md).
+
 ## ⭐ Sélection des trajets par Google Forms (mission 008)
 
 Transbora peut préparer une **page de choix Google Forms lisible sur téléphone** : un lien par voyageur ou un lien collectif pour l'organisateur. Les réponses arrivent dans **un Google Sheet privé** dans le Drive du propriétaire, sans Supabase, Cloudflare, base publique ni paiement.
