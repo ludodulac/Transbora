@@ -8,8 +8,12 @@ export default async function handler(request){
   const serve=createChoiceHandler({
     getStore:name=>getStore({name,consistency:'strong'}),
     masterKey:()=>key,
-    openDemo:()=>String(globalThis.Netlify?.env?.get('TRANSBORA_DEMO_OPEN') ||
-      process.env.TRANSBORA_DEMO_OPEN || '')==='enabled'
+    // Transbora is currently a TEST instance: creating links is open
+    // to same-origin visitors, with the Netlify rate limiter below.
+    // Switch this off and add user accounts before any commercial launch.
+    // IMPORTANT: do not rely on an environment variable here: the former
+    // flag was not present in the deployed function, causing HTTP 403.
+    openDemo:()=>true
   });
   return serve(request);
 }

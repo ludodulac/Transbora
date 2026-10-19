@@ -6,11 +6,13 @@ La demande est volontaire : pendant les essais, **aucun mot de passe, code d'act
 
 Après création, les URL de choix apparaissent et le lien de **suivi privé** reste accessible. Chaque voyageur sélectionne ses trajets depuis son propre lien. Le lien de suivi de l'organisateur est une capacité confidentielle distincte : quelqu'un qui le reçoit peut voir les données et supprimer le dossier. Il ne doit pas être partagé avec les voyageurs.
 
-## Activer le mode essai (côté éditeur, une fois)
+## Pourquoi le bouton affichait « Création non autorisée »
 
-Le serveur Netlify lit la variable d'environnement `TRANSBORA_DEMO_OPEN=enabled` (scope Functions). Elle a été ajoutée au site Netlify personnel `transbora-ludo` ; la publication de la branche principale l'utilise.
+La précédente publication dépendait de `TRANSBORA_DEMO_OPEN=enabled`. Le code de la page avait bien été supprimé, mais cette variable n'était pas effectivement présente dans la configuration visible par la fonction Netlify. **Le serveur refusait donc systématiquement la création avec le statut HTTP 403**.
 
-Si cette variable est absente ou différente, **le serveur refuse une création sans code**, indépendamment de la présence d'un champ dans l'interface. Le propriétaire de l'hébergement peut désactiver ce mode sans modifier le navigateur.
+**Correction 019 :** sur cette instance de test seulement, l'autorisation de créer un dossier sans code est activée **directement dans la fonction Netlify publiée**, sans aucun paramétrage utilisateur ni drapeau absent. Elle reste encadrée par la vérification d'origine et la limitation de débit. Le suivi des réponses reste accessible uniquement avec son lien privé.
+
+⚠️ Lors du passage à un logiciel commercial, cette option devra être remplacée par de véritables comptes organisateurs. N'importe quel visiteur du site public peut pour l'instant créer des dossiers d'essai.
 
 Protection temporaire :
 - seuls les POST déclarant l'**origine du même site** sont admis dans le mode sans code ;
