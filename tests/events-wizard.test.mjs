@@ -114,10 +114,37 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('search-everyone').hidden,true);
   assert.equal($('wizard-next').hidden,false);
   assert.ok($('journey-recap').textContent.includes('Sophie'));
+  assert.match($('journey-recap').textContent,/Brest → Paris/,
+    'Result should display actual departure and arrival station names');
   assert.equal($('global-status').classList.contains('has-error'),false,
     'A successful search must not be masked by an error from navigation');
   click(window.document,'wizard-next');
   assert.equal($('etape-4').hidden,false);
+  assert.ok(!$('open-google-sheet').href.includes('/my-drive'),
+    'Never send the user to the generic Drive homepage instead of their Sheet');
+  click(window.document,'open-google-sheet');
+  assert.equal($('google-config').open,true,
+    'Missing private Google Sheet link should show setup, not navigate to Drive root');
+  set(window.document,'google-sheet-url',
+    'https://docs.google.com/spreadsheets/d/TEST_USER_PRIVATE_SHEET_ID/edit');
+  click(window.document,'save-google-sheet');
+  assert.ok($('open-google-sheet').href.endsWith('/TEST_USER_PRIVATE_SHEET_ID/edit'));
+  assert.equal($('google-flow-hint').textContent.includes('Configurez Google'),true);
+  const endpoint='https://script.google.com/macros/s/TEST_PRIVATE_WEB_APP/exec';
+  set(window.document,'google-webapp-url',endpoint);
+  click(window.document,'save-google-sheet');
+  assert.match($('google-flow-hint').textContent,/Prêt/);
+  const seen=[];
+  window.HTMLFormElement.prototype.submit=function(){
+    seen.push({action:this.action,target:this.target,
+      payload:JSON.parse(this.querySelector('[name="payload"]').value)});
+  };
+  click(window.document,'prepare-google-individual');
+  assert.equal(seen.length,1,'Configured private app should receive one actual POST');
+  assert.equal(seen[0].action,endpoint);
+  assert.equal(seen[0].target,'_blank');
+  assert.equal(seen[0].payload.headers[0],'Dossier ID');
+  assert.ok(seen[0].payload.rows.some(row=>row[4]==='Sophie'));
   assert.equal($('export-organizer').hidden,false);
   assert.equal($('export-personal-zip').hidden,false);
   assert.equal($('wizard-next').hidden,true);
