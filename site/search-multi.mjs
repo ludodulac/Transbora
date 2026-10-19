@@ -14,6 +14,30 @@ export function matchesStop(name, value) {
   return stop===query || stop.startsWith(query+' ') || stop.includes(' '+query+' ') ||
          stop.endsWith(' '+query);
 }
+// These indexes are built once per GTFS file rather than once per
+// searched calendar day. The weak key avoids retaining old timetables.
+const stopLookupCache=new WeakMap();
+export function stationIndexes(data,stopName){
+  let queries=stopLookupCache.get(data);
+  if(!queries){queries=new Map();stopLookupCache.set(data,queries);}
+  const key=normalizeStop(stopName);
+  if(!queries.has(key)){
+    const found=new Set();
+    data.stations.forEach((row,i)=>{if(matchesStop(row[1],key))found.add(i);});
+    queries.set(key,found);
+  }
+  return queries.get(key);
+}
+const decodedMasks=new Map();
+function maskData(value){
+  let bytes=decodedMasks.get(value);
+  if(bytes===undefined){
+    bytes=atob(value||'');
+    if(decodedMasks.size>4000)decodedMasks.clear();
+    decodedMasks.set(value,bytes);
+  }
+  return bytes;
+}
 function dateDay(value) {
   if (!/^\d{4}-\d\d-\d\d$/.test(value))return NaN;
   const t=Date.parse(value+'T00:00:00Z');
@@ -21,7 +45,7 @@ function dateDay(value) {
 }
 function runOn(encoded, index) {
   if(index<0)return false;
-  const bytes=atob(encoded||'');
+  const bytes=maskData(encoded);
   const b=Math.floor(index/8);
   return b<bytes.length && Boolean(bytes.charCodeAt(b)&(1 << (index%8)));
 }
@@ -30,11 +54,8 @@ export function searchFeed(data, params, source) {
   const first=dateDay(data.meta.first),last=dateDay(data.meta.last);
   // The final published GTFS service day may include trips after 24:00.
   if(!Number.isFinite(day) || day<first || day>last+1)return [];
-  const origins=new Set(),targets=new Set();
-  data.stations.forEach((entry,i)=>{
-    if(matchesStop(entry[1],params.from))origins.add(i);
-    if(matchesStop(entry[1],params.to))targets.add(i);
-  });
+  const origins=stationIndexes(data,params.from);
+  const targets=stationIndexes(data,params.to);
   if(!origins.size || !targets.size)return [];
   const toSeconds=s=>{const [h,m]=s.split(':').map(Number);return h*3600+m*60;};
   const start=toSeconds(params.earliest||'00:00'), end=toSeconds(params.latest||'23:59')+59;

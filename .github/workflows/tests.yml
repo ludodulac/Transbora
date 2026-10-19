@@ -19,6 +19,8 @@ jobs:
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: node --test tests/*.test.mjs
       - run: node --check site/events-app.mjs
+      - run: node --check site/search-worker.mjs
+      - run: node --check site/event-draft.mjs
       - run: node --check site/event-planner.mjs
       - run: node --check site/excel-exports.mjs
       - run: node --check site/app-multi.mjs

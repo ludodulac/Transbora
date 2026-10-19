@@ -4,6 +4,7 @@ import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
+import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -14,6 +15,8 @@ const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
+let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
+let draftSaving=null,restoredDraft=false;
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
@@ -101,6 +104,34 @@ function invalidate(){
   msg($('reply-status'),'');
   updateButtons();
 }
+function storeDraft(){
+  if(!globalThis.localStorage)return;
+  const fields=Object.fromEntries(draftFields.map(id=>{
+    const field=$(id);
+    return [id,field.type==='checkbox'?field.checked:field.value];
+  }));
+  saveDraft(localStorage,{fields,participants,step:activeStep});
+}
+function scheduleDraft(){
+  clearTimeout(draftSaving);
+  draftSaving=setTimeout(storeDraft,150);
+}
+function loadSavedDraft(){
+  if(!globalThis.localStorage)return false;
+  const data=restoreDraft(localStorage);
+  if(!data)return false;
+  for(const id of draftFields){
+    const field=$(id),value=data.fields[id];
+    if(field?.type==='checkbox')field.checked=value===true || value==='true';
+    else if(field && value!==undefined)field.value=String(value);
+  }
+  participants=data.participants.filter(p=>p.first&&p.last&&p.departure);
+  nextId=1+Math.max(0,...participants.map(p=>Number(String(p.id).replace(/^P-/,''))||0));
+  renderPeople();
+  showStep(data.step,{focus:false});
+  restoredDraft=true;
+  return true;
+}
 function labelPerson(p){
   return displayName(p)+' · '+p.departure;
 }
@@ -124,7 +155,7 @@ function renderPeople(){
     remove.type='button';remove.setAttribute('aria-label','Supprimer '+displayName(p));
     remove.addEventListener('click',()=>{
       participants=participants.filter(x=>x.id!==p.id);
-      invalidate();renderPeople();
+      invalidate();renderPeople();scheduleDraft();
     });
     item.append(content,remove);frag.append(item);
   });
@@ -142,7 +173,7 @@ function includeParticipants(items){
     seen.add(key);added++;
   }
   if(added)invalidate();
-  renderPeople();
+  renderPeople();scheduleDraft();
   return {added,duplicates};
 }
 async function init(){
@@ -169,14 +200,21 @@ async function init(){
   };
   for(const id of ['event-start-date','event-start-time'])
     $(id).addEventListener('change',syncEventEnd);
-  for(const id of eventFieldIds)$(id).addEventListener('change',invalidate);
+  for(const id of eventFieldIds){
+    $(id).addEventListener('change',()=>{invalidate();scheduleDraft();});
+    $(id).addEventListener('input',scheduleDraft);
+  }
+  loadSavedDraft();
+  updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
     if(!response.ok)throw new Error('HTTP '+response.status);
     manifest=await response.json();
     if(!manifest?.sources?.some(s=>s.status==='ok'))throw new Error('Aucune source GTFS active');
     status('Prêt : '+manifest.sources.filter(s=>s.status==='ok').length+
-      ' sources de transport disponibles. Créez un événement puis ajoutez les voyageurs.');
+      ' sources de transport disponibles. '+(restoredDraft?
+        'Votre événement et vos voyageurs ont été retrouvés. Vous pouvez relancer la recherche.':
+        'Créez un événement puis ajoutez les voyageurs.'));
     let stations;
     try{
       const res=await fetch('./data/stations.json');
@@ -244,7 +282,7 @@ $('manual-person').addEventListener('submit',event=>{
 $('clear-participants').addEventListener('click',()=>{
   if(!participants.length)return;
   if(!confirm('Effacer les personnes de ce brouillon et tous les résultats de recherche ?'))return;
-  participants=[];nextId=1;invalidate();renderPeople();
+  participants=[];nextId=1;invalidate();renderPeople();storeDraft();
   msg($('import-status'),'Liste effacée.');
 });
 function showJourney(j,day){
@@ -329,44 +367,98 @@ function renderIndividualButtons(event){
     item.append(actions);holder.append(item);
   }
 }
+/** Run expensive day-by-day GTFS scans in a worker to keep Android UI responsive. */
+async function performSearch(event,settings){
+  const limits={maxDurationMs:18000,maxDirectionMs:6000};
+  const progress=(done,total,p)=>{
+    $('progress').value=Math.round(done/total*100);
+    $('progress-label').textContent=done+' / '+total+' voyageur(s)';
+    $('search-detail').textContent='Terminé pour '+displayName(p);
+  };
+  const onDay=({person,kind,date,searched})=>{
+    $('search-detail').textContent=person.first+' '+person.last+' · '+
+      (kind==='A'?'Aller':'Retour')+' · horaires du '+date+' ('+searched+' jour(s) examinés)';
+  };
+  if(typeof Worker!=='undefined'){
+    return new Promise((resolve,reject)=>{
+      const worker=new Worker(new URL('./search-worker.mjs',import.meta.url),{type:'module'});
+      searchWorker=worker;
+      let completed=false;
+      const finish=(error,value)=>{
+        if(completed)return;
+        completed=true;clearTimeout(timer);worker.terminate();searchWorker=null;
+        cancelActiveSearch=null;
+        if(error)reject(error);else resolve(value);
+      };
+      const timer=setTimeout(()=>finish(new Error(
+        'La recherche dépasse 35 secondes. Votre événement est sauvegardé : essayez « Train » ou « Directs », puis relancez.')),35000);
+      cancelActiveSearch=()=>finish(new Error('Recherche arrêtée. Votre événement et vos voyageurs sont conservés.'));
+      worker.onmessage=e=>{
+        const msg=e.data||{};
+        if(msg.type==='stage')$('search-detail').textContent=msg.label;
+        if(msg.type==='progress'){
+          $('progress').value=Math.round(msg.done/msg.total*100);
+          $('progress-label').textContent=msg.done+' / '+msg.total+' voyageur(s)';
+          $('search-detail').textContent='Terminé pour '+msg.name;
+        }
+        if(msg.type==='day')$('search-detail').textContent=msg.name+' · '+
+          (msg.kind==='A'?'Aller':'Retour')+' · '+msg.date+' ('+msg.searched+' jours analysés)';
+        if(msg.type==='error')finish(new Error(msg.message));
+        if(msg.type==='complete')finish(null,{plans:new Map(msg.plans),
+          issues:msg.issues,partial:msg.partial});
+      };
+      worker.onerror=()=>finish(new Error('Le moteur de recherche est indisponible. Rechargez les horaires et réessayez.'));
+      worker.postMessage({event,people:participants,settings,manifest,limits});
+    });
+  }
+  // Test runners and old browsers without module workers.
+  if(!prepared){
+    prepared=await prepareFeeds(manifest);
+    if(!prepared.feeds.length)throw new Error('Aucun horaire disponible.');
+    try{
+      const r=await fetch('./data/mct.json');
+      if(r.ok)officialRules=officialIndex(await r.json());
+    }catch(_error){}
+  }
+  const result=await planEvent(event,participants,prepared.feeds,settings,
+    officialRules,progress,{...limits,shouldAbort:()=>stopRequested,onDay});
+  return {plans:result.plans,issues:[...prepared.issues,...result.issues],partial:result.partial};
+}
+$('cancel-search').addEventListener('click',()=>{
+  stopRequested=true;
+  if(cancelActiveSearch)cancelActiveSearch();
+  $('search-detail').textContent='Arrêt en cours…';
+});
 $('search-everyone').addEventListener('click',async()=>{
   try{
     if(!participants.length)throw new Error('Ajoutez au moins un voyageur.');
     const event=readEvent(),settings=readSettings();
-    busy(true);invalidate();
+    stopRequested=false;
+    busy(true);invalidate();storeDraft();
     $('progress-box').hidden=false;$('progress').value=0;
-    status('Lecture des horaires réels des transporteurs…');
-    if(!prepared){
-      prepared=await prepareFeeds(manifest);
-      if(!prepared.feeds.length)throw new Error('Les fichiers horaires n’ont pas pu être récupérés.');
-      try{
-        const response=await fetch('./data/mct.json');
-        if(response.ok)officialRules=officialIndex(await response.json());
-      }catch(_e){/* Optional; conservative buffers stay enabled. */}
-    }
-    const result=await planEvent(event,participants,prepared.feeds,settings,officialRules,
-      (done,total,p)=>{
-        $('progress').value=Math.round(done/total*100);
-        $('progress-label').textContent=done+' / '+total+' voyageur(s) · '+displayName(p);
-      });
+    $('progress-label').textContent='0 / '+participants.length+' voyageur(s)';
+    $('search-detail').textContent='Préparation des données horaires…';
+    status('');
+    const result=await performSearch(event,settings);
     plans=result.plans;hasSearched=true;
     const gaps=participants.reduce((total,p)=>{
       const plan=plans.get(p.id);
       return total+(event.includeOutward&&!plan.outward.length?1:0)
         +(event.includeReturn&&!plan.returning.length?1:0);
     },0);
-    renderSearchResults([...prepared.issues,...result.issues]);
+    renderSearchResults(result.issues);
     renderIndividualButtons(event);
-    status('Recherche terminée : '+participants.length+' personnes, '+gaps+
-      ' sens sans option trouvée. Vérifiez les horaires avant de partager.',Boolean(gaps));
-    // Keep the results visible on screen 3; the single main CTA becomes "Suivant".
-    $('step-three-heading').textContent='Trajets';
+    status(result.partial?
+      'Recherche partielle : '+gaps+' trajets sans option affichée. Une autre recherche peut trouver davantage de trains.':
+      'Recherche terminée : '+participants.length+' voyageur(s), '+gaps+
+      ' trajet(s) sans option dans les horaires consultés. Vérifiez avant de réserver.',
+      Boolean(result.partial||gaps));
     updateButtons();
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(error){
-    status('Impossible de terminer la recherche : '+error.message,true);
+    status(error.message,true);
   }finally{
-    $('progress-box').hidden=true;busy(false);
+    $('progress-box').hidden=true;busy(false);storeDraft();
   }
 });
 // Google Sheets is private and owned by the logged-in user. The public repo
@@ -538,6 +630,7 @@ function showStep(number,{focus=true}={}){
     dot.classList.toggle('done',i<activeStep-1);
   });
   updateButtons();
+  scheduleDraft();
   if(focus)$(screenIds[activeStep-1]).querySelector('h1')?.focus?.();
   window.scrollTo({top:0,behavior:'instant'});
 }
@@ -573,6 +666,11 @@ $('wizard-next').addEventListener('click',()=>{
   }
 });
 $('wizard-back').addEventListener('click',()=>{if(activeStep>1)showStep(activeStep-1);});
+$('clear-saved-draft').addEventListener('click',()=>{
+  if(!confirm('Effacer cet événement, la liste des personnes et les données sauvegardées sur cet appareil ?'))return;
+  eraseDraft(localStorage);
+  location.reload();
+});
 $('menu-event').addEventListener('click',()=>{
   toggleHelp(false,{focus:false});
   showStep(activeStep);

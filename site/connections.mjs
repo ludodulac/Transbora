@@ -3,7 +3,7 @@
  * Timetables are planned, not live; no missed-connection guarantee.
  * Generic GTFS transfer rules are applied when provided.
  */
-import {matchesStop, normalizeStop} from './search-multi.mjs';
+import {stationIndexes, normalizeStop} from './search-multi.mjs';
 import {isoDateAtDay,shiftToParis,parisDate} from './time-zones.mjs';
 
 const DAY = 86400;
@@ -16,9 +16,15 @@ export function dayNum(value) {
   return Number.isFinite(t) && new Date(t).toISOString().slice(0,10)===value
     ? Math.floor(t/(DAY*1000)) : NaN;
 }
+const calendarCache=new Map();
 export function maskRuns(mask, day) {
-  if (day < 0 || !mask) return false;
-  const bytes=atob(mask);
+  if(day<0||!mask)return false;
+  let bytes=calendarCache.get(mask);
+  if(bytes===undefined){
+    bytes=atob(mask);
+    if(calendarCache.size>4000)calendarCache.clear();
+    calendarCache.set(mask,bytes);
+  }
   return Math.floor(day/8)<bytes.length &&
     Boolean(bytes.charCodeAt(Math.floor(day/8)) & (1 << (day%8)));
 }
@@ -78,11 +84,8 @@ export function leg(feed,tripIndex,trip,serviceDay,fromIndex,toIndex,clockShift)
 export function enumerate(feed,params,earliest,latest,day) {
   const first=dayNum(feed.data.meta.first),last=dayNum(feed.data.meta.last);
   const initial=[],final=[];
-  const origin=new Set(), destination=new Set();
-  feed.data.stations.forEach((entry,i)=>{
-    if (matchesStop(entry[1],params.from)) origin.add(i);
-    if (matchesStop(entry[1],params.to)) destination.add(i);
-  });
+  const origin=stationIndexes(feed.data,params.from);
+  const destination=stationIndexes(feed.data,params.to);
   if (!origin.size && !destination.size) return {initial,final};
   // First leg departs on the selected date; the second can depart the next day.
   for(let serviceDay=day-1;serviceDay<=day+1;serviceDay++){
