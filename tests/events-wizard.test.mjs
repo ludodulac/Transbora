@@ -49,9 +49,12 @@ test('four screen wizard, concise form, progress, search and separate replies',a
     const path=String(url);
     if(path==='/api/transbora'){
       const input=JSON.parse(opts.body||'{}');apiCalls.push(input);
-      return {ok:true,status:201,json:async()=>({
-        eventId:'event-from-server-abcd1234567890123456',ownerKey:'owner-private-key-abc1234567890123456',
-        links:[{token:'link-from-server-token-123456789',label:'Sophie Martin',personId:'P-001'}]
+      const links=input.action==='switch_mode'?
+        [{token:'replacement-group-token-1234567890',label:'Groupe',personId:'all'}]:
+        [{token:'link-from-server-token-123456789',label:'Sophie Martin',personId:'P-001'}];
+      return {ok:true,status:input.action==='create'?201:200,json:async()=>({
+        eventId:'event-from-server-abcd1234567890123456',
+        ownerKey:'owner-private-key-abc1234567890123456',links
       })};
     }
     let data;
@@ -127,6 +130,12 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.ok($('journey-recap').textContent.includes('Sophie'));
   assert.match($('journey-recap').textContent,/Brest → Paris/,
     'Result should display actual departure and arrival station names');
+  const travelCard=$('journey-recap').querySelector('.recap-route');
+  assert.ok(travelCard,'One distinct card per proposed itinerary');
+  assert.match(travelCard.querySelector('.route-option-heading').textContent,/Option 1/);
+  assert.match(travelCard.querySelector('.route-clock').textContent,/\d\d:\d\d → \d\d:\d\d/);
+  assert.match(travelCard.querySelector('.route-calendar').textContent,/novembre/);
+  assert.match(travelCard.querySelector('.route-meta').textContent,/Direct/);
   assert.equal($('global-status').classList.contains('has-error'),false,
     'A successful search must not be masked by an error from navigation');
   click(window.document,'wizard-next');
@@ -148,6 +157,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal(apiCalls[0].action,'create');
   assert.ok(apiCalls[0].people.some(p=>p.first==='Sophie'));
   assert.equal($('native-ready').hidden,false);
+  assert.equal($('share-mode-options').hidden,true,'Only active mode links displayed');
+  assert.equal($('switch-sharing-mode').hidden,false);
   assert.match($('native-status-link').href,/suivi\.html#event=/);
   assert.match($('native-share-links').textContent,/Sophie/);
   assert.equal($('native-share-links').querySelectorAll('a[href*="choix.html"]').length,1,
@@ -161,6 +172,25 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('export-personal-zip').hidden,false);
   assert.equal($('wizard-next').hidden,true);
   assert.equal($('wizard-back').hidden,false);
+
+  // Mistaken personal choice can be changed without recreating the event or search.
+  click(window.document,'switch-sharing-mode');
+  assert.equal($('share-mode-options').hidden,false);
+  assert.equal($('native-ready').hidden,true);
+  click(window.document,'cancel-mode-switch');
+  assert.equal($('native-ready').hidden,false,'Cancel restores previous links');
+  click(window.document,'switch-sharing-mode');
+  click(window.document,'prepare-native-group');
+  await new Promise(resolve=>setTimeout(resolve,65));
+  assert.equal(apiCalls.length,2);
+  assert.equal(apiCalls[1].action,'switch_mode');
+  assert.equal(apiCalls[1].mode,'group');
+  assert.equal(apiCalls[1].eventId,apiCalls[0].eventId||'event-from-server-abcd1234567890123456');
+  assert.equal($('native-ready').hidden,false);
+  assert.equal($('share-mode-options').hidden,true);
+  assert.match($('native-share-links').textContent,/Groupe/);
+  assert.equal($('native-share-links').querySelectorAll('a[href*="choix.html"]').length,1);
+  assert.equal(JSON.parse(window.localStorage.getItem('transbora_owner_dossiers_v021')).length,1);
 
   // Menu links to history and new events rather than opening a dead replies panel.
   click(window.document,'help-open');

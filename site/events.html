@@ -121,6 +121,7 @@
    <div class="native-setup" id="native-links-area">
      <p class="stage-brief"><strong>Mode essai : aucun code à saisir.</strong> Choisissez les liens à créer, puis copiez-les pour les envoyer aux voyageurs.</p>
      <h2 class="share-heading">1. Créer les liens à envoyer</h2>
+     <div id="share-mode-options">
      <div class="export-grid simplified-exports">
        <article class="export-card">
          <div class="export-icon" aria-hidden="true">👥</div>
@@ -135,13 +136,17 @@
          <button type="button" class="primary download-action" id="prepare-native-individual" hidden disabled>Créer les liens personnels</button>
        </article>
      </div>
-     <p id="native-status" class="inline-feedback" role="status" aria-live="polite"></p>
+       <button type="button" id="cancel-mode-switch" class="text-button" hidden>← Conserver mes liens actuels</button>
+     </div>
+          <p id="native-status" class="inline-feedback" role="status" aria-live="polite"></p>
      <section id="native-ready" class="native-success" hidden tabindex="-1">
        <span class="step-kicker">Création terminée</span>
        <h2>2. Envoyer les liens aux voyageurs</h2>
        <p>Appuyez sur <strong>Copier</strong> puis collez le lien dans WhatsApp, un SMS ou un e-mail. Le voyageur n’a pas de code à saisir.</p>
        <div id="native-share-links" class="individual-files"></div>
        <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>
+       <button type="button" class="secondary switch-share-mode" id="switch-sharing-mode">↔ Changer le type de lien</button>
+       <p class="small">Vous pouvez corriger votre choix sans refaire la recherche. Les anciens liens seront désactivés, mais les réponses déjà reçues seront conservées.</p>
        <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir le suivi des réponses ↗</a></div>
        <p class="small">Votre événement est enregistré. Retrouvez-le dans « Mes événements » depuis ce navigateur. Ne partagez pas le lien privé de suivi.</p>
         <div class="finished-actions"><a class="primary" href="./mes-evenements.html">📂 Mes événements</a><a class="secondary" href="./events.html?new=1">＋ Créer un autre événement</a></div>

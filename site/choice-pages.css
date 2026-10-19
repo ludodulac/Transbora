@@ -26,3 +26,11 @@ h1{font-size:clamp(1.85rem,5.8vw,2.6rem);line-height:1.13;margin:12px 0;letter-s
 .action-row{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}
 .danger{color:#a0302f!important;background:#fff0ee!important;border-color:#dcb6b2!important}
 @media(max-width:520px){.traveler{padding:18px 14px}.route-choice{padding:14px 12px}.top span{font-size:.75rem}}
+
+
+/* Only one share mode is active per organizer dossier. */
+.share-mode-label{font-size:.98rem;font-weight:820;color:#155d61;margin:2px 0 12px}
+.change-mode-action{background:#e4f4f3;color:#136870;padding:13px 16px;border:1px solid #accfcc;
+ border-radius:11px;cursor:pointer;font-size:.96rem;font-weight:850;width:100%;min-height:50px}
+.change-mode-action:disabled{opacity:.5;cursor:wait}
+.share-mode-explain{margin:10px 0 20px}
