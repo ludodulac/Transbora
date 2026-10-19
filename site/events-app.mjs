@@ -5,7 +5,6 @@ import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
-import {savedOwnerCode,rememberOwnerCode,forgetOwnerCode} from './owner-code.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -18,13 +17,6 @@ let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false;
-let ownerCode='';
-function updateOwnerAccess(){
-  $('owner-code-setup').hidden=Boolean(ownerCode);
-  $('owner-code-remembered').hidden=!ownerCode;
-  if(ownerCode)$('native-master-key').value='';
-}
-
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-buffer','ev-count'];
@@ -189,6 +181,10 @@ function includeParticipants(items){
   return {added,duplicates,corrected};
 }
 async function init(){
+  // The prototype no longer needs the old owner activation code. Remove any
+  // previous locally saved credential without touching event drafts or links.
+  try{globalThis.localStorage?.removeItem('transbora_owner_activation_v1');}catch(_e){}
+
   // Event dates are deliberately empty until entered. Do not silently reuse
   // a different date for a trip (this caused the 25/29 October confusion).
   $('event-start-date').value='';
@@ -217,8 +213,6 @@ async function init(){
     $(id).addEventListener('input',scheduleDraft);
   }
   loadSavedDraft();
-  ownerCode=savedOwnerCode(globalThis.localStorage);
-  updateOwnerAccess();
   updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -527,28 +521,16 @@ function renderPublished(record,mode){
 async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
-    const master=ownerCode||$('native-master-key').value.trim();
-    if(!master){
-      $('owner-code-setup').hidden=false;
-      $('owner-code-setup').scrollIntoView({behavior:'smooth',block:'center'});
-      $('native-master-key').focus();
-      throw new Error('Le code a déjà été créé pour votre installation. Collez le code qui vous a été communiqué, puis appuyez sur « Créer les liens ». Ne saisissez pas un nouveau code inventé.');
-    }
     if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
     const event=readEvent();
     const people=buildChoicePeople(event,participants,plans);
     busy(true);shareStatus('Création des liens privés…');
-    const result=await api('create',{event,people,mode},master);
-    ownerCode=master;
-    rememberOwnerCode(globalThis.localStorage,master);
-    updateOwnerAccess();
+    const result=await api('create',{event,people,mode});
     renderPublished(result,mode);
     $('native-ready').scrollIntoView({behavior:'smooth',block:'start'});
     $('native-ready').focus();
   }catch(error){
-    const message=/Code organisateur incorrect|Création non autorisée/.test(error.message)?
-      'Code non reconnu : vous ne pouvez pas en inventer un ici. Utilisez le code créé lors de l’installation. Si vous l’avez perdu, il faut le réinitialiser dans la configuration de Transbora.':
-      error.message;
+    const message=error.message;
     msg($('native-status'),message,true);
     status(message,true);
     $('native-status').scrollIntoView({behavior:'smooth',block:'center'});
@@ -556,12 +538,6 @@ async function createNativeLinks(mode){
 }
 $('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
 $('prepare-native-individual').addEventListener('click',()=>createNativeLinks('individual'));
-$('forget-owner-code').addEventListener('click',()=>{
-  forgetOwnerCode(globalThis.localStorage);
-  ownerCode='';
-  updateOwnerAccess();
-  shareStatus('Code oublié sur cet appareil. Il sera demandé à la prochaine création de liens.');
-});
 $('native-copy-all').addEventListener('click',async()=>{
   if(!published)return;
   await copyLink(textLinks(published.links,published.mode));

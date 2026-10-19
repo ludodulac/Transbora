@@ -7,7 +7,9 @@ export default async function handler(request){
     process.env.TRANSBORA_MASTER_KEY || '';
   const serve=createChoiceHandler({
     getStore:name=>getStore({name,consistency:'strong'}),
-    masterKey:()=>key
+    masterKey:()=>key,
+    openDemo:()=>String(globalThis.Netlify?.env?.get('TRANSBORA_DEMO_OPEN') ||
+      process.env.TRANSBORA_DEMO_OPEN || '')==='enabled'
   });
   return serve(request);
 }

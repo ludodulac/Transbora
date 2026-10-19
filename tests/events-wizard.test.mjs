@@ -133,7 +133,8 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   assert.equal($('etape-4').hidden,false);
   assert.equal($('prepare-native-individual').hidden,false);
   assert.equal($('prepare-native-group').hidden,false);
-  assert.match($('owner-code-setup').textContent,/Ce code existe déjà/);
+  assert.equal($('native-master-key'),null,'No activation code is requested in demo mode');
+  assert.match($('native-links-area').textContent,/aucun code à saisir/i);
   // Replies cannot open a non-existent dossier; guide user back to link creation.
   click(window.document,'open-replies');
   assert.equal($('reply-screen').hidden,false);
@@ -142,17 +143,13 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   click(window.document,'go-create-links');
   assert.equal($('reply-screen').hidden,true);
   assert.equal($('etape-4').hidden,false);
-  $('native-master-key').value='test-private-admin';
   click(window.document,'prepare-native-individual');
   await new Promise(resolve=>setTimeout(resolve,50));
   assert.equal(apiCalls.length,1);
   assert.equal(apiCalls[0].mode,'individual');
-  assert.equal($('owner-code-setup').hidden,true,'Owner must not reenter fixed code after successful setup');
-  assert.equal($('owner-code-remembered').hidden,false);
-  assert.equal(window.localStorage.getItem('transbora_owner_activation_v1'),'test-private-admin');
-  click(window.document,'forget-owner-code');
-  assert.equal($('owner-code-setup').hidden,false);
-  assert.equal(window.localStorage.getItem('transbora_owner_activation_v1'),null);
+  assert.ok(!window.localStorage.getItem('transbora_owner_activation_v1'),
+    'A demo should never store a credential in this browser');
+  assert.equal(apiCalls[0].action,'create');
   assert.ok(apiCalls[0].people.some(p=>p.first==='Sophie'));
   assert.equal($('native-ready').hidden,false);
   assert.match($('native-status-link').href,/suivi\.html#event=/);

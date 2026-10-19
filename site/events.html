@@ -32,7 +32,7 @@
   <h3>1 · Événement</h3><p>Renseignez le nom, le lieu et les horaires. Dans « Options », choisissez aller, retour ou les deux. Le début correspond à l'heure à laquelle les artistes doivent être présents ; la fin, au moment où ils sont libres de partir. Transbora cherche le train arrivant le plus près possible avant cette présence et le premier départ possible après la fin, avec les temps d’accès choisis. Aucune limite artificielle à deux jours.</p>
   <h3>2 · Voyageurs</h3><p>Ajoutez les personnes directement ou importez un fichier Excel. Le modèle téléchargeable précise les colonnes attendues : Prénom, Nom, Ville de départ ; dates individuelles facultatives.</p>
   <h3>3 · Recherche</h3><p>Vous pouvez indiquer une ville (Paris : toutes les gares trouvées dans les données) ou une gare précise. Le résultat affiche les gares réelles utilisées, y compris les changements. Vérifiez la gare d’arrivée par rapport au lieu de l’événement.</p>
-  <h3>4 · Liens</h3><p>Votre code d’installation a déjà été créé et communiqué. Vous ne pouvez pas inventer un nouveau code ici : il doit correspondre à celui de votre serveur Netlify. Une fois validé, il est mémorisé sur votre téléphone. Choisissez ensuite un lien commun ou un lien par voyageur et partagez les liens affichés.</p>
+  <h3>4 · Liens</h3><p>Pour les essais, vous n'avez aucun code à renseigner. Cliquez sur « Créer le lien du groupe » ou « Créer les liens personnels ». Transbora affiche ensuite les liens à envoyer et votre suivi privé des réponses.</p>
   <h3>Réponses</h3><p>Transbora enregistre les choix et les montre dans un tableau privé accessible depuis votre lien de suivi. Seul l’organisateur conserve ce lien. Les anciens exports Excel restent en option.</p>
   <h3>Précautions</h3><p>Transbora peut rechercher avant ou après l'événement selon les horaires publiés, même sur plusieurs jours ; dates de départ et d'arrivée précisées. Les horaires ne garantissent ni tarif, ni place, ni correspondance. Les participants restent dans le navigateur et dans les fichiers exportés ; pensez à sauvegarder avant de quitter.</p>
  </div>
@@ -120,20 +120,8 @@
    <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading" tabindex="-1">Choix des horaires</h1></div>
    <p class="stage-brief">Vos voyageurs choisiront leurs horaires sur une page Transbora, sans inscription.</p>
    <div class="native-setup" id="native-links-area">
-     <section id="owner-code-setup" class="setup-card" aria-labelledby="owner-setup-title">
-       <span class="step-kicker">Activation unique</span>
-       <h2 id="owner-setup-title">1. Saisir votre code d’installation</h2>
-       <p><strong>Ce code existe déjà.</strong> C’est celui communiqué lors de la mise en place de Transbora. <strong>Ne choisissez pas un nouveau code ici</strong> : « 1234 » ne fonctionnera pas, sauf si votre serveur a été configuré avec ce code.</p>
-       <label class="master-code" for="native-master-key">Votre code d’installation
-         <input id="native-master-key" type="password" autocomplete="off" placeholder="Coller le code fourni lors de l’installation" maxlength="160" aria-describedby="owner-code-help">
-       </label>
-       <p id="owner-code-help" class="small">Après votre première création réussie, il sera mémorisé sur ce navigateur. Vos voyageurs n’en ont jamais besoin.</p>
-     </section>
-     <div id="owner-code-remembered" class="owner-code-confirmed" hidden>
-       <p class="saved-owner-code">✓ Installation reconnue : vous n’avez plus à saisir le code.</p>
-       <button type="button" class="text-button" id="forget-owner-code">Ne plus mémoriser le code sur cet appareil</button>
-     </div>
-     <h2 class="share-heading">2. Créer les liens à envoyer</h2>
+     <p class="stage-brief"><strong>Mode essai : aucun code à saisir.</strong> Choisissez les liens à créer, puis copiez-les pour les envoyer aux voyageurs.</p>
+     <h2 class="share-heading">1. Créer les liens à envoyer</h2>
      <div class="export-grid simplified-exports">
        <article class="export-card">
          <div class="export-icon" aria-hidden="true">👥</div>
@@ -151,7 +139,7 @@
      <p id="native-status" class="inline-feedback" role="status" aria-live="polite"></p>
      <section id="native-ready" class="native-success" hidden tabindex="-1">
        <span class="step-kicker">Création terminée</span>
-       <h2>3. Envoyer les liens aux voyageurs</h2>
+       <h2>2. Envoyer les liens aux voyageurs</h2>
        <p>Appuyez sur <strong>Copier</strong> puis collez le lien dans WhatsApp, un SMS ou un e-mail. Le voyageur n’a pas de code à saisir.</p>
        <div id="native-share-links" class="individual-files"></div>
        <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>

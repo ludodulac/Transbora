@@ -67,7 +67,7 @@ async function takeBody(req){
   return JSON.parse(txt);
 }
 const prefix=(name,id)=>name+'/'+id;
-export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
+export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),openDemo=()=>false}){
   return async function handle(req){
     if(req.method==='GET')return json({status:'ok',service:'Transbora choix',version:1});
     if(req.method!=='POST')return failure('Méthode non autorisée',405);
@@ -81,7 +81,18 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
       if(op==='create'){
         const secret=masterKey();
         const provided=req.headers.get('x-transbora-admin')||'';
-        if(!secret||!provided||!equals(secret,provided))return failure('Code organisateur incorrect.',403);
+        const allowedWithCode=Boolean(secret&&provided&&equals(secret,provided));
+        const isOpenDemo=Boolean(openDemo()&&!provided);
+        if(!allowedWithCode&&!isOpenDemo)return failure('Création non autorisée.',403);
+        if(isOpenDemo){
+          // Anyone visiting this prototype can create a folder, but ordinary
+          // cross-site browser requests must not be allowed to consume storage.
+          // This is a CSRF check, not full authentication. Netlify's function
+          // IP rate limiter stays enabled. Never enable this for production.
+          const requestOrigin=req.headers.get('origin');
+          if(!requestOrigin||requestOrigin!==new URL(req.url).origin)
+            return failure('Origine de création non autorisée.',403);
+        }
         const mode=body.mode;
         if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
         const event=checkedEvent(body.event),people=checkedPeople(body.people);
