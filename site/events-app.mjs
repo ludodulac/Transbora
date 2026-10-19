@@ -517,21 +517,11 @@ function renderPublished(record,mode){
 async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
-    const master=ownerCode||$('native-master-key').value.trim();
-    if(!master){
-      $('owner-code-setup').hidden=false;
-      $('owner-code-setup').scrollIntoView({behavior:'smooth',block:'center'});
-      $('native-master-key').focus();
-      throw new Error('Le code a déjà été créé pour votre installation. Collez le code qui vous a été communiqué, puis appuyez sur « Créer les liens ». Ne saisissez pas un nouveau code inventé.');
-    }
     if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
     const event=readEvent();
     const people=buildChoicePeople(event,participants,plans);
     busy(true);shareStatus('Création des liens privés…');
-    const result=await api('create',{event,people,mode},master);
-    ownerCode=master;
-    rememberOwnerCode(globalThis.localStorage,master);
-    updateOwnerAccess();
+    const result=await api('create',{event,people,mode});
     renderPublished(result,mode);
     $('native-ready').scrollIntoView({behavior:'smooth',block:'start'});
     $('native-ready').focus();
