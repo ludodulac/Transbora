@@ -555,7 +555,13 @@ function renderPublished(record,mode){
 async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
-    if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
+    if(published?.mode===mode){
+      $('share-mode-options').hidden=true;
+      $('cancel-mode-switch').hidden=true;
+      $('native-ready').hidden=false;
+      shareStatus('Les liens actuels sont conservés.');
+      return;
+    }
     if(published && published.mode!==mode){
       if(!confirm('Changer le type de lien ? Les liens précédents ne fonctionneront plus. Les réponses déjà reçues seront conservées et le dossier restera le même.'))return;
       busy(true);shareStatus('Remplacement des liens…');
