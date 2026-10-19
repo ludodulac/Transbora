@@ -52,6 +52,20 @@ export function compareJourneys(a,b,kind,boundary){
     ||(a.changes||0)-(b.changes||0)
     ||absTime(a)-absTime(b);
 }
+/** Compare different transport types together. A journey departing only a little
+ * later should not lose to a coach which takes several hours longer.
+ * This is a timetable score, NOT a fare, remaining-seat or reliability score.
+ * Preserve the organizer's arrival/departure boundary as a hard constraint.
+ */
+export function compareMultimodalJourneys(a,b,kind,boundary){
+  const score=j=>{
+    const relevant=kind==='A'?j.arrival:j.departure;
+    const gap=Math.abs(+parisInstant(j.date,relevant)-boundary)/1000;
+    const journeyTime=Math.max(0,j.arrival-j.departure);
+    return gap+0.65*journeyTime+0.5*tiePenalty(j);
+  };
+  return score(a)-score(b)||compareJourneys(a,b,kind,boundary);
+}
 function publishedRange(feeds,config){
   const selected=feeds.filter(f=>config.mode==='all'||f.source.mode===config.mode);
   const min=selected.map(f=>f.data.meta?.first).filter(Boolean).sort()[0];
@@ -147,9 +161,10 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
   const cache=new Map(),plans=new Map(),issues=[];
   let partial=false;
   const max=Math.max(1,Math.min(5,Number(settings.maxOptions)||3));
-  const coverage=publishedRange(feeds,settings);
-  const maxPath=maximumPathSeconds(feeds,settings);
-  async function searchDirection(queryData,p,kind){
+  async function searchDirection(queryData,p,kind,searchSettings=settings){
+    const coverage=publishedRange(feeds,searchSettings);
+    const maxPath=maximumPathSeconds(feeds,searchSettings);
+    const reportIssues=searchSettings.mode===settings.mode;
     const explicit=travelDates(event,p,kind);
     const {min,max:publishedEnd}=coverage;
     const dirStarted=Date.now();
@@ -162,7 +177,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     const knownTo=coverage.selected.some(f=>f.data.stations.some(s=>matchesStop(s[1],queryData.to)));
     const knownPair=knownFrom&&knownTo;
     if(!knownPair){
-      issues.push(p.first+' '+p.last+' : '+(!knownFrom?'départ':'destination')+
+      if(reportIssues)issues.push(p.first+' '+p.last+' : '+(!knownFrom?'départ':'destination')+
         ' non reconnu dans les gares/arrêts publiés pour '+kind+'.');
       return {choices:[],searched:[],covered:false,
         reason:!knownFrom?'unknown_origin':'unknown_destination'};
@@ -183,8 +198,8 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     // Prefer direct trips, then one transfer, then two transfers only when
     // the earlier tier has no matching itinerary. Every leg and transfer
     // is validated by the same existing routing engines.
-    const automatic=settings.connections==='auto';
-    const tiers=automatic?['no','only_one','only_two']:[settings.connections];
+    const automatic=searchSettings.connections==='auto';
+    const tiers=automatic?['no','only_one','only_two']:[searchSettings.connections];
     const tierLabels={no:'directs',only_one:'1 correspondance',only_two:'2 correspondances'};
     let chosenTier=null;
     for(let level=0;level<tiers.length;level++){
@@ -195,16 +210,16 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         break;
       }
       const tier=tiers[level];
-      const tierConfig={...settings,connections:tier};
+      const tierConfig={...searchSettings,connections:tier};
       options.onTier?.({person:p,kind,tier,level});
       // There is no need to scan every service date to disprove a direct
       // or single-change route: first rule out impossible connections in
       // the complete timetable's station graph (independent of calendar).
-      if(automatic&&tier==='no'&&!canBeDirect(coverage.selected,queryData.from,queryData.to,settings)){
+      if(automatic&&tier==='no'&&!canBeDirect(coverage.selected,queryData.from,queryData.to,searchSettings)){
         options.onTier?.({person:p,kind,tier,level,skipped:true});
         continue;
       }
-      if(automatic&&tier==='only_one'&&!canBeOneChange(coverage.selected,queryData.from,queryData.to,settings)){
+      if(automatic&&tier==='only_one'&&!canBeOneChange(coverage.selected,queryData.from,queryData.to,searchSettings)){
         options.onTier?.({person:p,kind,tier,level,skipped:true});
         continue;
       }
@@ -283,7 +298,30 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
         continue;
       }
-      const {choices,searched,covered,reason,level}=await searchDirection({from,to},p,kind);
+      // Train + autocar means a union of eligible itineraries, not "stop as
+      // soon as ANY operator has a direct service". Search rail, road and
+      // cross-provider journeys independently so a direct coach cannot hide
+      // a faster train with a change (and vice versa).
+      const multimodal=settings.mode==='all'&&settings.connections==='auto';
+      const modes=multimodal?['rail','bus','all']:[settings.mode];
+      const runs=[];
+      for(const mode of modes){
+        if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
+        runs.push(await searchDirection({from,to},p,kind,{...settings,mode}));
+      }
+      const byKey=new Map();
+      for(const run of runs)for(const journey of run.choices)
+        if(!byKey.has(journey.key))byKey.set(journey.key,journey);
+      const boundary=travelBoundary(event,kind);
+      const ranked=[...byKey.values()].sort((a,b)=>multimodal
+        ?compareMultimodalJourneys(a,b,kind,boundary)
+        :compareJourneys(a,b,kind,boundary));
+      const choices=ranked.slice(0,max);
+      const searched=[...new Set(runs.flatMap(run=>run.searched))];
+      const covered=runs.some(run=>run.covered);
+      const mainRun=runs.at(-1);
+      const reason=choices.length?null:mainRun?.reason||'no_published_data';
+      const level=runs.find(run=>run.choices.some(j=>j.key===choices[0]?.key))?.level||null;
       entries.reasons[kind]=reason;
       entries.levels[kind]=level;
       if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||event.startDate;}
