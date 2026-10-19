@@ -148,7 +148,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     const explicit=travelDates(event,p,kind);
     const {min,max:publishedEnd}=coverage;
     const dirStarted=Date.now();
-    if(!min||!publishedEnd)return {choices:[],searched:[],covered:false};
+    if(!min||!publishedEnd)return {choices:[],searched:[],covered:false,reason:'no_published_data'};
     // Skip a costly full-calendar search when a selected source has no stop
     // bearing the requested city/station name at all.
     // Each endpoint may be served by a DIFFERENT operator. Never require
@@ -157,8 +157,10 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     const knownTo=coverage.selected.some(f=>f.data.stations.some(s=>matchesStop(s[1],queryData.to)));
     const knownPair=knownFrom&&knownTo;
     if(!knownPair){
-      issues.push(p.first+' '+p.last+' : gare ou ville absente des horaires disponibles pour '+kind+'.');
-      return {choices:[],searched:[],covered:false};
+      issues.push(p.first+' '+p.last+' : '+(!knownFrom?'départ':'destination')+
+        ' non reconnu dans les gares/arrêts publiés pour '+kind+'.');
+      return {choices:[],searched:[],covered:false,
+        reason:!knownFrom?'unknown_origin':'unknown_destination'};
     }
     const deadline=travelBoundary(event,kind);
     const boundaryDay=kind==='A'?event.startDate:event.endDate;
@@ -169,13 +171,13 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     const ending=kind==='A'?min:finalClockDay;
     let current=explicit.length?explicit[0]:starting;
     if(explicit.length===0 && (kind==='A'?current<ending:current>ending))
-      return {choices:[],searched:[],covered:false};
-    let covered=false;
+      return {choices:[],searched:[],covered:false,reason:'no_published_data'};
+    let covered=false,directionIncomplete=false;
     const searched=[],found=new Map();
     while(explicit.length?(searched.length<1):(kind==='A'?current>=ending:current<=ending)){
       if(cancelled())throw new Error('Recherche interrompue.');
       if(timedOut() || Date.now()-dirStarted>perDirection){
-        partial=true;
+        partial=true;directionIncomplete=true;
         issues.push(p.first+' '+p.last+' : recherche '+(kind==='A'?'aller':'retour')+
           ' incomplète (limite de temps atteinte). Affinez les réglages et relancez.');
         break;
@@ -210,8 +212,9 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       // Yield between timetable days so mobile UIs can repaint.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
-    return {choices:[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max),
-      searched,covered};
+    const choices=[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max);
+    return {choices,searched,covered,reason:directionIncomplete?'incomplete':
+      !covered?'no_published_data':!choices.length?'not_found':null};
   }
   for(let i=0;i<participants.length;i++){
     const p=participants[i];
@@ -226,7 +229,8 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       break;
     }
     const entries={outwardDate:event.startDate,returnDate:event.endDate,
-      outwardDates:[],returnDates:[],outward:[],returning:[]};
+      outwardDates:[],returnDates:[],outward:[],returning:[],
+      reasons:{A:null,R:null}};
     for(const kind of ['A','R']){
       if(kind==='A'&&event.includeOutward===false)continue;
       if(kind==='R'&&event.includeReturn===false)continue;
@@ -236,11 +240,13 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
         continue;
       }
-      const {choices,searched,covered}=await searchDirection({from,to},p,kind);
+      const {choices,searched,covered,reason}=await searchDirection({from,to},p,kind);
+      entries.reasons[kind]=reason;
       if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||event.startDate;}
       else{entries.returning=choices;entries.returnDates=searched;entries.returnDate=searched[0]||event.endDate;}
-      if(!covered)issues.push(p.first+' '+p.last+' : aucun horaire publié pour '+(kind==='A'?'l’aller':'le retour')+
-        ' autour de l’heure demandée.');
+      if(!covered&&reason!=='unknown_origin'&&reason!=='unknown_destination')
+        issues.push(p.first+' '+p.last+' : aucune donnée de circulation exploitable dans la période publiée pour '+
+          (kind==='A'?'l’aller':'le retour')+'.');
     }
     plans.set(p.id,entries);
     progress(i+1,participants.length,p);
