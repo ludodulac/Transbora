@@ -94,7 +94,7 @@ test('last published GTFS service may depart at 25:00 on following calendar day'
  const finalFeed={source:feed.source,data:{...feed.data,meta:{...feed.data.meta,last:'2026-12-15'},
    trips:[[0,'TGV','','NIGHT-25',[[1,25*3600,25*3600,1,0],
      [0,29*3600,29*3600,0,1]]]],
-   services:[Buffer.from([0,0,0,8]).toString('base64')]}};
+   services:[Buffer.from([0,0,0,2]).toString('base64')]}};
  const res=await planEvent(e,[person],[finalFeed],settings);
  // Date index 25 relative to November 20: December 15.
  assert.equal(res.plans.get('P-001').returning.length,1);
