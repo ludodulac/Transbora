@@ -151,11 +151,11 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     if(!min||!publishedEnd)return {choices:[],searched:[],covered:false};
     // Skip a costly full-calendar search when a selected source has no stop
     // bearing the requested city/station name at all.
-    const knownPair=coverage.selected.some(f=>{
-      const stops=f.data.stations;
-      return stops.some(s=>matchesStop(s[1],queryData.from)) &&
-             stops.some(s=>matchesStop(s[1],queryData.to));
-    });
+    // Each endpoint may be served by a DIFFERENT operator. Never require
+    // both stop names in one feed, or legitimate multimodal journeys vanish.
+    const knownFrom=coverage.selected.some(f=>f.data.stations.some(s=>matchesStop(s[1],queryData.from)));
+    const knownTo=coverage.selected.some(f=>f.data.stations.some(s=>matchesStop(s[1],queryData.to)));
+    const knownPair=knownFrom&&knownTo;
     if(!knownPair){
       issues.push(p.first+' '+p.last+' : gare ou ville absente des horaires disponibles pour '+kind+'.');
       return {choices:[],searched:[],covered:false};
