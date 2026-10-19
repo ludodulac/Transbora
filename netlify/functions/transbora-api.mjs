@@ -7,7 +7,9 @@ export default async function handler(request){
     process.env.TRANSBORA_MASTER_KEY || '';
   const serve=createChoiceHandler({
     getStore:name=>getStore({name,consistency:'strong'}),
-    masterKey:()=>key
+    masterKey:()=>key,
+    demoMode:()=>process.env.TRANSBORA_NO_CODE_DEMO==='enabled',
+    clientIp:request=>request.headers.get('x-nf-client-connection-ip')
   });
   return serve(request);
 }
