@@ -14,5 +14,5 @@ export default async function handler(request){
 export const config={
   path:'/api/transbora',
   // Light throttling against accidental repeated submissions and scripted abuse.
-  rateLimit:{action:'rate_limit',aggregateBy:'ip',to:'/api/transbora',windowSize:60,windowLimit:80}
+  rateLimit:{action:'rate_limit',aggregateBy:'ip',windowSize:60,windowLimit:80}
 };
