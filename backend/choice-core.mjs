@@ -23,8 +23,17 @@ function checkedEvent(e){
   if(!e||typeof e!=='object')throw new Error('Événement manquant.');
   const title=safe(e.title,90),destination=safe(e.destination,140);
   if(!title||!destination)throw new Error('Nom ou lieu manquant.');
-  return {title,destination,startDate:safe(e.startDate,10),
-    startTime:safe(e.startTime,5),endDate:safe(e.endDate,10),endTime:safe(e.endTime,5)};
+  const startDate=safe(e.startDate,10),endDate=safe(e.endDate,10);
+  const startTime=safe(e.startTime,5),endTime=safe(e.endTime,5);
+  for(const date of [startDate,endDate]){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T12:00:00Z'))||
+      new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date)
+      throw new Error('Date de présence invalide.');
+  }
+  if(![startTime,endTime].every(t=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t))||
+    endDate+'T'+endTime<=startDate+'T'+startTime)
+    throw new Error('La fin doit être postérieure au début de présence.');
+  return {title,destination,startDate,startTime,endDate,endTime};
 }
 function checkedPeople(raw){
   if(!Array.isArray(raw)||!raw.length||raw.length>MAX_PEOPLE)
@@ -78,7 +87,10 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
         const mode=body.mode;
         if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
         const event=checkedEvent(body.event),people=checkedPeople(body.people);
-        const eventId=token(),ownerKey=token(),expiresAt=clock()+LIFETIME;
+        const eventId=token(),ownerKey=token();
+        // Never let travelers' links expire before their event takes place.
+        const expiresAt=Math.max(clock()+LIFETIME,
+          Date.parse(event.endDate+'T12:00:00Z')+LIFETIME);
         const batches=mode==='group'?[{key:'all',people}]:
           people.map(p=>({key:p.id,people:[p]}));
         const urlTokens=[];
@@ -150,7 +162,7 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now()}){
       return failure('Action inconnue.');
     }catch(error){
       // Never echo storage failures, secrets, blobs keys or stack traces.
-      if(error.message?.match(/^(Voyageur|Entre |Aucun horaire|Nom ou lieu|Événement manquant|Proposition|Trop de propositions)/))
+      if(error.message?.match(/^(Voyageur|Entre |Aucun horaire|Nom ou lieu|Événement manquant|Date de présence|La fin doit|Proposition|Trop de propositions)/))
         return failure(error.message);
       return failure('Impossible de traiter la demande. Veuillez réessayer.',503);
     }
