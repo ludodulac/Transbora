@@ -28,7 +28,8 @@ function runOn(encoded, index) {
 export function searchFeed(data, params, source) {
   const day=dateDay(params.date);
   const first=dateDay(data.meta.first),last=dateDay(data.meta.last);
-  if(!Number.isFinite(day) || day<first || day>last)return [];
+  // The final published GTFS service day may include trips after 24:00.
+  if(!Number.isFinite(day) || day<first || day>last+1)return [];
   const origins=new Set(),targets=new Set();
   data.stations.forEach((entry,i)=>{
     if(matchesStop(entry[1],params.from))origins.add(i);
@@ -39,7 +40,7 @@ export function searchFeed(data, params, source) {
   const start=toSeconds(params.earliest||'00:00'), end=toSeconds(params.latest||'23:59')+59;
   if(!Number.isFinite(start)||!Number.isFinite(end)||start>end)return [];
   const output=[];
-  for(let serviceDay=Math.max(first,day-1);serviceDay<=day;serviceDay++){
+  for(let serviceDay=Math.max(first,day-1);serviceDay<=Math.min(day,last);serviceDay++){
     const clockShift=shiftToParis(params.date,isoDateAtDay(serviceDay),data.meta.timezone||'Europe/Paris');
     for(let t=0;t<data.trips.length;t++){
       const trip=data.trips[t];
