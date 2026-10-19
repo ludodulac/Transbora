@@ -17,6 +17,8 @@ async function load(){
       const card=node('section','traveler');
       card.append(node('h2','traveler-name',person.first+' '+person.last));
       card.append(node('p','subtitle','Départ : '+person.departure));
+      if(!person.options.A.length&&!person.options.R.length)
+        card.append(node('p','subtitle','Aucun trajet disponible pour cette personne. Son choix sera signalé à l’organisateur.'));
       for(const [dir,label] of [['A','Aller'],['R','Retour']]){
         const options=person.options[dir]||[];
         if(!options.length)continue;
