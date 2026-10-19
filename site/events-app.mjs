@@ -4,6 +4,7 @@ import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
+import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -14,6 +15,8 @@ const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
+let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
+let draftSaving=null,restoredDraft=false;
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-connections','ev-buffer','ev-count'];
@@ -101,6 +104,34 @@ function invalidate(){
   msg($('reply-status'),'');
   updateButtons();
 }
+function storeDraft(){
+  if(!globalThis.localStorage)return;
+  const fields=Object.fromEntries(draftFields.map(id=>{
+    const field=$(id);
+    return [id,field.type==='checkbox'?field.checked:field.value];
+  }));
+  saveDraft(localStorage,{fields,participants,step:activeStep});
+}
+function scheduleDraft(){
+  clearTimeout(draftSaving);
+  draftSaving=setTimeout(storeDraft,150);
+}
+function loadSavedDraft(){
+  if(!globalThis.localStorage)return false;
+  const data=restoreDraft(localStorage);
+  if(!data)return false;
+  for(const id of draftFields){
+    const field=$(id),value=data.fields[id];
+    if(field?.type==='checkbox')field.checked=value===true || value==='true';
+    else if(field && value!==undefined)field.value=String(value);
+  }
+  participants=data.participants.filter(p=>p.first&&p.last&&p.departure);
+  nextId=1+Math.max(0,...participants.map(p=>Number(String(p.id).replace(/^P-/,''))||0));
+  renderPeople();
+  showStep(data.step,{focus:false});
+  restoredDraft=true;
+  return true;
+}
 function labelPerson(p){
   return displayName(p)+' · '+p.departure;
 }
@@ -124,7 +155,7 @@ function renderPeople(){
     remove.type='button';remove.setAttribute('aria-label','Supprimer '+displayName(p));
     remove.addEventListener('click',()=>{
       participants=participants.filter(x=>x.id!==p.id);
-      invalidate();renderPeople();
+      invalidate();renderPeople();scheduleDraft();
     });
     item.append(content,remove);frag.append(item);
   });
@@ -142,7 +173,7 @@ function includeParticipants(items){
     seen.add(key);added++;
   }
   if(added)invalidate();
-  renderPeople();
+  renderPeople();scheduleDraft();
   return {added,duplicates};
 }
 async function init(){
@@ -169,14 +200,21 @@ async function init(){
   };
   for(const id of ['event-start-date','event-start-time'])
     $(id).addEventListener('change',syncEventEnd);
-  for(const id of eventFieldIds)$(id).addEventListener('change',invalidate);
+  for(const id of eventFieldIds){
+    $(id).addEventListener('change',()=>{invalidate();scheduleDraft();});
+    $(id).addEventListener('input',scheduleDraft);
+  }
+  loadSavedDraft();
+  updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
     if(!response.ok)throw new Error('HTTP '+response.status);
     manifest=await response.json();
     if(!manifest?.sources?.some(s=>s.status==='ok'))throw new Error('Aucune source GTFS active');
     status('Prêt : '+manifest.sources.filter(s=>s.status==='ok').length+
-      ' sources de transport disponibles. Créez un événement puis ajoutez les voyageurs.');
+      ' sources de transport disponibles. '+(restoredDraft?
+        'Votre événement et vos voyageurs ont été retrouvés. Vous pouvez relancer la recherche.':
+        'Créez un événement puis ajoutez les voyageurs.'));
     let stations;
     try{
       const res=await fetch('./data/stations.json');
@@ -244,7 +282,7 @@ $('manual-person').addEventListener('submit',event=>{
 $('clear-participants').addEventListener('click',()=>{
   if(!participants.length)return;
   if(!confirm('Effacer les personnes de ce brouillon et tous les résultats de recherche ?'))return;
-  participants=[];nextId=1;invalidate();renderPeople();
+  participants=[];nextId=1;invalidate();renderPeople();storeDraft();
   msg($('import-status'),'Liste effacée.');
 });
 function showJourney(j,day){
@@ -538,6 +576,7 @@ function showStep(number,{focus=true}={}){
     dot.classList.toggle('done',i<activeStep-1);
   });
   updateButtons();
+  scheduleDraft();
   if(focus)$(screenIds[activeStep-1]).querySelector('h1')?.focus?.();
   window.scrollTo({top:0,behavior:'instant'});
 }
@@ -573,6 +612,11 @@ $('wizard-next').addEventListener('click',()=>{
   }
 });
 $('wizard-back').addEventListener('click',()=>{if(activeStep>1)showStep(activeStep-1);});
+$('clear-saved-draft').addEventListener('click',()=>{
+  if(!confirm('Effacer cet événement, la liste des personnes et les données sauvegardées sur cet appareil ?'))return;
+  eraseDraft(localStorage);
+  location.reload();
+});
 $('menu-event').addEventListener('click',()=>{
   toggleHelp(false,{focus:false});
   showStep(activeStep);
