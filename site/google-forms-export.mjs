@@ -27,8 +27,10 @@ export function optionLabel(route,date,ordinal){
     ordinal+'. '+head+' · '+durationText(route.arrival-route.departure),
     providers,
     changes+' changement(s)'+intermediary,
-    ''
-  ].filter(Boolean).join(' · ').slice(0,330);
+    route.marginReduced?'⚠ Marge réduite : '+route.actualMarginMinutes+
+      ' min au lieu de '+route.requestedMarginMinutes+
+      ' min · Validation gare/lieu par l’organisateur requise':''
+  ].filter(Boolean).join(' · ').slice(0,390);
 }
 export function buildFormsRows(event,participants,plans,mode,{batchId}={}){
   if(!['collectif','individuel'].includes(mode))throw new Error('Mode de formulaire non reconnu.');

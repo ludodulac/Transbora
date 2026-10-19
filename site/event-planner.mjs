@@ -161,7 +161,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
   const cache=new Map(),plans=new Map(),issues=[];
   let partial=false;
   const max=Math.max(1,Math.min(5,Number(settings.maxOptions)||3));
-  async function searchDirection(queryData,p,kind,searchSettings=settings){
+  async function searchDirection(queryData,p,kind,searchSettings=settings,boundaryEvent=event){
     const coverage=publishedRange(feeds,searchSettings);
     const maxPath=maximumPathSeconds(feeds,searchSettings);
     const reportIssues=searchSettings.mode===settings.mode;
@@ -182,7 +182,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       return {choices:[],searched:[],covered:false,
         reason:!knownFrom?'unknown_origin':'unknown_destination'};
     }
-    const deadline=travelBoundary(event,kind);
+    const deadline=travelBoundary(boundaryEvent,kind);
     const boundaryDay=kind==='A'?event.startDate:event.endDate;
     const finalClockDay=shiftDate(publishedEnd,1);
     const starting=kind==='A'?
@@ -243,7 +243,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
           date>=f.data.meta.first&&date<=shiftDate(f.data.meta.last,1));
         try{
           if(!cache.has(key))cache.set(key,allOptions(feeds,query,tierConfig,officialRules));
-          for(const route of pickItineraries(cache.get(key),query,event,kind,{maximum:200})){
+          for(const route of pickItineraries(cache.get(key),query,boundaryEvent,kind,{maximum:200})){
             if(!tierFound.has(route.key))tierFound.set(route.key,route);
           }
         }catch(err){
@@ -318,10 +318,38 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         :compareJourneys(a,b,kind,boundary));
       const choices=ranked.slice(0,max);
       const searched=[...new Set(runs.flatMap(run=>run.searched))];
-      const covered=runs.some(run=>run.covered);
+      let covered=runs.some(run=>run.covered);
       const mainRun=runs.at(-1);
+      let level=runs.find(run=>run.choices.some(j=>j.key===choices[0]?.key))?.level||null;
+      // Only when explicitly requested: display separately flagged suggestions
+      // with reduced station-to-venue access time (minimum 30 minutes).
+      const margin=Number(kind==='A'?event.arrivalMargin:event.departureMargin);
+      if(settings.allowReducedMargin && Number.isFinite(margin) && margin>30 &&
+        choices.length<5){
+        const softEvent={...event,[kind==='A'?'arrivalMargin':'departureMargin']:30};
+        const extras=[],excluded=new Set(choices.map(j=>j.key));
+        const limits=eventBoundaries(event);
+        for(const mode of modes){
+          if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
+          const run=await searchDirection({from,to},p,kind,{...settings,mode},softEvent);
+          covered ||=run.covered;
+          for(const d of run.searched)if(!searched.includes(d))searched.push(d);
+          for(const j of run.choices){
+            if(excluded.has(j.key))continue;
+            const time=+parisInstant(j.date,kind==='A'?j.arrival:j.departure);
+            const minutes=(kind==='A'?limits.start-time:time-limits.end)/60000;
+            if(minutes<30||minutes>=margin)continue;
+            excluded.add(j.key);
+            extras.push({...j,marginReduced:true,actualMarginMinutes:Math.floor(minutes),
+              requestedMarginMinutes:margin});
+          }
+        }
+        extras.sort((a,b)=>multimodal?compareMultimodalJourneys(a,b,kind,boundary):
+          compareJourneys(a,b,kind,boundary));
+        const room=Math.min(5-choices.length,Math.max(1,max-choices.length));
+        choices.push(...extras.slice(0,room));
+      }
       const reason=choices.length?null:mainRun?.reason||'no_published_data';
-      const level=runs.find(run=>run.choices.some(j=>j.key===choices[0]?.key))?.level||null;
       entries.reasons[kind]=reason;
       entries.levels[kind]=level;
       if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||event.startDate;}

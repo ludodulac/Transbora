@@ -285,3 +285,6 @@ progress{width:100%;height:12px}
 .switch-share-mode{display:block;width:100%;margin-top:11px;min-height:48px}
 #share-mode-options{scroll-margin-top:180px}
 #cancel-mode-switch{display:block;margin:18px auto 5px}
+
+.recap-route .route-warning{display:block;background:#fff3d9;border:1px solid #e9c782;
+border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b4600;line-height:1.45}
