@@ -270,7 +270,7 @@ function renderSearchResults(issues){
     ]){
       const side=node('div','recap-side');
       side.append(node('span','pill',label+' · meilleurs horaires'));
-      if(!list.length)side.append(node('p','no-options','Aucun trajet trouvé dans cette période. Vérifiez la couverture des horaires ou élargissez les jours dans Options.'));
+      if(!list.length)side.append(node('p','no-options','Aucun horaire compatible trouvé dans les données publiées. Vérifiez les gares et les horaires des transporteurs.'));
       list.forEach((j,index)=>{
         const option=node('p','recap-route',(index+1)+'. '+showJourney(j,j.date||dates[0])+
           ' · '+(j.legs?.length?j.legs.map(t=>t.provider).join(' → '):j.provider));
