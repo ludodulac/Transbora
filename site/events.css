@@ -180,3 +180,18 @@ progress{width:100%;height:12px}
 #native-copy-all{width:100%;min-height:47px}
 #native-links-area .small{font-size:.78rem;color:#68838d;line-height:1.5}
 #native-links-area .inline-feedback{font-weight:700}
+
+
+/* 013 — clear explanation of safer vs balanced connections on touch screens */
+.risk-setting{display:flex;gap:9px;align-items:flex-start;position:relative;min-width:0}
+.risk-setting>label{flex:1}
+.risk-help{position:relative;margin-top:2px;flex:0 0 auto}
+.risk-help summary{list-style:none;display:grid;place-items:center;background:#dff3f3;color:#096872;font-weight:900;font-size:1rem;cursor:pointer;border:1px solid #add6d7;width:30px;height:30px;border-radius:50%}
+.risk-help summary::-webkit-details-marker{display:none}
+.risk-help[open]{z-index:35}
+.risk-help p{font-size:.85rem!important;font-weight:500;line-height:1.5;color:#2c5360;margin:7px 0 12px}
+.risk-help[open] {background:#fff;border-radius:9px}
+.risk-help[open] p{padding:6px 9px}
+.search-detail{font-size:.83rem;line-height:1.55;color:#417883;margin:13px 0 7px}
+#cancel-search{font-size:.84rem;padding:9px 6px}
+@media(max-width:620px){.risk-help[open]{max-width:220px}.risk-help[open] p{max-width:185px}}
