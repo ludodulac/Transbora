@@ -15,6 +15,8 @@ async function refresh(){
     for(const p of report.people){
       const row=node('article','summary-row');
       row.append(node('strong',null,p.first+' '+p.last+' · '+p.departure));
+      if(!p.options.A.length&&!p.options.R.length)
+        row.append(node('p',null,'⚠️ Aucun trajet trouvé dans les horaires disponibles.'));
       for(const [dir,label] of [['A','ALLER'],['R','RETOUR']]){
         if(!p.options[dir].length)continue;
         const chosen=p.answer?.[dir],option=p.options[dir].find(o=>o.id===chosen);
