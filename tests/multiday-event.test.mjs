@@ -87,3 +87,17 @@ test('an explicit traveler date is honored as the only eligible departure day',a
  const res=await planEvent(ev,[p],[feed],settings);
  assert.ok(res.plans.get('P-001').outward.every(r=>r.date==='2026-11-29'));
 });
+
+test('last published GTFS service may depart at 25:00 on following calendar day',async()=>{
+ const e={...ev,includeOutward:false,departureMargin:60,startDate:'2026-12-15',
+   endDate:'2026-12-15',endTime:'23:00'};
+ const finalFeed={source:feed.source,data:{...feed.data,meta:{...feed.data.meta,last:'2026-12-15'},
+   trips:[[0,'TGV','','NIGHT-25',[[1,25*3600,25*3600,1,0],
+     [0,29*3600,29*3600,0,1]]]],
+   services:[Buffer.from([0,0,0,8]).toString('base64')]}};
+ const res=await planEvent(e,[person],[finalFeed],settings);
+ // Date index 25 relative to November 20: December 15.
+ assert.equal(res.plans.get('P-001').returning.length,1);
+ assert.equal(res.plans.get('P-001').returning[0].date,'2026-12-16');
+ assert.equal(res.plans.get('P-001').returning[0].departure,3600);
+});
