@@ -27,10 +27,10 @@ self.onmessage=async message=>{
     const result=await planEvent(event,people,prepared.feeds,settings,prepared.rules,
       (done,total,p)=>self.postMessage({type:'progress',done,total,name:p.first+' '+p.last}),{
         ...limits,
-        onDay:({person,kind,date,searched})=>{
-          // Throttle UI messages without throttling the actual timetable lookup.
-          if(searched===1 || searched%3===0)self.postMessage({
-            type:'day',name:person.first+' '+person.last,kind,date,searched});
+        onDay:({person,kind,date,searched,level})=>{
+          // Explicitly show which transfer tier is being attempted.
+          if(level!=null || searched===1 || searched%3===0)self.postMessage({
+            type:'day',name:person.first+' '+person.last,kind,date,searched,level});
         }
       });
     self.postMessage({type:'complete',plans:[...result.plans],

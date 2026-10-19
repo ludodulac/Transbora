@@ -26,6 +26,7 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   globalThis.document=window.document;
   globalThis.location=window.location;
   globalThis.sessionStorage=window.sessionStorage;
+  globalThis.localStorage=window.localStorage;
   Object.defineProperty(globalThis,'navigator',{value:window.navigator,configurable:true});
   globalThis.confirm=()=>true;
 
@@ -137,6 +138,12 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   await new Promise(resolve=>setTimeout(resolve,50));
   assert.equal(apiCalls.length,1);
   assert.equal(apiCalls[0].mode,'individual');
+  assert.equal($('owner-code-setup').hidden,true,'Owner must not reenter fixed code after successful setup');
+  assert.equal($('owner-code-remembered').hidden,false);
+  assert.equal(window.localStorage.getItem('transbora_owner_activation_v1'),'test-private-admin');
+  click(window.document,'forget-owner-code');
+  assert.equal($('owner-code-setup').hidden,false);
+  assert.equal(window.localStorage.getItem('transbora_owner_activation_v1'),null);
   assert.ok(apiCalls[0].people.some(p=>p.first==='Sophie'));
   assert.equal($('native-ready').hidden,false);
   assert.match($('native-status-link').href,/suivi\.html#event=/);

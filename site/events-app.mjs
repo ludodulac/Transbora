@@ -5,6 +5,7 @@ import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
+import {savedOwnerCode,rememberOwnerCode,forgetOwnerCode} from './owner-code.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -17,9 +18,16 @@ let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false;
+let ownerCode='';
+function updateOwnerAccess(){
+  $('owner-code-setup').hidden=Boolean(ownerCode);
+  $('owner-code-remembered').hidden=!ownerCode;
+  if(ownerCode)$('native-master-key').value='';
+}
+
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
-  'ev-mode','ev-connections','ev-buffer','ev-count'];
+  'ev-mode','ev-buffer','ev-count'];
 
 function node(tag,cls,value){
   const item=document.createElement(tag);
@@ -70,7 +78,7 @@ function readEvent(){
   return out;
 }
 function readSettings(){
-  return {mode:$('ev-mode').value,connections:$('ev-connections').value,
+  return {mode:$('ev-mode').value,connections:'auto',
     buffer:$('ev-buffer').value,maxOptions:Number($('ev-count').value)};
 }
 function updateButtons(){
@@ -108,7 +116,7 @@ function storeDraft(){
   if(!globalThis.localStorage)return;
   const fields=Object.fromEntries(draftFields.map(id=>{
     const field=$(id);
-    return [id,field.type==='checkbox'?field.checked:field.value];
+    return [id,!field?'':field.type==='checkbox'?field.checked:field.value];
   }));
   saveDraft(localStorage,{fields,participants,step:activeStep});
 }
@@ -205,6 +213,8 @@ async function init(){
     $(id).addEventListener('input',scheduleDraft);
   }
   loadSavedDraft();
+  ownerCode=savedOwnerCode(globalThis.localStorage);
+  updateOwnerAccess();
   updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -323,7 +333,7 @@ function renderSearchResults(issues){
           (explanations[reason]||'Pas de proposition trouvée.')+
           ' Cela ne signifie PAS qu’aucun train ne circule. Vérifiez aussi le site du transporteur.'));
         if(reason==='not_found'||reason==='incomplete')
-          side.append(node('p','route-through','Pour chercher plus large : Réglages → Changements → 2 max., puis relancer.'));
+          side.append(node('p','route-through','Transbora essaie automatiquement les trajets directs, puis 1 et 2 changements.'));
       }
       list.forEach((j,index)=>{
         const option=node('div','recap-route');
@@ -416,7 +426,9 @@ async function performSearch(event,settings){
           $('search-detail').textContent='Terminé pour '+msg.name;
         }
         if(msg.type==='day')$('search-detail').textContent=msg.name+' · '+
-          (msg.kind==='A'?'Aller':'Retour')+' · '+msg.date+' ('+msg.searched+' jours analysés)';
+          (msg.kind==='A'?'Aller':'Retour')+' · '+
+          (msg.level===0?'Sans changement · ':msg.level===1?'1 changement · ':msg.level===2?'2 changements · ':'')+
+          msg.date;
         if(msg.type==='error')finish(new Error(msg.message));
         if(msg.type==='complete')finish(null,{plans:new Map(msg.plans),
           issues:msg.issues,partial:msg.partial});
@@ -507,15 +519,16 @@ function renderPublished(record,mode){
 async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
-    const master=$('native-master-key').value.trim();
-    if(!master)throw new Error('Indiquez votre code organisateur (celui de votre installation Transbora).');
+    const master=ownerCode||$('native-master-key').value.trim();
+    if(!master)throw new Error('Saisissez une fois le code privé de votre installation Transbora.');
     if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
     const event=readEvent();
     const people=buildChoicePeople(event,participants,plans);
     busy(true);shareStatus('Création des liens privés…');
     const result=await api('create',{event,people,mode},master);
-    // Keep the owner code in this open page so another event does not
-    // require pasting it again. Nothing is sent to travelers or localStorage.
+    ownerCode=master;
+    rememberOwnerCode(globalThis.localStorage,master);
+    updateOwnerAccess();
     renderPublished(result,mode);
   }catch(error){
     msg($('native-status'),error.message,true);
@@ -524,6 +537,12 @@ async function createNativeLinks(mode){
 }
 $('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
 $('prepare-native-individual').addEventListener('click',()=>createNativeLinks('individual'));
+$('forget-owner-code').addEventListener('click',()=>{
+  forgetOwnerCode(globalThis.localStorage);
+  ownerCode='';
+  updateOwnerAccess();
+  shareStatus('Code oublié sur cet appareil. Il sera demandé à la prochaine création de liens.');
+});
 $('native-copy-all').addEventListener('click',async()=>{
   if(!published)return;
   await copyLink(textLinks(published.links,published.mode));

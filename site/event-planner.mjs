@@ -66,7 +66,7 @@ function maximumPathSeconds(feeds,config){
     const duration=stops.at(-1)[1]-stops[0][2];
     if(Number.isFinite(duration))longest=Math.max(longest,duration);
   }
-  const changes=config.connections==='two'?2:config.connections==='no'?0:1;
+  const changes=(config.connections==='two'||config.connections==='auto')?2:config.connections==='no'?0:1;
   // GTFS changes allow up to four hours' wait per interchange.
   return Math.max(86400,(changes+1)*longest+changes*14400);
 }
@@ -117,15 +117,18 @@ export async function prepareFeeds(manifest,fetcher=fetch){
 }
 export function allOptions(feeds,query,config,officialRules=new Map()){
   const chosen=feeds.filter(x=>config.mode==='all'||x.source.mode===config.mode);
+  const onlyOne=config.connections==='only_one';
+  const onlyTwo=config.connections==='only_two';
   let list=[];
-  for(const f of chosen){
+  if(!onlyOne&&!onlyTwo)for(const f of chosen){
     if(query.date<f.data.meta.first||query.date>shiftDate(f.data.meta.last,1))continue;
     list.push(...searchFeed(f.data,query,f.source));
   }
-  if(config.connections!=='no'){
+  if(onlyOne||(!onlyTwo&&config.connections!=='no')){
     list.push(...findConnections(chosen,query,{profile:config.buffer,officialRules,limit:100}));
-    if(config.connections==='two')
-      list.push(...findTwoChanges(chosen,query,{profile:config.buffer,officialRules,limit:90}));
+  }
+  if(onlyTwo||config.connections==='two'){
+    list.push(...findTwoChanges(chosen,query,{profile:config.buffer,officialRules,limit:90}));
   }
   return list;
 }
@@ -174,47 +177,79 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       return {choices:[],searched:[],covered:false,reason:'no_published_data'};
     let covered=false,directionIncomplete=false;
     const searched=[],found=new Map();
-    while(explicit.length?(searched.length<1):(kind==='A'?current>=ending:current<=ending)){
+    // Auto mode is an escalating search, NOT a user-facing transfer limit.
+    // Prefer direct trips, then one transfer, then two transfers only when
+    // the earlier tier has no matching itinerary. Every leg and transfer
+    // is validated by the same existing routing engines.
+    const automatic=settings.connections==='auto';
+    const tiers=automatic?['no','only_one','only_two']:[settings.connections];
+    const tierLabels={no:'directs',only_one:'1 correspondance',only_two:'2 correspondances'};
+    let chosenTier=null;
+    for(let level=0;level<tiers.length;level++){
       if(cancelled())throw new Error('Recherche interrompue.');
-      if(timedOut() || Date.now()-dirStarted>perDirection){
+      if(timedOut()||Date.now()-dirStarted>perDirection){
         partial=true;directionIncomplete=true;
-        issues.push(p.first+' '+p.last+' : recherche '+(kind==='A'?'aller':'retour')+
-          ' incomplète (limite de temps atteinte). Affinez les réglages et relancez.');
+        issues.push(p.first+' '+p.last+' : recherche '+kind+' incomplète, délai atteint.');
         break;
       }
-      const date=current;
-      options.onDay?.({person:p,kind,date,searched:searched.length+1});
-      searched.push(date);
-      const query={...queryData,date,earliest:'00:00',latest:'23:59'};
-      const k=queryKey(query,settings);
-      covered ||=coverage.selected.some(f=>date>=f.data.meta.first&&date<=shiftDate(f.data.meta.last,1));
-      try{
-        if(!cache.has(k))cache.set(k,allOptions(feeds,query,settings,officialRules));
-        for(const route of pickItineraries(cache.get(k),query,event,kind,{maximum:200})){
-          if(!found.has(route.key))found.set(route.key,route);
+      const tier=tiers[level];
+      const tierConfig={...settings,connections:tier};
+      const tierStarted=Date.now();
+      // Reserve time for later levels if earlier levels find nothing.
+      const budgets=automatic&&Number.isFinite(perDirection)?
+        [perDirection*.24,perDirection*.35,perDirection*.41]:null;
+      const tierBudget=budgets?budgets[level]:Infinity;
+      let tierTruncated=false;
+      let current=explicit.length?explicit[0]:starting;
+      const tierFound=new Map();
+      while(explicit.length?(current===explicit[0]):(kind==='A'?current>=ending:current<=ending)){
+        if(cancelled())throw new Error('Recherche interrompue.');
+        if(timedOut()||Date.now()-dirStarted>perDirection ||
+            Date.now()-tierStarted>tierBudget){
+          tierTruncated=true;
+          directionIncomplete=true;partial=true;
+          break;
         }
-      }catch(error){
-        issues.push(p.first+' '+p.last+' / '+kind+' le '+date+' : '+error.message);
+        const date=current;
+        options.onDay?.({person:p,kind,date,searched:searched.length+1,
+          level:automatic?level:null});
+        searched.push(date);
+        const query={...queryData,date,earliest:'00:00',latest:'23:59'};
+        const key=queryKey(query,tierConfig);
+        covered ||=coverage.selected.some(f=>
+          date>=f.data.meta.first&&date<=shiftDate(f.data.meta.last,1));
+        try{
+          if(!cache.has(key))cache.set(key,allOptions(feeds,query,tierConfig,officialRules));
+          for(const route of pickItineraries(cache.get(key),query,event,kind,{maximum:200})){
+            if(!tierFound.has(route.key))tierFound.set(route.key,route);
+          }
+        }catch(err){
+          issues.push(p.first+' '+p.last+' / '+kind+' le '+date+' : '+err.message);
+        }
+        const ranked=[...tierFound.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline));
+        if(!explicit.length&&ranked.length>=max){
+          if(kind==='R')break;
+          const previous=shiftDate(date,-1);
+          const latestOlderArrival=+parisInstant(previous,86400)+maxPath*1000;
+          const selectedArrival=+parisInstant(ranked[max-1].date,ranked[max-1].arrival);
+          if(latestOlderArrival<selectedArrival)break;
+        }
+        if(explicit.length)break;
+        current=shiftDate(current,kind==='A'?-1:1);
+        await new Promise(resolve=>setTimeout(resolve,0));
       }
-      const best=[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline));
-      if(!explicit.length&&best.length>=max){
-        if(kind==='R')break; // later dates cannot depart before earlier dates.
-        // A train departing BEFORE this date might still arrive very close
-        // to the deadline if it crosses midnight (or several days).
-        // Stop only when such a departure cannot beat our last candidate.
-        const previous=shiftDate(date,-1);
-        const latestOlderArrival=+parisInstant(previous,86400)+maxPath*1000;
-        const selectedArrival=+parisInstant(best[max-1].date,best[max-1].arrival);
-        if(latestOlderArrival<selectedArrival)break;
+      if(tierFound.size){
+        chosenTier=tier;
+        for(const [k,v] of tierFound)found.set(k,v);
+        break;
       }
-      if(explicit.length)break;
-      current=shiftDate(current,kind==='A'?-1:1);
-      // Yield between timetable days so mobile UIs can repaint.
-      await new Promise(resolve=>setTimeout(resolve,0));
+      if(tierTruncated)issues.push(p.first+' '+p.last+' : niveau '+
+        (tierLabels[tier]||tier)+' exploré partiellement ; résultats non exhaustifs.');
     }
     const choices=[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max);
-    return {choices,searched,covered,reason:directionIncomplete?'incomplete':
-      !covered?'no_published_data':!choices.length?'not_found':null};
+    return {choices,searched,covered,level:chosenTier,
+      reason:directionIncomplete?'incomplete':
+        !covered?'no_published_data':!choices.length?'not_found':null};
   }
   for(let i=0;i<participants.length;i++){
     const p=participants[i];
@@ -230,7 +265,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     }
     const entries={outwardDate:event.startDate,returnDate:event.endDate,
       outwardDates:[],returnDates:[],outward:[],returning:[],
-      reasons:{A:null,R:null}};
+      reasons:{A:null,R:null},levels:{A:null,R:null}};
     for(const kind of ['A','R']){
       if(kind==='A'&&event.includeOutward===false)continue;
       if(kind==='R'&&event.includeReturn===false)continue;
@@ -240,8 +275,9 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
         continue;
       }
-      const {choices,searched,covered,reason}=await searchDirection({from,to},p,kind);
+      const {choices,searched,covered,reason,level}=await searchDirection({from,to},p,kind);
       entries.reasons[kind]=reason;
+      entries.levels[kind]=level;
       if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||event.startDate;}
       else{entries.returning=choices;entries.returnDates=searched;entries.returnDate=searched[0]||event.endDate;}
       if(!covered&&reason!=='unknown_origin'&&reason!=='unknown_destination')
