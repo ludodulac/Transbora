@@ -67,6 +67,22 @@ async function takeBody(req){
   return JSON.parse(txt);
 }
 const prefix=(name,id)=>name+'/'+id;
+async function issueLinks(store,eventId,mode,people,expiresAt){
+  const batches=mode==='group'?[{key:'all',people}]:
+    people.map(p=>({key:p.id,people:[p]}));
+  const results=[];
+  for(const batch of batches){
+    const linkToken=token();
+    const item={token:linkToken,eventId,scope:mode,
+      personIds:batch.people.map(p=>p.id),expiresAt};
+    await store.setJSON(prefix('t',linkToken),item,{onlyIfNew:true});
+    results.push({token:linkToken,personId:batch.key,
+      label:batch.key==='all'?'Groupe':
+        batch.people.map(p=>p.first+' '+p.last).join('')});
+  }
+  return results;
+}
+
 export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),openDemo=()=>false}){
   return async function handle(req){
     if(req.method==='GET')return json({status:'ok',service:'Transbora choix',version:1});
@@ -100,17 +116,7 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
         // Never let travelers' links expire before their event takes place.
         const expiresAt=Math.max(clock()+LIFETIME,
           Date.parse(event.endDate+'T12:00:00Z')+LIFETIME);
-        const batches=mode==='group'?[{key:'all',people}]:
-          people.map(p=>({key:p.id,people:[p]}));
-        const urlTokens=[];
-        for(const batch of batches){
-          const linkToken=token();
-          const item={token:linkToken,eventId,scope:mode,personIds:batch.people.map(p=>p.id),
-            expiresAt};
-          await links.setJSON(prefix('t',linkToken),item,{onlyIfNew:true});
-          urlTokens.push({token:linkToken,personId:batch.key,
-            label:batch.key==='all'?'Organisateur':batch.people.map(p=>p.first+' '+p.last).join('')});
-        }
+        const urlTokens=await issueLinks(links,eventId,mode,people,expiresAt);
         await events.setJSON(prefix('e',eventId),{id:eventId,ownerDigest:digest(ownerKey),
           event,people,mode,shareLinks:urlTokens,expiresAt,createdAt:clock()}, {onlyIfNew:true});
         return json({eventId,ownerKey,expiresAt,links:urlTokens},201);
@@ -124,6 +130,10 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
         if(lookup.expiresAt<clock())return failure('Lien expiré.',410);
         const record=await events.get(prefix('e',lookup.eventId),{type:'json'});
         if(!record||record.expiresAt<clock())return failure('Événement indisponible.',410);
+        // Old links are revoked immediately when the owner changes mode,
+        // even if a Blob deletion is delayed or fails.
+        if(!record.shareLinks.some(link=>link.token===shareToken))
+          return failure('Ce lien a été remplacé. Demandez le nouveau lien à votre organisateur.',410);
         const authorized=record.people.filter(p=>lookup.personIds.includes(p.id));
         if(op==='view')return json({event:record.event,mode:record.mode,
           people:authorized.map(p=>({...p,options:p.options})),expiresAt:record.expiresAt});
@@ -149,12 +159,28 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
         }
         return json({saved:true,count:chosen.size});
       }
-      if(op==='status'||op==='remove'){
+      if(op==='status'||op==='remove'||op==='switch_mode'){
         const eventId=safe(body.eventId,80),ownerKey=safe(body.ownerKey,80);
         if(!eventId||!ownerKey)return failure('Lien organisateur incomplet.',401);
         const record=await events.get(prefix('e',eventId),{type:'json'});
         if(!record||!matchesStoredDigest(record.ownerDigest,ownerKey))
           return failure('Lien organisateur non reconnu.',403);
+        if(op==='switch_mode'){
+          const mode=body.mode;
+          if(!['group','individual'].includes(mode))return failure('Type de partage invalide.');
+          if(mode===record.mode)
+            return json({eventId,ownerKey,mode,links:record.shareLinks,unchanged:true});
+          // Keep the same event, travelers, itinerary proposals and answers.
+          // Commit the new active token set before revoking previous links.
+          const next=await issueLinks(links,eventId,mode,record.people,record.expiresAt);
+          await events.setJSON(prefix('e',eventId),
+            {...record,mode,shareLinks:next});
+          for(const previous of record.shareLinks){
+            try{await links.delete(prefix('t',previous.token));}
+            catch{ /* Membership verification already rejects this token. */ }
+          }
+          return json({eventId,ownerKey,mode,links:next,changed:true});
+        }
         if(op==='remove'){
           await events.delete(prefix('e',eventId));
           for(const l of record.shareLinks)await links.delete(prefix('t',l.token));
