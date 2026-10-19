@@ -16,9 +16,15 @@ export function dayNum(value) {
   return Number.isFinite(t) && new Date(t).toISOString().slice(0,10)===value
     ? Math.floor(t/(DAY*1000)) : NaN;
 }
+const calendarCache=new Map();
 export function maskRuns(mask, day) {
-  if (day < 0 || !mask) return false;
-  const bytes=atob(mask);
+  if(day<0||!mask)return false;
+  let bytes=calendarCache.get(mask);
+  if(bytes===undefined){
+    bytes=atob(mask);
+    if(calendarCache.size>4000)calendarCache.clear();
+    calendarCache.set(mask,bytes);
+  }
   return Math.floor(day/8)<bytes.length &&
     Boolean(bytes.charCodeAt(Math.floor(day/8)) & (1 << (day%8)));
 }
