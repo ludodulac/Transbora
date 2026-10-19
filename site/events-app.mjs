@@ -116,7 +116,7 @@ function storeDraft(){
   if(!globalThis.localStorage)return;
   const fields=Object.fromEntries(draftFields.map(id=>{
     const field=$(id);
-    return [id,field.type==='checkbox'?field.checked:field.value];
+    return [id,!field?'':field.type==='checkbox'?field.checked:field.value];
   }));
   saveDraft(localStorage,{fields,participants,step:activeStep});
 }
