@@ -100,6 +100,8 @@ function updateButtons(){
 function invalidate(){
   plans=new Map();choices={};hasSearched=false;published=null;
   $('native-ready').hidden=true;
+  $('share-mode-options').hidden=false;
+  $('cancel-mode-switch').hidden=true;
   $('journey-recap').replaceChildren();
   $('individual-files').replaceChildren(node('p','muted','Lancez la recherche.'));
   msg($('reply-status'),'');
@@ -521,6 +523,8 @@ async function copyLink(value){
 }
 function renderPublished(record,mode){
   published={...record,mode};
+  $('share-mode-options').hidden=true;
+  $('cancel-mode-switch').hidden=true;
   const dashboard=statusUrl(record.eventId,record.ownerKey);
   $('native-status-link').href=dashboard;
   $('open-replies-native').href=dashboard;
@@ -552,11 +556,20 @@ async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
     if(published?.mode===mode){shareStatus('Les liens sont déjà prêts ci-dessous.');return;}
-    const event=readEvent();
-    const people=buildChoicePeople(event,participants,plans);
-    busy(true);shareStatus('Création des liens privés…');
-    const result=await api('create',{event,people,mode});
-    renderPublished(result,mode);
+    if(published && published.mode!==mode){
+      if(!confirm('Changer le type de lien ? Les liens précédents ne fonctionneront plus. Les réponses déjà reçues seront conservées et le dossier restera le même.'))return;
+      busy(true);shareStatus('Remplacement des liens…');
+      const result=await api('switch_mode',{
+        eventId:published.eventId,ownerKey:published.ownerKey,mode
+      });
+      renderPublished(result,mode);
+    }else{
+      const event=readEvent();
+      const people=buildChoicePeople(event,participants,plans);
+      busy(true);shareStatus('Création des liens privés…');
+      const result=await api('create',{event,people,mode});
+      renderPublished(result,mode);
+    }
     $('native-ready').scrollIntoView({behavior:'smooth',block:'start'});
     $('native-ready').focus();
   }catch(error){
@@ -568,6 +581,19 @@ async function createNativeLinks(mode){
 }
 $('prepare-native-group').addEventListener('click',()=>createNativeLinks('group'));
 $('prepare-native-individual').addEventListener('click',()=>createNativeLinks('individual'));
+$('switch-sharing-mode').addEventListener('click',()=>{
+  $('share-mode-options').hidden=false;
+  $('cancel-mode-switch').hidden=false;
+  $('native-ready').hidden=true;
+  shareStatus('Choisissez le nouveau type de lien. Vos trajets ne seront pas recalculés.');
+  $('share-mode-options').scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('cancel-mode-switch').addEventListener('click',()=>{
+  $('share-mode-options').hidden=true;
+  $('cancel-mode-switch').hidden=true;
+  $('native-ready').hidden=false;
+  shareStatus('Liens actuels conservés.');
+});
 $('native-copy-all').addEventListener('click',async()=>{
   if(!published)return;
   await copyLink(textLinks(published.links,published.mode));
