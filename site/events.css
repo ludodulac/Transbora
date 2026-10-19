@@ -164,3 +164,19 @@ progress{width:100%;height:12px}
 .manual-google{margin-top:7px}
 .manual-google p{padding:6px 16px 0;font-size:.87rem;line-height:1.55}
 .manual-google button{width:calc(100% - 32px);margin:0 16px 15px;min-height:44px}
+
+
+/* 012 — native travel selection. No Google account or Excel required. */
+.master-code{display:flex;flex-direction:column;gap:9px;font-size:.92rem;font-weight:800;color:#173d49}
+.master-code input{width:100%;min-height:50px;background:#fff;border:1px solid #ccdddd;border-radius:11px;padding:12px;font-size:1rem}
+#native-ready{border-top:1px solid #d8eaea;padding-top:17px;margin-top:12px}
+#native-ready h3{font-size:1.15rem;margin:6px 0 10px}
+#native-share-links{padding:4px 0 10px}
+#native-share-links .file-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#native-share-links .file-row strong{min-width:130px;font-size:.92rem;flex:1}
+#native-share-links .file-row a{text-decoration:none}
+.native-admin-link{display:block;margin:10px 0 14px}
+.native-admin-link a{display:block;background:#d9f4ec;color:#126a65;border-radius:11px;padding:13px;text-align:center;text-decoration:none;font-size:1rem;font-weight:800}
+#native-copy-all{width:100%;min-height:47px}
+#native-links-area .small{font-size:.78rem;color:#68838d;line-height:1.5}
+#native-links-area .inline-feedback{font-weight:700}
