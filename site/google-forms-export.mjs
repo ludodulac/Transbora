@@ -16,26 +16,47 @@ export function cleanCell(input){
   if(/^[=+\-@\uFF1D]/.test(str))str="'"+str;
   return str;
 }
+/** Compact, structured text shared by native links, organizer follow-up and Excel.
+ * Priority: real boarding station + dropoff station + clocks before optional
+ * GTFS labels. The backend caps this to 400 chars.
+ */
 export function optionLabel(route,date,ordinal){
-  const legs=route.legs?.length?route.legs:[route];
-  const day=route.date||date;
-  // Show BOTH calendar dates: an overnight trip must never look like a same-day trip.
-  const head=parisDate(day,route.departure)+' '+parisTime(day,route.departure)+
-    ' → '+parisDate(day,route.arrival)+' '+parisTime(day,route.arrival);
-  const providers=[...new Set(legs.map(x=>x.provider).filter(Boolean))].join(' + ');
+  const legs=route.legs?.length?route.legs:[route],day=route.date||date;
+  const from=legs[0]?.from||route.from||'',to=legs.at(-1)?.to||route.to||'';
+  const transport=[...new Set(legs.map(l=>l.mode))].join('+')==='rail'?'🚆 Train':
+    legs.every(l=>l.mode==='bus')?'🚌 Autocar':'🚆🚌 Train + autocar';
+  const operator=[...new Set(legs.map(l=>l.provider).filter(Boolean))].join(' + ');
+  const times=parisTime(day,route.departure)+' → '+parisTime(day,route.arrival);
+  const dates=parisDate(day,route.departure)+' → '+parisDate(day,route.arrival);
   const changes=legs.length-1;
-  const intermediary=changes ? ' · via '+legs.slice(0,-1).map(x=>x.to).join(' / ') : '';
-  return [
-    ordinal+'. '+(route.riskAlternative?'⚠ ALTERNATIVE À RISQUE · ':'')+
-      head+' · '+durationText(route.arrival-route.departure),
-    compactRiskLabel(route,day),
-    route.marginReduced?'⚠ Marge réduite : '+route.actualMarginMinutes+
-      ' min au lieu de '+route.requestedMarginMinutes+
-      ' min · Validation gare/lieu par l’organisateur requise':'',
-    changes+' changement(s)'+intermediary,
-    shortServiceSummary(route),
-    providers
-  ].filter(Boolean).join(' · ').slice(0,390);
+  const duration=durationText(route.arrival-route.departure);
+  const core=[
+    'Option '+ordinal+(route.riskAlternative?' · ⚠ ALTERNATIVE À RISQUE':''),
+    transport+(operator?' · '+operator:''),
+    times+' · '+dates,
+    'Départ : '+from,
+    'Arrivée : '+to,
+    duration+' · '+(changes===0?'Direct':changes+' correspondance'+(changes>1?'s':''))
+  ];
+  const transfers=route.transfers||(route.transfer?[route.transfer]:[]);
+  const via=changes?'Via '+legs.slice(0,-1).map(l=>l.to).filter(Boolean).join(' / '):'';
+  const wait=transfers.length?'Correspondance : '+transfers.map(t=>
+    (t.station||t.departureStation||'arrêt')+' ('+Math.round(t.waitingSeconds/60)+' min)').join(', '):'';
+  const mayNeedCityTransfer=legs.some(l=>l.mode==='bus'&&
+    /a[ée]roport|airport|charles de gaulle|orly|gare routi[èe]re|bus station/i.test(l.from||''));
+  const alert=mayNeedCityTransfer?
+    '⚠ Accès à cet arrêt depuis le lieu de l’événement non vérifié':'';
+  const risk=compactRiskLabel(route,day);
+  const smallMargin=route.marginReduced?'⚠ Marge réduite : '+route.actualMarginMinutes+' min au lieu de '+
+      route.requestedMarginMinutes+' min, accès lieu non vérifié':'';
+  const summary=shortServiceSummary(route);
+  const tail=[summary,risk,smallMargin,alert,via,wait].filter(Boolean);
+  const essential=core.join(' | ');
+  // If some international station names are very long, still reserve the
+  // mandatory time / route information and truncate optional metadata first.
+  if(essential.length>=390)return essential.slice(0,390);
+  const budget=390-essential.length-3;
+  return essential+(tail.length&&budget>0?' | '+tail.join(' | ').slice(0,budget):'');
 }
 export function buildFormsRows(event,participants,plans,mode,{batchId}={}){
   if(!['collectif','individuel'].includes(mode))throw new Error('Mode de formulaire non reconnu.');

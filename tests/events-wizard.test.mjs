@@ -115,6 +115,15 @@ test('four screen wizard, concise form, progress, search and separate replies',a
   set(window.document,'add-from','Brest');
   $('manual-person').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
   assert.equal($('participants-total').textContent,'1');
+  const personEditor=$('participants-list').querySelector('.person-custom');
+  assert.ok(personEditor,'Per-artist personalization is available, optional, and expandable');
+  personEditor.open=true;
+  const time=personEditor.querySelector('input[name="arrivalTime"]');
+  time.value='15:15';
+  personEditor.querySelector('form').dispatchEvent(
+    new window.Event('submit',{bubbles:true,cancelable:true}));
+  assert.ok($('participants-list').textContent.includes('personnalisés'),
+    'Editing a personal arrival time should update the traveler card');
   click(window.document,'wizard-next');
   assert.equal($('etape-3').hidden,false);
   assert.equal($('search-everyone').hidden,false);

@@ -1,5 +1,6 @@
 import {fromRows,displayName,plain,MAX_PARTICIPANTS,isoDate,deduplicateStopName} from './events-model.mjs';
-import {prepareFeeds,planEvent,eventBoundaries} from './event-planner.mjs';
+import {prepareFeeds,planEvent,eventBoundaries,eventForPerson} from './event-planner.mjs';
+import {stationSuggestions} from './station-suggestions.mjs';
 import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
@@ -20,6 +21,7 @@ let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false;
+let stationNames=[];
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
   'ev-mode','ev-buffer','ev-count','ev-reduced-margin','ev-risky-interstation'];
@@ -143,6 +145,31 @@ function loadSavedDraft(){
 function labelPerson(p){
   return displayName(p)+' · '+p.departure;
 }
+const personOptionalFields=[
+  ['outwardOrigin','Départ à l’aller (si différent)','text'],
+  ['outwardDestination','Arrivée à l’aller (si différente)','text'],
+  ['returnOrigin','Départ au retour (si différent)','text'],
+  ['returnDestination','Arrivée au retour (si différente)','text'],
+  ['arrivalDate','Date de présence souhaitée','date'],
+  ['arrivalTime','Heure de présence souhaitée','time'],
+  ['releaseDate','Date de fin de présence','date'],
+  ['releaseTime','Heure de fin de présence','time']
+];
+function fillStationSuggestions(input=''){
+  const list=$('event-stations');
+  const suggestions=stationSuggestions(stationNames,input);
+  list.replaceChildren(...suggestions.map(entry=>{
+    const option=node('option');
+    option.value=entry.value;
+    option.label=entry.kind==='ville'?'Ville · toutes gares et arrêts':'Gare / arrêt';
+    return option;
+  }));
+}
+function attachStationInput(input){
+  input.setAttribute('list','event-stations');
+  input.addEventListener('focus',()=>fillStationSuggestions(input.value));
+  input.addEventListener('input',()=>fillStationSuggestions(input.value));
+}
 function renderPeople(){
   $('participants-total').textContent=String(participants.length);
   const holder=$('participants-list');
@@ -159,13 +186,62 @@ function renderPeople(){
     content.append(node('span','muted',p.departure+
       (p.outwardDate?' · aller '+p.outwardDate:'')+
       (p.returnDate?' · retour '+p.returnDate:'')));
+    const settings=document.createElement('details');settings.className='person-custom';
+    const toggle=node('summary',null,'⚙ Personnaliser horaires et villes');settings.append(toggle);
+    const form=document.createElement('form');form.className='person-custom-form';
+    const baseLabel=node('label',null,'Ville de départ habituelle');
+    const baseInput=node('input');baseInput.name='departure';baseInput.type='text';
+    baseInput.required=true;baseInput.maxLength=140;baseInput.value=p.departure;
+    attachStationInput(baseInput);baseLabel.append(baseInput);form.append(baseLabel);
+    for(const [key,title,type] of personOptionalFields){
+      const label=node('label',null,title);
+      const input=node('input');input.name=key;input.type=type;
+      input.value=p[key]||'';input.maxLength=type==='text'?140:10;
+      if(type==='text'){
+        input.placeholder=key==='outwardOrigin'||key==='returnDestination'?p.departure:$('event-destination').value;
+        attachStationInput(input);
+      }else if(key==='arrivalDate')label.append(node('small','muted','Par défaut : '+$('event-start-date').value));
+      else if(key==='releaseDate')label.append(node('small','muted','Par défaut : '+$('event-end-date').value));
+      else if(key==='arrivalTime')label.append(node('small','muted','Par défaut : '+$('event-start-time').value));
+      else if(key==='releaseTime')label.append(node('small','muted','Par défaut : '+$('event-end-time').value));
+      label.append(input);form.append(label);
+    }
+    const actions=node('div','person-custom-actions');
+    const submit=node('button','primary','Enregistrer pour '+p.first);submit.type='submit';
+    const reset=node('button','secondary','Réinitialiser les personnalisations');
+    reset.type='button';
+    reset.addEventListener('click',()=>{
+      for(const [key] of personOptionalFields)delete p[key];
+      invalidate();scheduleDraft();renderPeople();
+    });
+    actions.append(submit,reset);form.append(actions);
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      const values=Object.fromEntries(new window.FormData(form));
+      const next={...p,departure:deduplicateStopName(String(values.departure||'').trim())};
+      if(next.departure.length<3){alert('Indiquez une ville de départ valide.');return;}
+      for(const [key,,type] of personOptionalFields){
+        const value=String(values[key]||'').trim();
+        if(value && type==='text' && value.length<3){alert('Ville trop courte : '+key);return;}
+        if(value)next[key]=value;else delete next[key];
+      }
+      try{eventForPerson(readEvent(),next);}
+      catch(error){alert(error.message);return;}
+      Object.assign(p,next);
+      for(const [key] of personOptionalFields)if(!Object.hasOwn(next,key))delete p[key];
+      invalidate();scheduleDraft();renderPeople();
+      msg($('import-status'),'Réglages personnalisés enregistrés pour '+displayName(p)+'.');
+    });
+    settings.append(form);
     const remove=node('button','mini-button','Supprimer');
     remove.type='button';remove.setAttribute('aria-label','Supprimer '+displayName(p));
     remove.addEventListener('click',()=>{
       participants=participants.filter(x=>x.id!==p.id);
       invalidate();renderPeople();scheduleDraft();
     });
-    item.append(content,remove);frag.append(item);
+    const personalized=personOptionalFields.some(([key])=>p[key]);
+    if(personalized)content.append(node('span','person-custom-badge','Horaires ou lieux personnalisés'));
+    item.append(content,remove,settings);frag.append(item);
   });
   holder.append(frag);
 }
@@ -236,13 +312,9 @@ async function init(){
       const res=await fetch('./data/stations.json');
       if(res.ok)stations=await res.json();
     }catch(_error){/* Suggestions are optional; manual city names still work. */}
-    if(Array.isArray(stations)){
-      const frag=document.createDocumentFragment();
-      for(const station of stations.filter(x=>typeof x==='string').slice(0,12000)){
-        const option=node('option');option.value=station;frag.append(option);
-      }
-      $('event-stations').replaceChildren(frag);
-    }
+    stationNames=Array.isArray(stations)?stations.filter(x=>typeof x==='string'):[];
+    fillStationSuggestions('');
+    for(const id of ['event-destination','add-from'])attachStationInput($(id));
   }catch(error){
     status('Recherche indisponible : '+error.message+'. Le modèle Excel reste téléchargeable.',true);
   }
@@ -350,7 +422,7 @@ function renderSearchResults(issues){
         };
         side.append(node('p','no-options',
           (explanations[reason]||'Pas de proposition trouvée.')+
-          ' Cela ne signifie PAS qu’aucun train ne circule. Vérifiez aussi le site du transporteur.'));
+          ' Cela ne signifie pas qu’aucun transport ne circule. Vérifiez aussi le site du transporteur.'));
         if(reason==='not_found'||reason==='incomplete')
           side.append(node('p','route-through','Transbora essaie automatiquement les trajets directs, puis 1 et 2 changements.'));
       }
@@ -389,6 +461,13 @@ function renderSearchResults(issues){
         const from=legs[0].from||'',to=legs.at(-1).to||'';
         if(from&&to)option.append(node('span','route-stations',from+' → '+to));
         option.append(node('span','route-service',serviceSummary(j)));
+        if(j.mode==='bus'&&j.tripKey&&list.some((other,k)=>
+          k!==index&&other.tripKey===j.tripKey)){
+          option.classList.add('route-same-service');
+          option.append(node('span','route-same-vehicle',
+            '🚌 Même service d’autocar proposé avec plusieurs arrêts de montée. '+
+            'Vérifiez l’arrêt précis avant de choisir.'));
+        }
         if(list.some((other,k)=>k!==index&&sameClockOptions(j,other)))
           option.append(node('span','route-duplicate-note',
             'ℹ Horaires identiques à une autre proposition : plusieurs trains ou parcours '+

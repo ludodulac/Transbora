@@ -1,11 +1,13 @@
 import {api,choiceUrl,textLinks} from './native-choices.mjs';
 import {registerHistory,forgetHistory} from './event-history.mjs';
+import {appendReadableRoute} from './route-label.mjs';
 const $=id=>document.getElementById(id), params=new URLSearchParams(location.hash.slice(1));
 const eventId=params.get('event'),ownerKey=params.get('key');
 let report=null;
 const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
 function notice(message,bad=false){$('feedback').textContent=message;$('feedback').classList.toggle('error',bad);$('feedback').hidden=false;}
-async function refresh(){
+async function refresh({confirmUpdate=false}={}){
+  if(confirmUpdate){$('reload').disabled=true;notice('🔄 Actualisation en cours…');}
   if(!eventId||!ownerKey){notice('Lien organisateur incomplet. Utilisez le lien privé reçu lors de la création.',true);return;}
   try{
     report=await api('status',{eventId,ownerKey});
@@ -25,7 +27,14 @@ async function refresh(){
         const chosen=p.answer?.[dir],option=p.options[dir].find(o=>o.id===chosen);
         const status=chosen==='NONE'?'Aucun horaire souhaité':
           option?option.label:'En attente de réponse';
-        row.append(node('p',null,label+' : '+status));
+        const answer=node('div','booking-choice');
+        answer.append(node('strong',null,label+' — '+(option?'Trajet choisi':status)));
+        if(option){
+          const route=node('div','booking-route');
+          appendReadableRoute(route,option.label);
+          answer.append(route);
+        }
+        row.append(answer);
         const booking=p.booking?.[dir]||null;
         if(!option){
           if(booking)row.append(node('p',null,'⚠️ Un billet était marqué acheté pour un ancien choix. Vérifiez-le.'));
@@ -74,10 +83,14 @@ async function refresh(){
       });
       actions.append(open,copy);line.append(actions);linkList.append(line);
     }
-    $('toolbar').hidden=false;$('result').hidden=false;$('feedback').hidden=true;
+    $('toolbar').hidden=false;$('result').hidden=false;
+    if(confirmUpdate)notice('✅ Réponses actualisées à '+new Intl.DateTimeFormat('fr-FR',{
+      hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}).format(new Date())+'.');
+    else $('feedback').hidden=true;
   }catch(error){notice(error.message,true);}
+  finally{if(confirmUpdate)$('reload').disabled=false;}
 }
-$('reload').addEventListener('click',refresh);
+$('reload').addEventListener('click',()=>refresh({confirmUpdate:true}));
 $('change-mode').addEventListener('click',async()=>{
   if(!report)return;
   const mode=report.mode==='group'?'individual':'group';

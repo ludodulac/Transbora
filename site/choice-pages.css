@@ -34,3 +34,17 @@ h1{font-size:clamp(1.85rem,5.8vw,2.6rem);line-height:1.13;margin:12px 0;letter-s
  border-radius:11px;cursor:pointer;font-size:.96rem;font-weight:850;width:100%;min-height:50px}
 .change-mode-action:disabled{opacity:.5;cursor:wait}
 .share-mode-explain{margin:10px 0 20px}
+
+/* Human-readable choice cards for both artists and organizers.
+ * Structured text is rendered as nodes, never as HTML from GTFS. */
+.route-description{display:grid;gap:5px;min-width:0;flex:1}
+.choice-index{font-size:.78rem;color:#54727a;font-weight:800}
+.choice-operator{font-weight:870;color:#145c70;font-size:.94rem}
+.choice-times{font-weight:900;font-size:1.15rem;color:#163747;letter-spacing:-.02em;line-height:1.5}
+.choice-station{font-size:.91rem;font-weight:760;color:#233e4b;line-height:1.55}
+.choice-detail{font-size:.83rem;font-weight:580;color:#55717c;line-height:1.45}
+.choice-warning{background:#fff3e0;border:1px solid #eec98f;border-radius:8px;color:#825312;padding:7px 8px;font-size:.85rem;font-weight:720}
+.booking-choice{display:grid;gap:4px;padding:9px 11px;border:1px solid #dbe9ed;border-radius:10px;background:#f9fcfe}
+.booking-choice>strong{font-size:.84rem;color:#176a7b}
+.booking-choice>.choice-times{font-size:1.02rem}
+@media(max-width:520px){.choice-times{font-size:1.07rem}.choice-station{font-size:.86rem}}
