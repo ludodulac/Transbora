@@ -198,8 +198,7 @@ function renderPeople(){
       const input=node('input');input.name=key;input.type=type;
       input.value=p[key]||'';input.maxLength=type==='text'?140:10;
       if(type==='text'){
-        input.placeholder=key.endsWith('Origin')?'Par défaut : lieu de l’événement':
-          key==='returnDestination'?p.departure:$('event-destination').value;
+        input.placeholder=key==='outwardOrigin'||key==='returnDestination'?p.departure:$('event-destination').value;
         attachStationInput(input);
       }else if(key==='arrivalDate')label.append(node('small','muted','Par défaut : '+$('event-start-date').value));
       else if(key==='releaseDate')label.append(node('small','muted','Par défaut : '+$('event-end-date').value));
@@ -218,7 +217,7 @@ function renderPeople(){
     actions.append(submit,reset);form.append(actions);
     form.addEventListener('submit',e=>{
       e.preventDefault();
-      const values=Object.fromEntries(new FormData(form));
+      const values=Object.fromEntries(new window.FormData(form));
       const next={...p,departure:deduplicateStopName(String(values.departure||'').trim())};
       if(next.departure.length<3){alert('Indiquez une ville de départ valide.');return;}
       for(const [key,,type] of personOptionalFields){
@@ -462,6 +461,13 @@ function renderSearchResults(issues){
         const from=legs[0].from||'',to=legs.at(-1).to||'';
         if(from&&to)option.append(node('span','route-stations',from+' → '+to));
         option.append(node('span','route-service',serviceSummary(j)));
+        if(j.mode==='bus'&&j.tripKey&&list.some((other,k)=>
+          k!==index&&other.tripKey===j.tripKey)){
+          option.classList.add('route-same-service');
+          option.append(node('span','route-same-vehicle',
+            '🚌 Même service d’autocar proposé avec plusieurs arrêts de montée. '+
+            'Vérifiez l’arrêt précis avant de choisir.'));
+        }
         if(list.some((other,k)=>k!==index&&sameClockOptions(j,other)))
           option.append(node('span','route-duplicate-note',
             'ℹ Horaires identiques à une autre proposition : plusieurs trains ou parcours '+
