@@ -4,9 +4,17 @@
 export function journeyLegs(route){
   return route?.legs?.length?route.legs:[route];
 }
+function describeRoute(value){
+  const route=String(value||'').trim();
+  if(!route)return '';
+  // These values are GTFS route_short_name (line codes), not commercial
+  // train numbers. Example: 411A or P7 must not look like "train 411A".
+  return /^(?:\\d{2,4}[A-Z]|[A-Z]\\d{1,3})$/i.test(route)?
+    'code de ligne '+route:route;
+}
 export function serviceDescription(leg){
   const mode=leg?.mode==='bus'?'Autocar':'Train';
-  const route=String(leg?.route||'').trim();
+  const route=describeRoute(leg?.route);
   const provider=String(leg?.provider||'').trim();
   const number=String(leg?.number||'').trim();
   const label=[mode,route&&route.toLowerCase()!==mode.toLowerCase()?route:null,
@@ -16,7 +24,7 @@ export function serviceDescription(leg){
 export function shortServiceSummary(route){
   return journeyLegs(route).map(leg=>{
     const kind=leg?.mode==='bus'?'Autocar':'Train';
-    const routeName=String(leg?.route||'').trim();
+    const routeName=describeRoute(leg?.route);
     const label=routeName||kind;
     const number=String(leg?.number||'').trim();
     return label+(number?' n°'+number:' (n° non indiqué)');
