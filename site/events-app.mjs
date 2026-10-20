@@ -4,6 +4,7 @@ import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {riskDetails} from './risk-details.mjs';
+import {serviceSummary,sameClockOptions} from './journey-display.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
@@ -361,8 +362,11 @@ function renderSearchResults(issues){
             'Transfert entre gares non vérifié : validation obligatoire avant achat.'));
           riskGroupShown=true;
         }
-        const option=node('article','recap-route'+(j.riskAlternative?' risk-option':''));
         const day=j.date||dates[0];
+        const riskWarnings=riskDetails(j,day);
+        const riskSeverity=riskWarnings.some(r=>r.severity==='high')?' risk-high':
+          j.riskAlternative?' risk-unverified':'';
+        const option=node('article','recap-route'+(j.riskAlternative?' risk-option':'')+riskSeverity);
         const legs=j.legs?.length?j.legs:[j];
         const operator=[...new Set(legs.map(t=>t.provider).filter(Boolean))].join(' · ');
         const modes=new Set(legs.map(t=>t.mode));
@@ -384,11 +388,25 @@ function renderSearchResults(issues){
           j.requestedMarginMinutes+' min demandées. L’organisateur doit valider le temps entre gare et lieu.'));
         const from=legs[0].from||'',to=legs.at(-1).to||'';
         if(from&&to)option.append(node('span','route-stations',from+' → '+to));
+        option.append(node('span','route-service',serviceSummary(j)));
+        if(list.some((other,k)=>k!==index&&sameClockOptions(j,other)))
+          option.append(node('span','route-duplicate-note',
+            'ℹ Horaires identiques à une autre proposition : plusieurs trains ou parcours '+
+            'peuvent partager ces heures. Vérifiez le numéro du train avant achat.'));
         if(changes){
           const through=legs.slice(0,-1).map(x=>x.to).filter(Boolean).join(' · ');
           if(through)option.append(node('span','route-through','Via '+through));
+          const transfers=j.transfers||(j.transfer?[j.transfer]:[]);
+          for(const t of transfers){
+            if(t.riskType==='paris_interstation')continue;
+            option.append(node('span','route-transfer-meta',
+              'Correspondance à '+t.station+
+              (t.departureStation&&t.departureStation!==t.station?
+                ' → '+t.departureStation:'')+
+              ' · '+Math.floor(t.waitingSeconds/60)+' min entre les transports.'));
+          }
         }
-        for(const risk of riskDetails(j,day)){
+        for(const risk of riskWarnings){
           const warning=node('div','route-risk-details');
           warning.append(node('strong',null,risk.shortTitle));
           for(const line of risk.lines)warning.append(node('p',null,line));
