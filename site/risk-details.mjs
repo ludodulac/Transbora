@@ -25,7 +25,7 @@ export function riskDetails(route,date){
         '🟠 Changement de gare à Paris — transfert non vérifié',
       compact:(veryTight?'⚠ RISQUE ÉLEVÉ : ':'⚠ TRANSFERT NON VÉRIFIÉ : ')+
         arriveStation+' '+arrive+' → '+departStation+' '+depart+
-        ' ; '+wait+' min, seuil indicatif '+caution+' min'+
+        ' ; '+wait+' min, seuil indicatif '+caution+' min (non officiel)'+
         (veryTight?', manque '+shortage+' min':'')+
         '. Risque de manquer le train suivant. Vérifier le transfert avant achat.',
       lines:[
