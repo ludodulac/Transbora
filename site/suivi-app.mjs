@@ -29,7 +29,11 @@ async function refresh({confirmUpdate=false}={}){
           option?option.label:'En attente de réponse';
         const answer=node('div','booking-choice');
         answer.append(node('strong',null,label+' — '+(option?'Trajet choisi':status)));
-        if(option)appendReadableRoute(answer,option.label);
+        if(option){
+          const route=node('div','booking-route');
+          appendReadableRoute(route,option.label);
+          answer.append(route);
+        }
         row.append(answer);
         const booking=p.booking?.[dir]||null;
         if(!option){
