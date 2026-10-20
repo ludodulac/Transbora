@@ -14,6 +14,14 @@ export function saveDraft(storage,draft,now=Date.now()){
       last:String(p.last||'').slice(0,90),
       departure:String(p.departure||'').slice(0,140),
       outwardDate:String(p.outwardDate||''),returnDate:String(p.returnDate||''),
+      outwardOrigin:String(p.outwardOrigin||'').slice(0,140),
+      outwardDestination:String(p.outwardDestination||'').slice(0,140),
+      returnOrigin:String(p.returnOrigin||'').slice(0,140),
+      returnDestination:String(p.returnDestination||'').slice(0,140),
+      arrivalDate:String(p.arrivalDate||'').slice(0,10),
+      arrivalTime:String(p.arrivalTime||'').slice(0,5),
+      releaseDate:String(p.releaseDate||'').slice(0,10),
+      releaseTime:String(p.releaseTime||'').slice(0,5),
       notes:String(p.notes||'').slice(0,300)
     }));
     storage.setItem(DRAFT_KEY,JSON.stringify({
