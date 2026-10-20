@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {findConnections,enumerate,dayNum,stationRecord,knownRiskyInterstation} from '../site/connections.mjs';
+import {findConnections} from '../site/connections.mjs';
+import {matchesStop} from '../site/search-multi.mjs';
 import {planEvent} from '../site/event-planner.mjs';
 import {riskDetails} from '../site/risk-details.mjs';
 import {optionLabel} from '../site/google-forms-export.mjs';
@@ -32,9 +33,6 @@ test('strict default never suggests a 52-minute Paris station change',()=>{
   assert.deepEqual(findConnections([feed()],query,cautious),[]);
 });
 test('explicit opt-in retains the real timetable and marks the station-change risk',()=>{
-  const f=feed(),v={...f,rules:new Map()};
-  const pairs=enumerate(v,query,0,86399,dayNum(day));
-  console.log('RISK DEBUG',JSON.stringify({initial:pairs.initial.map(x=>[x.to,x.arrival]),final:pairs.final.map(x=>[x.from,x.departure]),known:knownRiskyInterstation(stationRecord(v,1),stationRecord(v,2))}));
   const routes=findConnections([feed()],query,{...cautious,allowRiskyInterstation:true});
   assert.equal(routes.length,1);
   const route=routes[0],transfer=route.transfer;
@@ -75,4 +73,10 @@ test('transfers under 30 minutes stay excluded even in risk mode',()=>{
   const routes=findConnections([feed(stations,55140)],query,
     {...cautious,allowRiskyInterstation:true});
   assert.equal(routes.length,0);
+});
+
+test('Paris Gare de Lyon is not misinterpreted as the city of Lyon',()=>{
+  assert.equal(matchesStop('Paris Gare de Lyon','Lyon'),false);
+  assert.equal(matchesStop('Paris Gare de Lyon','Paris Gare de Lyon'),true);
+  assert.equal(matchesStop('Lyon Part-Dieu','Lyon'),true);
 });
