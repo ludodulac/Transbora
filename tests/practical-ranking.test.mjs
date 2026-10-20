@@ -94,5 +94,7 @@ test('integrated automatic search preserves direct trains without relaxing corre
     plan.outward.findIndex(x=>x===j)>=3),
     'Only fill spare slots with earlier-day arrivals');
   assert.ok(plan.outward.every(j=>j.arrival<=clock('17:30')));
-  assert.ok(plan.outward.every(j=>j.changes===0||j.transfer?.waitingSeconds>=45*60));
+  assert.ok(plan.outward.every(j=>
+    (j.transfers||(j.transfer?[j.transfer]:[])).every(t=>t.waitingSeconds>=45*60)),
+    'Both one- and two-change journeys must keep the cautious buffer');
 });
