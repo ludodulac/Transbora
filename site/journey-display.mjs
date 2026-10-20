@@ -9,7 +9,7 @@ function describeRoute(value){
   if(!route)return '';
   // These values are GTFS route_short_name (line codes), not commercial
   // train numbers. Example: 411A or P7 must not look like "train 411A".
-  return /^(?:\\d{2,4}[A-Z]|[A-Z]\\d{1,3})$/i.test(route)?
+  return /^(?:\d{2,4}[A-Z]|[A-Z]\d{1,3})$/i.test(route)?
     'code de ligne '+route:route;
 }
 export function serviceDescription(leg){
