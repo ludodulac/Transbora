@@ -314,9 +314,58 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       for(const run of runs)for(const journey of run.choices)
         if(!byKey.has(journey.key))byKey.set(journey.key,journey);
       const boundary=travelBoundary(event,kind);
-      const ranked=[...byKey.values()].sort((a,b)=>multimodal
+      const scorer=(a,b)=>multimodal
         ?compareMultimodalJourneys(a,b,kind,boundary)
-        :compareJourneys(a,b,kind,boundary));
+        :compareJourneys(a,b,kind,boundary);
+      let ranked=[...byKey.values()].sort(scorer);
+
+      // A published DIRECT service from the previous day should not hide a
+      // later-arriving, SAFE transfer on the event day. The usual automatic
+      // search first checks direct services; this one-day complement does NOT
+      // relax interchange or station-to-venue margins, nor the transport mode.
+      // A route departing the previous evening but arriving on event day is
+      // NOT "arriving the previous day" and keeps its existing ranking.
+      const eventMidnight=+parisInstant(event.startDate,0);
+      const hasPreviousDayArrival=ranked.some(j=>
+        +parisInstant(j.date,j.arrival)<eventMidnight);
+      const explicitlyDated=travelDates(event,p,kind).length>0;
+      const dayArrivals=ranked.filter(j=>
+        +parisInstant(j.date,j.arrival)>=eventMidnight);
+      if(kind==='A'&&settings.connections==='auto'&&!explicitlyDated&&
+        hasPreviousDayArrival&&dayArrivals.length<max){
+        const date=event.startDate;
+        const query={from,to,date,earliest:'00:00',latest:'23:59'};
+        const searchSafeTier=tier=>{
+          for(const mode of modes){
+            if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
+            const selected=feeds.filter(f=>mode==='all'||f.source.mode===mode);
+            if(tier==='only_one'&&!canBeOneChange(selected,from,to,{mode}))continue;
+            const config={...settings,mode,connections:tier,allowRiskyInterstation:false};
+            const key=queryKey(query,config);
+            try{
+              if(!cache.has(key))cache.set(key,allOptions(feeds,query,config,officialRules));
+              const valid=pickItineraries(cache.get(key),query,event,kind,{maximum:250});
+              for(const journey of valid){
+                // Only depart on the event day; avoid a hidden overnight
+                // interpretation for services expressed as GTFS >24:00.
+                const depDay=parisDate(date,journey.departure);
+                const wantedDay=parisDate(date,0);
+                if(depDay!==wantedDay)continue;
+                if(!byKey.has(journey.key))byKey.set(journey.key,journey);
+              }
+            }catch(err){
+              issues.push(p.first+' '+p.last+' / A le '+date+' : '+err.message);
+            }
+          }
+        };
+        if(!cancelled()&&!timedOut())searchSafeTier('only_one');
+        // Two changes only as a fallback if the first pass still leaves
+        // the organizer with previous-day arrivals among the top options.
+        ranked=[...byKey.values()].sort(scorer);
+        if(ranked.slice(0,max).some(j=>+parisInstant(j.date,j.arrival)<eventMidnight)
+            &&!cancelled()&&!timedOut())searchSafeTier('only_two');
+        ranked=[...byKey.values()].sort(scorer);
+      }
       const choices=ranked.slice(0,max);
       const searched=[...new Set(runs.flatMap(run=>run.searched))];
       let covered=runs.some(run=>run.covered);
