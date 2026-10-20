@@ -81,6 +81,7 @@ export function searchFeed(data, params, source) {
           if(!targets.has(to[0])||to[4]!==1||to[1]<from[2])continue;
           output.push({
             id:source.id+':'+t+':'+serviceDay+':'+i+':'+j,
+            tripKey:source.id+':'+t+':'+serviceDay,
             departure,arrival:to[1]+clockShift,
             from:data.stations[from[0]][1],to:data.stations[to[0]][1],
             provider:source.label,providerId:source.id,mode:source.mode,
