@@ -6,7 +6,7 @@ import {displayName} from './events-model.mjs';
 import {parisDate,parisTime} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
 import {compactRiskLabel} from './risk-details.mjs';
-import {serviceSummary} from './journey-display.mjs';
+import {shortServiceSummary} from './journey-display.mjs';
 
 export const FORM_HEADERS=['Dossier ID','Événement','Mode','Voyageur ID','Prénom','Nom','Ville de départ','Sens','Option ID','Proposition','Date'];
 export function cleanCell(input){
@@ -33,7 +33,7 @@ export function optionLabel(route,date,ordinal){
       ' min au lieu de '+route.requestedMarginMinutes+
       ' min · Validation gare/lieu par l’organisateur requise':'',
     changes+' changement(s)'+intermediary,
-    serviceSummary(route),
+    shortServiceSummary(route),
     providers
   ].filter(Boolean).join(' · ').slice(0,390);
 }
