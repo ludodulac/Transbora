@@ -3,8 +3,8 @@
  */
 import {parisDate,parisTime} from './time-zones.mjs';
 
+import {serviceDescription} from './journey-display.mjs';
 const minutes=seconds=>Math.floor(seconds/60);
-const train=leg=>[leg?.provider,leg?.number?'n° '+leg.number:''].filter(Boolean).join(' ');
 export function riskDetails(route,date){
   if(!route?.riskAlternative)return [];
   const legs=route.legs||[],transfers=route.transfers||(route.transfer?[route.transfer]:[]);
@@ -14,25 +14,32 @@ export function riskDetails(route,date){
     const first=legs[index],second=legs[index+1];
     if(!first||!second)return [];
     const wait=minutes(transfer.waitingSeconds),caution=minutes(transfer.minimumSeconds);
-    const shortage=caution-wait;
+    const shortage=caution-wait,veryTight=shortage>0;
     const arrive=parisTime(day,first.arrival),depart=parisTime(day,second.departure);
+    const arriveStation=transfer.station,departStation=transfer.departureStation;
+    const severity=veryTight?'high':'unverified';
     return [{
-      type:'paris_interstation',
-      shortTitle:'⚠ Changement de gare à Paris — correspondance à risque',
-      compact:'⚠ RISQUE : '+transfer.station+' ('+arrive+') → '+
-        transfer.departureStation+' ('+depart+') ; '+wait+
-        ' min pour changer de gare (seuil interne '+caution+' min, non officiel). '+
-        'Transfert réel non vérifié ; risque de manquer le train suivant. Vérifier avant achat.',
+      type:'paris_interstation',severity,
+      shortTitle:veryTight?
+        '🔴 Correspondance très serrée — changement de gare à Paris':
+        '🟠 Changement de gare à Paris — transfert non vérifié',
+      compact:(veryTight?'⚠ RISQUE ÉLEVÉ : ':'⚠ TRANSFERT NON VÉRIFIÉ : ')+
+        arriveStation+' '+arrive+' → '+departStation+' '+depart+
+        ' ; '+wait+' min, seuil indicatif '+caution+' min (non officiel)'+
+        (veryTight?', manque '+shortage+' min':'')+
+        '. Risque de manquer le train suivant. Vérifier le transfert avant achat.',
       lines:[
-        'Premier train : '+train(first)+' ; arrivée à '+transfer.station+
+        'Premier train : '+serviceDescription(first)+' ; arrivée à '+arriveStation+
           ' le '+parisDate(day,first.arrival)+' à '+arrive+'.',
-        'Deuxième train : '+train(second)+' ; départ de '+transfer.departureStation+
+        'Deuxième train : '+serviceDescription(second)+' ; départ de '+departStation+
           ' le '+parisDate(day,second.departure)+' à '+depart+'.',
         'Temps disponible entre les trains : '+wait+' min. Seuil de prudence TRANSBORA : '+
-          caution+' min (indicatif, non officiel).'+
-          (shortage>0?' Il manque '+shortage+' min par rapport à ce seuil.':''),
-        'Risque : changement de gare, trajet urbain et marche à effectuer ; retard du premier train '+
-          'ou transfert plus long que prévu pouvant faire manquer le suivant.',
+          caution+' min (indicatif, non officiel). '+
+          (veryTight?'Il manque '+shortage+' min par rapport à ce seuil.':
+            'Marge supérieure de '+(-shortage)+' min au seuil indicatif ; cela ne garantit pas le transfert.'),
+        veryTight?
+          'Risque élevé : le changement de gare et un éventuel retard peuvent faire manquer le second train.':
+          'Risque à vérifier : le changement de gare impose un trajet urbain ; un retard ou un transfert long peut faire manquer le second train.',
         'Durée réelle du transfert, accès aux quais, transport local et garanties de correspondance '+
           'NON vérifiés. L’organisateur doit examiner le parcours et les conditions des billets avant tout achat.'
       ]

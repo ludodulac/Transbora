@@ -53,6 +53,8 @@ test('explicit opt-in retains the real timetable and marks the station-change ri
   assert.match(label,/ALTERNATIVE À RISQUE/);
   assert.match(label,/52 min/);
   assert.match(label,/non officiel/);
+  assert.match(label,/7612/);
+  assert.match(label,/6621/);
 });
 test('event planner: risk options only with explicit opt-in and still marked',async()=>{
   const without=(await planEvent(event,[participant],[feed()],settings)).plans.get(participant.id);
