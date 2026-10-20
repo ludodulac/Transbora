@@ -762,6 +762,7 @@ function showStep(number,{focus=true}={}){
   activeStep=Math.max(1,Math.min(4,number));
   currentView='wizard';
   $('wizard-shell').hidden=false;
+  $('wizard-shell').dataset.step=String(activeStep);
   $('reply-screen').hidden=true;
   screenIds.forEach((id,i)=>{$(id).hidden=i!==activeStep-1;});
   $('step-counter').textContent='Étape '+activeStep+' sur 4';
