@@ -88,7 +88,11 @@ test('integrated automatic search preserves direct trains without relaxing corre
   assert.ok(plan.outward.some(j=>j.changes===1),'Expected safe same-day connection');
   assert.ok(plan.outward.some(j=>j.number==='DIRECT1'));
   assert.ok(plan.outward.some(j=>j.number==='DIRECT2'));
-  assert.ok(plan.outward.every(j=>j.date===day));
+  assert.ok(plan.outward.slice(0,3).every(j=>j.date===day),
+    'Available safe journeys for the event day must appear before older-day fallbacks');
+  assert.ok(plan.outward.filter(j=>j.date!==day).every(j=>
+    plan.outward.findIndex(x=>x===j)>=3),
+    'Only fill spare slots with earlier-day arrivals');
   assert.ok(plan.outward.every(j=>j.arrival<=clock('17:30')));
   assert.ok(plan.outward.every(j=>j.changes===0||j.transfer?.waitingSeconds>=45*60));
 });
