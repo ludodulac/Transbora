@@ -5,6 +5,7 @@
 import {displayName} from './events-model.mjs';
 import {parisDate,parisTime} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
+import {compactRiskLabel} from './risk-details.mjs';
 
 export const FORM_HEADERS=['Dossier ID','Événement','Mode','Voyageur ID','Prénom','Nom','Ville de départ','Sens','Option ID','Proposition','Date'];
 export function cleanCell(input){
@@ -24,7 +25,9 @@ export function optionLabel(route,date,ordinal){
   const changes=legs.length-1;
   const intermediary=changes ? ' · via '+legs.slice(0,-1).map(x=>x.to).join(' / ') : '';
   return [
-    ordinal+'. '+head+' · '+durationText(route.arrival-route.departure),
+    ordinal+'. '+(route.riskAlternative?'⚠ ALTERNATIVE À RISQUE · ':'')+
+      head+' · '+durationText(route.arrival-route.departure),
+    compactRiskLabel(route,day),
     providers,
     changes+' changement(s)'+intermediary,
     route.marginReduced?'⚠ Marge réduite : '+route.actualMarginMinutes+
