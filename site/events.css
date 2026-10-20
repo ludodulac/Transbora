@@ -303,3 +303,105 @@ progress{width:100%;height:12px}
 .route-risk-details p{margin:7px 0 0}
 .recap-route .route-warning{display:block;background:#fff3d9;border:1px solid #e9c782;
 border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b4600;line-height:1.45}
+
+
+/* 029 — Parcours arc-en-ciel.
+ * Couleurs lisibles, fonds clairs, contrastes élevés ; aucune dépendance
+ * JavaScript pour colorer les champs : data-step pilote la progression.
+ */
+#wizard-shell{--wizard-accent:#b42336;--wizard-accent-soft:#fff0f1}
+#wizard-shell[data-step="1"]{--wizard-accent:#b42336;--wizard-accent-soft:#fff0f1}
+#wizard-shell[data-step="2"]{--wizard-accent:#1f7640;--wizard-accent-soft:#edfaef}
+#wizard-shell[data-step="3"]{--wizard-accent:#1260ad;--wizard-accent-soft:#eef6ff}
+#wizard-shell[data-step="4"]{--wizard-accent:#7936a8;--wizard-accent-soft:#f7efff}
+#wizard-shell .progress-top #step-label,
+#wizard-shell .progress-dots .current{color:var(--wizard-accent)}
+#wizard-shell #step-progress-fill{background:var(--wizard-accent)}
+#wizard-shell .progress-track{background:#e3e7ee}
+#wizard-shell .progress-dots .current{
+ background:var(--wizard-accent-soft);border:1px solid currentColor;
+ border-radius:8px;padding:6px 2px}
+#wizard-shell .wizard-next.primary,
+#wizard-shell #search-everyone.primary{background:var(--wizard-accent);color:#fff}
+#wizard-shell .wizard-next.primary:hover:not(:disabled),
+#wizard-shell #search-everyone.primary:hover:not(:disabled){filter:brightness(.89)}
+
+/* ÉTAPE 1 : événement ROUGE, choix aller/retour ORANGE */
+#etape-1{border-top:7px solid #b42336}
+#etape-1 .screen-heading h1{color:#8f1c2e}
+#etape-1 .screen-icon{background:#ffe1e4;color:#911d2d}
+#etape-1 .wizard-fields>label,
+#etape-1 .date-group{
+ background:#fff3f4;border:1px solid #efc2c8;border-left:5px solid #c32b3f;
+ border-radius:13px;padding:13px 14px}
+#etape-1 .wizard-fields>label,#etape-1 .date-group .field-group-label{color:#8f1c2e}
+#etape-1 .settings-fold{
+ background:#fff4e7;border:1px solid #efca94;border-left:5px solid #df811e;
+ border-radius:13px}
+#etape-1 .settings-fold>summary{color:#985112;font-size:1.02rem}
+#etape-1 .settings-fold .fold-fields{padding-top:5px}
+#etape-1 .journey-selection{
+ background:#ffead0;border:1px solid #e9bc78;border-radius:12px;
+ padding:12px 14px;color:#7f4108}
+#etape-1 .journey-selection legend{font-weight:850;color:#99510d;padding:0 5px}
+#etape-1 .journey-selection input{accent-color:#b65e11}
+#etape-1 .settings-fold select:focus-visible,
+#etape-1 .settings-fold input:focus-visible{outline:3px solid #eda858}
+
+/* ÉTAPE 2 : ajouter des voyageurs JAUNE, liste des voyageurs VERTE */
+#etape-2{border-top:7px solid #e5af27}
+#etape-2 .screen-heading h1{color:#76510b}
+#etape-2 .screen-icon{background:#fff0b4;color:#79540d}
+#etape-2 .wizard-manual{
+ background:#fff8d8;border:1px solid #ebd275;border-left:5px solid #d5a522;
+ border-radius:14px;padding:18px}
+#etape-2 .wizard-manual label{color:#674a0e}
+#etape-2 .wizard-manual .action-button{background:#805c15;color:#fff}
+#etape-2 .people-head{
+ border:1px solid #a4d6a9;border-left:5px solid #238347;border-radius:12px;
+ margin-top:22px;background:#eaf7eb;padding:14px}
+#etape-2 .people-head strong{color:#206538}
+#etape-2 .people-list{
+ background:#f1fbf2;border:1px solid #c7e5c9;border-radius:13px;padding:10px}
+#etape-2 .person-chip{background:#fff;border-color:#b9dfbf}
+#etape-2 .count-bubble{background:#d9f2da;color:#1d6535}
+#etape-2 .secondary-import{border-top-color:#b4ddb9}
+
+/* ÉTAPE 3 : trajets BLEUS, réglages INDIGO.
+ * Les propres couleurs rouge/orange des risques restent prioritaires. */
+#etape-3{border-top:7px solid #1260ad}
+#etape-3 .screen-heading h1{color:#11528c}
+#etape-3 .screen-icon{background:#dceeff;color:#11528c}
+#etape-3>.settings-fold{
+ background:#eeeefe;border:1px solid #c7c7ee;border-left:5px solid #5141ac}
+#etape-3>.settings-fold>summary{color:#3c338b}
+#etape-3>.settings-fold .fold-fields label{color:#383572}
+#etape-3 #journey-recap>.recap-person{
+ background:#f0f7ff;border:1px solid #b7d6ef;border-radius:14px}
+#etape-3 .recap-side{background:#eaf4ff}
+#etape-3 .recap-side .pill{background:#d2e7fa;color:#154d82}
+#etape-3 .recap-route:not(.risk-option){border-color:#bdd8ef}
+
+/* ÉTAPE 4 : liens et réponses VIOLETS */
+#etape-4{border-top:7px solid #8035ae}
+#etape-4 .screen-heading h1{color:#6c2498}
+#etape-4 .screen-icon{background:#f0dcfc;color:#71319c}
+#etape-4 .native-setup{
+ background:#fbf5ff;border:1px solid #e4cdec;border-radius:15px;
+ padding:clamp(12px,3vw,19px)}
+#etape-4 .export-card{
+ border:1px solid #dcbbea;background:linear-gradient(180deg,#fff,#f6eafb)}
+#etape-4 .share-heading,#etape-4 .export-card h3{color:#612987}
+#etape-4 .export-card .primary{background:#71319c;color:#fff}
+#etape-4 .step-kicker{color:#6b288b}
+#reply-screen{border-top:7px solid #8035ae}
+#reply-screen .screen-heading h1{color:#6c2498}
+#reply-screen .reply-panel{background:#f8f0ff;border-color:#e3caef}
+#reply-screen .upload-button{background:#723199;border-color:#723199}
+
+@media(max-width:620px){
+ #etape-1 .wizard-fields>label,#etape-1 .date-group,
+ #etape-2 .wizard-manual{padding:12px}
+ #etape-2 .people-head{padding:11px}
+ #etape-4 .native-setup{padding:11px}
+}
