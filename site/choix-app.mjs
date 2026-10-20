@@ -1,4 +1,5 @@
 import {api} from './native-choices.mjs';
+import {appendReadableRoute} from './route-label.mjs';
 const $=id=>document.getElementById(id);
 let documentData=null,shareToken='';
 const notice=(message,error=false)=>{$('status').textContent=message;$('status').classList.toggle('error',error);$('status').hidden=false;};
@@ -28,7 +29,8 @@ async function load(){
           const line=node('label','route-choice');
           const radio=document.createElement('input');
           radio.type='radio';radio.name='p:'+person.id+':'+dir;radio.value=option.id;radio.required=true;
-          const text=node('span','route-description',option.label);
+          const text=node('span','route-description');
+          appendReadableRoute(text,option.label);
           line.append(radio,text);field.append(line);
         }
         card.append(field);
