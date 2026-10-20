@@ -142,6 +142,36 @@ export function selectPracticalOutward(candidates,{deadline,eventDate,maximum=5}
   // Chronological proposal ordering follows usefulness, not train count.
   return selected.sort(compare);
 }
+/** Return journeys: after satisfying the event-end and venue-to-station
+ * margin, prefer a reasonably early departure with a short total journey.
+ * A late train is NOT necessarily worse if it gets the artist home much earlier.
+ * This is not a fare, seat availability, or guaranteed-connection score.
+ */
+export function practicalReturnScore(route,boundary){
+  const departure=+parisInstant(route.date,route.departure);
+  const waitingMinutes=Math.max(0,(departure-boundary)/60000);
+  const durationMinutes=Math.max(0,(route.arrival-route.departure)/60);
+  const legs=route.legs?.length?route.legs:[route];
+  const transfers=route.transfers||(route.transfer?[route.transfer]:[]);
+  const unverified=transfers.filter(t=>t.proximity!=='same_station').length;
+  return 0.55*waitingMinutes+0.85*durationMinutes+
+    25*Math.max(0,legs.length-1)+15*unverified;
+}
+export function selectPracticalReturn(candidates,{deadline,maximum=5}){
+  if(!candidates.length||maximum<=0)return [];
+  const ranked=[...candidates].sort((a,b)=>
+    practicalReturnScore(a,deadline)-practicalReturnScore(b,deadline)
+    ||compareJourneys(a,b,'R',deadline));
+  // Do not discard legitimate train services with the same clocks, but
+  // avoid putting them side-by-side at the expense of varied itineraries.
+  const seen=new Set(),different=[],sameClock=[];
+  for(const journey of ranked){
+    const signature=clockSignature(journey);
+    if(seen.has(signature))sameClock.push(journey);
+    else {seen.add(signature);different.push(journey);}
+  }
+  return [...different,...sameClock].slice(0,maximum);
+}
 function publishedRange(feeds,config){
   const selected=feeds.filter(f=>config.mode==='all'||f.source.mode===config.mode);
   const min=selected.map(f=>f.data.meta?.first).filter(Boolean).sort()[0];
@@ -346,7 +376,9 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       if(tierTruncated)issues.push(p.first+' '+p.last+' : niveau '+
         (tierLabels[tier]||tier)+' exploré partiellement ; résultats non exhaustifs.');
     }
-    const choices=[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max);
+    const choices=kind==='R'&&automatic
+      ?selectPracticalReturn([...found.values()],{deadline,maximum:max})
+      :[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max);
     return {choices,searched,covered,level:chosenTier,
       reason:directionIncomplete?'incomplete':
         !covered?'no_published_data':!choices.length?'not_found':null};
@@ -445,7 +477,9 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       const choices=kind==='A'&&settings.connections==='auto'&&!explicitlyDated
         ?selectPracticalOutward([...byKey.values()],{
           deadline:boundary,eventDate:event.startDate,maximum:max})
-        :ranked.slice(0,max);
+        :kind==='R'&&settings.connections==='auto'
+          ?selectPracticalReturn([...byKey.values()],{deadline:boundary,maximum:max})
+          :ranked.slice(0,max);
       const searched=[...new Set(runs.flatMap(run=>run.searched))];
       let covered=runs.some(run=>run.covered);
       const mainRun=runs.at(-1);
