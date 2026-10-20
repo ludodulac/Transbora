@@ -66,6 +66,82 @@ export function compareMultimodalJourneys(a,b,kind,boundary){
   };
   return score(a)-score(b)||compareJourneys(a,b,kind,boundary);
 }
+/** Organizer-facing OUTBOUND shortlist after all mandatory timetable and safety
+ * filters have run. Keep the most useful same-day options, rather than selecting
+ * purely by arrival closeness and crowding out shorter direct trains.
+ * A duplicate clock alone does NOT prove that two GTFS services are identical:
+ * keep all underlying routes, but use another clock first when there is room.
+ */
+function clockSignature(route){
+  const legs=route.legs?.length?route.legs:[route];
+  return [parisDate(route.date,route.departure),route.departure,
+    parisDate(route.date,route.arrival),route.arrival,
+    normalizeStop(legs[0]?.from),normalizeStop(legs.at(-1)?.to)].join('|');
+}
+function isDirectRail(route){
+  const legs=route.legs?.length?route.legs:[route];
+  return legs.length===1 && legs[0]?.mode==='rail' && (route.changes||0)===0;
+}
+export function practicalOutwardScore(route,deadline){
+  const arrival=+parisInstant(route.date,route.arrival);
+  const gapMinutes=Math.abs(deadline-arrival)/60000;
+  const travelMinutes=Math.max(0,(route.arrival-route.departure)/60);
+  const legs=route.legs?.length?route.legs:[route];
+  const changes=legs.length-1;
+  const transfers=route.transfers||(route.transfer?[route.transfer]:[]);
+  const unverified=transfers.filter(t=>t.proximity!=='same_station').length;
+  // Timetable preferences, NOT verified fares, seats, or train punctuality.
+  // Favor reasonable arrival margins AND journey length; penalize changes.
+  return 0.55*gapMinutes+0.65*travelMinutes+20*changes+15*unverified;
+}
+export function selectPracticalOutward(candidates,{deadline,eventDate,maximum=5}){
+  if(!candidates.length||maximum<=0)return [];
+  const compare=(a,b)=>practicalOutwardScore(a,deadline)-practicalOutwardScore(b,deadline)
+    ||compareJourneys(a,b,'A',deadline);
+  const eventMidnight=+parisInstant(eventDate,0);
+  const recent=[],older=[];
+  for(const item of [...candidates].sort(compare)){
+    const arrival=+parisInstant(item.date,item.arrival);
+    (arrival>=eventMidnight?recent:older).push(item);
+  }
+  const distinctFirst=list=>{
+    const seen=new Set(),unique=[],sameClock=[];
+    for(const route of list){
+      const signature=clockSignature(route);
+      if(seen.has(signature))sameClock.push(route);
+      else {seen.add(signature);unique.push(route);}
+    }
+    return {unique,sameClock};
+  };
+  const same=distinctFirst(recent),earlier=distinctFirst(older);
+  const selected=[
+    ...same.unique,...same.sameClock,...earlier.unique,...earlier.sameClock
+  ].slice(0,maximum);
+
+  // Keep up to TWO different same-day direct train options among five slots,
+  // even when transfers arrive later. Never force an earlier-day direct,
+  // and never override a strict requested travel date (handled upstream).
+  const directLimit=maximum>=4?2:maximum>=2?1:0;
+  const selectedKeys=new Set(selected.map(j=>j.key||j.id));
+  const usedDirectClocks=new Set();
+  let directCount=selected.filter(j=>isDirectRail(j)&&
+    +parisInstant(j.date,j.arrival)>=eventMidnight).length;
+  for(const j of recent.filter(isDirectRail)){
+    const signature=clockSignature(j);
+    if(usedDirectClocks.has(signature))continue;
+    usedDirectClocks.add(signature);
+    if(directCount>=directLimit)break;
+    if(selectedKeys.has(j.key||j.id))continue;
+    const replace=selected.findLastIndex(other=>!isDirectRail(other));
+    if(replace<0)break;
+    selectedKeys.delete(selected[replace].key||selected[replace].id);
+    selected[replace]=j;
+    selectedKeys.add(j.key||j.id);
+    directCount++;
+  }
+  // Chronological proposal ordering follows usefulness, not train count.
+  return selected.sort(compare);
+}
 function publishedRange(feeds,config){
   const selected=feeds.filter(f=>config.mode==='all'||f.source.mode===config.mode);
   const min=selected.map(f=>f.data.meta?.first).filter(Boolean).sort()[0];
@@ -366,7 +442,10 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
             &&!cancelled()&&!timedOut())searchSafeTier('only_two');
         ranked=[...byKey.values()].sort(scorer);
       }
-      const choices=ranked.slice(0,max);
+      const choices=kind==='A'&&settings.connections==='auto'&&!explicitlyDated
+        ?selectPracticalOutward([...byKey.values()],{
+          deadline:boundary,eventDate:event.startDate,maximum:max})
+        :ranked.slice(0,max);
       const searched=[...new Set(runs.flatMap(run=>run.searched))];
       let covered=runs.some(run=>run.covered);
       const mainRun=runs.at(-1);
