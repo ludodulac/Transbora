@@ -286,7 +286,15 @@ progress{width:100%;height:12px}
 #share-mode-options{scroll-margin-top:180px}
 #cancel-mode-switch{display:block;margin:18px auto 5px}
 
-.recap-route.risk-option{border:2px solid #cf6549;background:#fff9f6}
+.recap-route.risk-option{border:2px solid #dfa575;background:#fffaf5}
+.recap-route.risk-high{border-color:#cc4c33;background:#fff6f4}
+.recap-route.risk-unverified .route-risk-details{background:#fff6e7;border-color:#e7bd83;color:#73511e}
+.recap-route.risk-unverified .route-risk-details strong{color:#855515}
+.recap-route .route-service{font-size:.81rem;color:#3c5867;line-height:1.5;
+  padding:8px 10px;border-radius:9px;background:#f1f7f8;overflow-wrap:anywhere}
+.recap-route .route-transfer-meta{font-size:.81rem;color:#27726c;font-weight:650}
+.recap-route .route-duplicate-note{font-size:.81rem;color:#86591a;line-height:1.45;
+  background:#fff5de;border:1px solid #edce9b;padding:8px 10px;border-radius:9px}
 .route-risk-group{margin-top:18px;padding:11px 12px;background:#fff0e7;border-radius:12px;
   border:1px solid #e7ad95;color:#8a321c;font-size:.9rem;font-weight:850}
 .route-risk-details{background:#fff0e7;border:1px solid #edb59e;border-radius:10px;
