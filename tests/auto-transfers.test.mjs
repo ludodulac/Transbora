@@ -28,7 +28,7 @@ async function go(parts){
   const result=await planEvent(event,[person],[make('sncf',parts)],settings);
   return result.plans.get(person.id);
 }
-test('automatically prefers a direct journey over one- or two-change alternatives',async()=>{
+test('direct journey remains first, same-day safe alternatives may outrank day-before directs',async()=>{
   const result=await go([
     [0,3,9*3600,14*3600],
     [0,1,8*3600,10*3600],
@@ -36,7 +36,10 @@ test('automatically prefers a direct journey over one- or two-change alternative
   ]);
   assert.equal(result.levels.A,'no');
   assert.ok(result.outward.length>0);
-  assert.equal(result.outward.every(x=>(x.changes||0)===0),true);
+  assert.equal(result.outward[0].changes||0,0,
+    'The best same-day direct should remain first when it is closer to the arrival margin');
+  assert.ok(result.outward.every(x=>x.date==='2026-11-25'),
+    'A safe same-day transfer must displace earlier-day departures when available');
 });
 test('without a direct train, an eligible one-change route is found automatically',async()=>{
   const result=await go([
