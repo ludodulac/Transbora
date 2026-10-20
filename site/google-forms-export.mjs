@@ -31,7 +31,7 @@ export function optionLabel(route,date,ordinal){
   const changes=legs.length-1;
   const duration=durationText(route.arrival-route.departure);
   const core=[
-    'Option '+ordinal,
+    'Option '+ordinal+(route.riskAlternative?' · ⚠ ALTERNATIVE À RISQUE':''),
     transport+(operator?' · '+operator:''),
     times+' · '+dates,
     'Départ : '+from,
