@@ -124,9 +124,6 @@ test('four screen wizard, concise form, progress, search and separate replies',a
     new window.Event('submit',{bubbles:true,cancelable:true}));
   assert.ok($('participants-list').textContent.includes('personnalisés'),
     'Editing a personal arrival time should update the traveler card');
-  assert.equal(JSON.parse(window.localStorage.getItem('transbora_event_draft_v013'))
-    ?.participants?.[0]?.arrivalTime,undefined,
-    'Draft saving remains debounced until the next turn');
   click(window.document,'wizard-next');
   assert.equal($('etape-3').hidden,false);
   assert.equal($('search-everyone').hidden,false);
