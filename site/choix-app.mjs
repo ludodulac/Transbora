@@ -11,13 +11,14 @@ async function load(){
     documentData=await api('view',{token:shareToken});
     const {event,people,mode}=documentData;
     $('event-title').textContent=event.title;
-    $('event-meta').textContent='Destination : '+event.destination+
-      (mode==='group'?' · Choix pour le groupe':'');
+    $('event-meta').textContent='Lieu principal de l’événement : '+event.destination+
+      (mode==='group'?' · Choix pour le groupe':'')+
+      ' · Vérifiez votre trajet exact ci-dessous.';
     const root=$('people');root.replaceChildren();
     for(const person of people){
       const card=node('section','traveler');
       card.append(node('h2','traveler-name',person.first+' '+person.last));
-      card.append(node('p','subtitle','Départ : '+person.departure));
+      card.append(node('p','subtitle','Ville habituelle : '+person.departure));
       if(!person.options.A.length&&!person.options.R.length)
         card.append(node('p','subtitle','Aucun trajet disponible pour cette personne. Son choix sera signalé à l’organisateur.'));
       for(const [dir,label] of [['A','Aller'],['R','Retour']]){
