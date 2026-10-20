@@ -42,6 +42,7 @@ test('keeps event travel date and provides human-readable options',()=>{
  const label=optionLabel(route,'2026-10-29',1);
  assert.match(label,/SNCF Voyageurs/);
  assert.match(label,/09:00/);
- assert.match(label,/0 changement/);
+ assert.match(label,/Direct/);
+  assert.doesNotMatch(label,/0 changement/);
  assert.throws(()=>buildFormsRows(event,participants,planned,'invalid'),/non reconnu/);
 });
