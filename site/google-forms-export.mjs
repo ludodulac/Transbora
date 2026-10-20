@@ -50,7 +50,7 @@ export function optionLabel(route,date,ordinal){
   const smallMargin=route.marginReduced?'⚠ Marge réduite : '+route.actualMarginMinutes+' min au lieu de '+
       route.requestedMarginMinutes+' min, accès lieu non vérifié':'';
   const summary=shortServiceSummary(route);
-  const tail=[via,wait,alert,risk,smallMargin,summary].filter(Boolean);
+  const tail=[risk,smallMargin,alert,via,wait,summary].filter(Boolean);
   const essential=core.join(' | ');
   // If some international station names are very long, still reserve the
   // mandatory time / route information and truncate optional metadata first.
