@@ -25,6 +25,21 @@ export function travelDates(event,p,kind){
     (outbound?event.outwardDate:event.returnDate)||'';
   return forced?[shiftDate(forced,0)]:[];
 }
+/** Overrides are optional: omitted fields follow the event for each artist.
+ * Unlike outwardDate/returnDate, these are PRESENCE boundaries, not a forced
+ * date of train departure. Routes are still filtered by the same safety rules.
+ */
+export function eventForPerson(event,person){
+  const effective={...event,
+    startDate:person?.arrivalDate||event.startDate,
+    startTime:person?.arrivalTime||event.startTime,
+    endDate:person?.releaseDate||event.endDate,
+    endTime:person?.releaseTime||event.endTime};
+  try{eventBoundaries(effective);}
+  catch{throw new Error('Horaires personnels incohérents pour '+(person?.first||'le voyageur')+
+    ' : la fin de disponibilité doit suivre le début de présence.');}
+  return effective;
+}
 function absTime(route){
   return +parisInstant(route.date,route.departure);
 }
@@ -290,7 +305,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         reason:!knownFrom?'unknown_origin':'unknown_destination'};
     }
     const deadline=travelBoundary(boundaryEvent,kind);
-    const boundaryDay=kind==='A'?event.startDate:event.endDate;
+    const boundaryDay=kind==='A'?boundaryEvent.startDate:boundaryEvent.endDate;
     const finalClockDay=shiftDate(publishedEnd,1);
     const starting=kind==='A'?
       [boundaryDay,finalClockDay].sort()[0]:
@@ -385,6 +400,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
   }
   for(let i=0;i<participants.length;i++){
     const p=participants[i];
+    const personEvent=eventForPerson(event,p);
     if(cancelled())throw new Error('Recherche interrompue.');
     if(timedOut()){
       partial=true;
@@ -395,14 +411,14 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         outwardDates:[],returnDates:[],outward:[],returning:[]});
       break;
     }
-    const entries={outwardDate:event.startDate,returnDate:event.endDate,
+    const entries={outwardDate:personEvent.startDate,returnDate:personEvent.endDate,
       outwardDates:[],returnDates:[],outward:[],returning:[],
       reasons:{A:null,R:null},levels:{A:null,R:null}};
     for(const kind of ['A','R']){
       if(kind==='A'&&event.includeOutward===false)continue;
       if(kind==='R'&&event.includeReturn===false)continue;
-      const from=kind==='A'?p.departure:event.destination;
-      const to=kind==='A'?event.destination:p.departure;
+      const from=kind==='A'?(p.outwardOrigin||p.departure):(p.returnOrigin||event.destination);
+      const to=kind==='A'?(p.outwardDestination||event.destination):(p.returnDestination||p.departure);
       if(normalizeStop(from)===normalizeStop(to)){
         issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
         continue;
@@ -416,12 +432,12 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       const runs=[];
       for(const mode of modes){
         if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
-        runs.push(await searchDirection({from,to},p,kind,{...settings,mode,allowRiskyInterstation:false}));
+        runs.push(await searchDirection({from,to},p,kind,{...settings,mode,allowRiskyInterstation:false},personEvent));
       }
       const byKey=new Map();
       for(const run of runs)for(const journey of run.choices)
         if(!byKey.has(journey.key))byKey.set(journey.key,journey);
-      const boundary=travelBoundary(event,kind);
+      const boundary=travelBoundary(personEvent,kind);
       const scorer=(a,b)=>multimodal
         ?compareMultimodalJourneys(a,b,kind,boundary)
         :compareJourneys(a,b,kind,boundary);
@@ -433,7 +449,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       // relax interchange or station-to-venue margins, nor the transport mode.
       // A route departing the previous evening but arriving on event day is
       // NOT "arriving the previous day" and keeps its existing ranking.
-      const eventMidnight=+parisInstant(event.startDate,0);
+      const eventMidnight=+parisInstant(personEvent.startDate,0);
       const hasPreviousDayArrival=ranked.some(j=>
         +parisInstant(j.date,j.arrival)<eventMidnight);
       const explicitlyDated=travelDates(event,p,kind).length>0;
@@ -441,7 +457,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         +parisInstant(j.date,j.arrival)>=eventMidnight);
       if(kind==='A'&&settings.connections==='auto'&&!explicitlyDated&&
         hasPreviousDayArrival&&dayArrivals.length<max){
-        const date=event.startDate;
+        const date=personEvent.startDate;
         const query={from,to,date,earliest:'00:00',latest:'23:59'};
         const searchSafeTier=tier=>{
           for(const mode of modes){
@@ -452,7 +468,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
             const key=queryKey(query,config);
             try{
               if(!cache.has(key))cache.set(key,allOptions(feeds,query,config,officialRules));
-              const valid=pickItineraries(cache.get(key),query,event,kind,{maximum:250});
+              const valid=pickItineraries(cache.get(key),query,personEvent,kind,{maximum:250});
               for(const journey of valid){
                 // Only depart on the event day; avoid a hidden overnight
                 // interpretation for services expressed as GTFS >24:00.
@@ -476,7 +492,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       }
       const choices=kind==='A'&&settings.connections==='auto'&&!explicitlyDated
         ?selectPracticalOutward([...byKey.values()],{
-          deadline:boundary,eventDate:event.startDate,maximum:max})
+          deadline:boundary,eventDate:personEvent.startDate,maximum:max})
         :kind==='R'&&settings.connections==='auto'
           ?selectPracticalReturn([...byKey.values()],{deadline:boundary,maximum:max})
           :ranked.slice(0,max);
@@ -486,12 +502,12 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       let level=runs.find(run=>run.choices.some(j=>j.key===choices[0]?.key))?.level||null;
       // Only when explicitly requested: display separately flagged suggestions
       // with reduced station-to-venue access time (minimum 30 minutes).
-      const margin=Number(kind==='A'?event.arrivalMargin:event.departureMargin);
+      const margin=Number(kind==='A'?personEvent.arrivalMargin:personEvent.departureMargin);
       if(settings.allowReducedMargin && Number.isFinite(margin) && margin>30 &&
         choices.length<5){
-        const softEvent={...event,[kind==='A'?'arrivalMargin':'departureMargin']:30};
+        const softEvent={...personEvent,[kind==='A'?'arrivalMargin':'departureMargin']:30};
         const extras=[],excluded=new Set(choices.map(j=>j.key));
-        const limits=eventBoundaries(event);
+        const limits=eventBoundaries(personEvent);
         for(const mode of modes){
           if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
           const run=await searchDirection({from,to},p,kind,{...settings,mode,allowRiskyInterstation:false},softEvent);
@@ -518,8 +534,8 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       // Interstation journey durations are UNKNOWN: these are explicitly risky.
       if(settings.allowRiskyInterstation && settings.mode!=='bus'){
         const railFeeds=feeds.filter(f=>f.source.mode==='rail');
-        const dates=kind==='A'?[event.startDate]:
-          [event.endDate,shiftDate(event.endDate,1)];
+        const dates=kind==='A'?[personEvent.startDate]:
+          [personEvent.endDate,shiftDate(personEvent.endDate,1)];
         const excluded=new Set(choices.map(j=>j.key)),risks=new Map();
         for(const date of dates){
           if(cancelled())throw new Error('Recherche interrompue.');
@@ -541,8 +557,8 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       const reason=choices.length?null:mainRun?.reason||'no_published_data';
       entries.reasons[kind]=reason;
       entries.levels[kind]=level;
-      if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||event.startDate;}
-      else{entries.returning=choices;entries.returnDates=searched;entries.returnDate=searched[0]||event.endDate;}
+      if(kind==='A'){entries.outward=choices;entries.outwardDates=searched;entries.outwardDate=searched[0]||personEvent.startDate;}
+      else{entries.returning=choices;entries.returnDates=searched;entries.returnDate=searched[0]||personEvent.endDate;}
       if(!covered&&reason!=='unknown_origin'&&reason!=='unknown_destination')
         issues.push(p.first+' '+p.last+' : aucune donnée de circulation exploitable dans la période publiée pour '+
           (kind==='A'?'l’aller':'le retour')+'.');
