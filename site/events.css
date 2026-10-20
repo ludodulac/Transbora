@@ -286,5 +286,12 @@ progress{width:100%;height:12px}
 #share-mode-options{scroll-margin-top:180px}
 #cancel-mode-switch{display:block;margin:18px auto 5px}
 
+.recap-route.risk-option{border:2px solid #cf6549;background:#fff9f6}
+.route-risk-group{margin-top:18px;padding:11px 12px;background:#fff0e7;border-radius:12px;
+  border:1px solid #e7ad95;color:#8a321c;font-size:.9rem;font-weight:850}
+.route-risk-details{background:#fff0e7;border:1px solid #edb59e;border-radius:10px;
+  padding:10px 11px;color:#7c321d;font-size:.84rem;line-height:1.5}
+.route-risk-details strong{display:block;color:#902e15;font-size:.91rem}
+.route-risk-details p{margin:7px 0 0}
 .recap-route .route-warning{display:block;background:#fff3d9;border:1px solid #e9c782;
 border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b4600;line-height:1.45}

@@ -57,6 +57,24 @@ function transferRule(feed,from,to) {
   if (feed.source.id !== from.source.id || feed.source.id !== to.source.id) return null;
   return feed.rules.get(from.index+':'+to.index) || null;
 }
+/** Explicitly supported Paris station-pair. This is NOT a validated transfer path.
+ * No other city or approximate geographical match is treated as interstation.
+ */
+function parisStationKind(record) {
+  const name=normalizeStop(record?.station?.[1]);
+  if(name.startsWith('paris montparnasse'))return 'montparnasse';
+  if(name.startsWith('paris gare de lyon'))return 'gare_de_lyon';
+  return null;
+}
+export function knownRiskyInterstation(first,second) {
+  if(first?.source?.mode!=='rail'||second?.source?.mode!=='rail')return false;
+  const a=parisStationKind(first),b=parisStationKind(second);
+  return !!a&&!!b&&a!==b;
+}
+function oppositeParisKind(kind) {
+  return kind==='montparnasse'?'gare_de_lyon':kind==='gare_de_lyon'?'montparnasse':null;
+}
+
 export function compatible(first, second) {
   if (first.source.id===second.source.id && first.index===second.index)
     return {sameStation:true,distanceMeters:0};
@@ -155,10 +173,15 @@ export function assessTransfer(first,second,context,opts={}) {
   if(!arrivalFeed||!departureFeed)return null;
   const a=stationRecord(arrivalFeed,first.toIndex),b=stationRecord(departureFeed,second.fromIndex);
   const proximity=compatible(a,b);
-  if(!proximity)return null;
+  const interstation=!proximity&&opts.allowRiskyInterstation&&knownRiskyInterstation(a,b);
+  if(!proximity&&!interstation)return null;
   const rule=transferRule(arrivalFeed,a,b);
   if(rule?.[0]===3)return null;
-  let minSec=Math.max(margin(a,b,opts.profile),rule?.[1]||0);
+  // This 90/75-minute threshold is an INTERNAL precaution, not a published
+  // or guaranteed transfer time. Risky transfers are never treated as safe.
+  const cautionSec=interstation?(opts.profile==='very_cautious'?90:75)*60:
+    margin(a,b,opts.profile);
+  let minSec=Math.max(cautionSec,rule?.[1]||0);
   let source='marge de précaution';
   if(first.providerId==='sncf'&&second.providerId==='sncf'&&opts.officialRules){
     const firstCode=sncfUic(a.station),secondCode=sncfUic(b.station);
@@ -175,6 +198,15 @@ export function assessTransfer(first,second,context,opts={}) {
     }
   }
   const wait=second.departure-first.arrival;
+  if(interstation){
+    // Less than 30 minutes is too speculative even for a risk-labeled option.
+    if(wait<30*60||wait>MAX_WAIT)return null;
+    return {station:first.to,departureStation:second.from,
+      waitingSeconds:wait,minimumSeconds:minSec,
+      source:'seuil de prudence TRANSBORA indicatif (non officiel)',
+      proximity:'interstation_unverified',metres:null,
+      riskType:'paris_interstation',risk:wait<minSec?'élevé':'transfert non vérifié'};
+  }
   if(wait<minSec || wait>MAX_WAIT || wait<=0)return null;
   return {station:first.to,departureStation:second.from,
     waitingSeconds:wait,minimumSeconds:minSec,source,
@@ -205,6 +237,7 @@ export function findConnections(feeds, params, opts={}) {
   if(!firstLegs.length||!lastLegs.length)return [];
 
   const stationLegs=new Map(), spatial=new Map(),lastStopCache=new Map();
+  const interstationBoarding=new Map();
   for(const l of lastLegs){
     const k=transferId(l.providerId,l.fromIndex);
     if(!stationLegs.has(k))stationLegs.set(k,[]);
@@ -214,6 +247,13 @@ export function findConnections(feeds, params, opts={}) {
     legs.sort((a,b)=>a.departure-b.departure);
     const l=legs[0], record=stationRecord(context.get(l.providerId),l.fromIndex);
     lastStopCache.set(key,record);
+    if(opts.allowRiskyInterstation){
+      const kind=parisStationKind(record);
+      if(kind){
+        if(!interstationBoarding.has(kind))interstationBoarding.set(kind,[]);
+        interstationBoarding.get(kind).push(key);
+      }
+    }
     const cell=geoCell(record.station);
     if(cell){
       const key=coordKey(cell[0],cell[1]);
@@ -232,11 +272,17 @@ export function findConnections(feeds, params, opts={}) {
         for(const key of spatial.get(coordKey(x,y))||[])candidates.add(key);
       }
     }
+    if(opts.allowRiskyInterstation){
+      const opposite=oppositeParisKind(parisStationKind(arrival));
+      for(const key of interstationBoarding.get(opposite)||[])candidates.add(key);
+    }
     for(const key of candidates){
       const secondStation=lastStopCache.get(key);
       if(!secondStation)continue;
       const proximity=compatible(arrival,secondStation);
-      if(!proximity)continue;
+      const riskyInterstation=opts.allowRiskyInterstation&&
+        knownRiskyInterstation(arrival,secondStation);
+      if(!proximity&&!riskyInterstation)continue;
       for(const second of stationLegs.get(key)||[]){
         if(second.departure-first.arrival>MAX_WAIT)break;
         const transfer=assessTransfer(first,second,context,{...opts,date:params.date});
@@ -247,7 +293,9 @@ export function findConnections(feeds, params, opts={}) {
         outputs.set(id,{id,departure:first.departure,arrival:second.arrival,
           from:first.from,to:second.to,legs:[first,second],
           transfer,changes:1,mode:first.mode===second.mode?first.mode:'mixed',
-          score:elapsed+(transfer.waitingSeconds>90*60?(transfer.waitingSeconds-90*60)/3:0)+(proximity.sameStation?0:15*60)});
+          riskAlternative:transfer.riskType==='paris_interstation',
+          score:elapsed+(transfer.waitingSeconds>90*60?(transfer.waitingSeconds-90*60)/3:0)+
+            (proximity?.sameStation?0:15*60)});
       }
     }
   }

@@ -3,6 +3,7 @@ import {prepareFeeds,planEvent,eventBoundaries} from './event-planner.mjs';
 import {officialIndex} from './connections.mjs';
 import {parisTime,parisDate} from './time-zones.mjs';
 import {durationText} from './engine.mjs';
+import {riskDetails} from './risk-details.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
@@ -20,7 +21,7 @@ let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false;
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
-  'ev-mode','ev-buffer','ev-count','ev-reduced-margin'];
+  'ev-mode','ev-buffer','ev-count','ev-reduced-margin','ev-risky-interstation'];
 
 function node(tag,cls,value){
   const item=document.createElement(tag);
@@ -73,7 +74,8 @@ function readEvent(){
 function readSettings(){
   return {mode:$('ev-mode').value,connections:'auto',
     buffer:$('ev-buffer').value,maxOptions:Number($('ev-count').value),
-    allowReducedMargin:$('ev-reduced-margin').checked};
+    allowReducedMargin:$('ev-reduced-margin').checked,
+    allowRiskyInterstation:$('ev-risky-interstation').checked};
 }
 function updateButtons(){
   const hasPeople=participants.length>0;
@@ -351,8 +353,15 @@ function renderSearchResults(issues){
         if(reason==='not_found'||reason==='incomplete')
           side.append(node('p','route-through','Transbora essaie automatiquement les trajets directs, puis 1 et 2 changements.'));
       }
+      let riskGroupShown=false;
       list.forEach((j,index)=>{
-        const option=node('article','recap-route');
+        if(j.riskAlternative&&!riskGroupShown){
+          side.append(node('div','route-risk-group',
+            '⚠ Alternatives à risque — ajoutées uniquement à votre demande. '+
+            'Transfert entre gares non vérifié : validation obligatoire avant achat.'));
+          riskGroupShown=true;
+        }
+        const option=node('article','recap-route'+(j.riskAlternative?' risk-option':''));
         const day=j.date||dates[0];
         const legs=j.legs?.length?j.legs:[j];
         const operator=[...new Set(legs.map(t=>t.provider).filter(Boolean))].join(' · ');
@@ -378,6 +387,12 @@ function renderSearchResults(issues){
         if(changes){
           const through=legs.slice(0,-1).map(x=>x.to).filter(Boolean).join(' · ');
           if(through)option.append(node('span','route-through','Via '+through));
+        }
+        for(const risk of riskDetails(j,day)){
+          const warning=node('div','route-risk-details');
+          warning.append(node('strong',null,risk.shortTitle));
+          for(const line of risk.lines)warning.append(node('p',null,line));
+          option.append(warning);
         }
         side.append(option);
       });

@@ -140,7 +140,8 @@ export function allOptions(feeds,query,config,officialRules=new Map()){
     list.push(...searchFeed(f.data,query,f.source));
   }
   if(onlyOne||(!onlyTwo&&config.connections!=='no')){
-    list.push(...findConnections(chosen,query,{profile:config.buffer,officialRules,limit:100}));
+    list.push(...findConnections(chosen,query,{profile:config.buffer,officialRules,limit:100,
+      allowRiskyInterstation:config.allowRiskyInterstation===true}));
   }
   if(onlyTwo||config.connections==='two'){
     list.push(...findTwoChanges(chosen,query,{profile:config.buffer,officialRules,limit:90}));
@@ -307,7 +308,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       const runs=[];
       for(const mode of modes){
         if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
-        runs.push(await searchDirection({from,to},p,kind,{...settings,mode}));
+        runs.push(await searchDirection({from,to},p,kind,{...settings,mode,allowRiskyInterstation:false}));
       }
       const byKey=new Map();
       for(const run of runs)for(const journey of run.choices)
@@ -331,7 +332,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         const limits=eventBoundaries(event);
         for(const mode of modes){
           if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
-          const run=await searchDirection({from,to},p,kind,{...settings,mode},softEvent);
+          const run=await searchDirection({from,to},p,kind,{...settings,mode,allowRiskyInterstation:false},softEvent);
           covered ||=run.covered;
           for(const d of run.searched)if(!searched.includes(d))searched.push(d);
           for(const j of run.choices){
@@ -348,6 +349,32 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
           compareJourneys(a,b,kind,boundary));
         const room=Math.min(5-choices.length,Math.max(1,max-choices.length));
         choices.push(...extras.slice(0,room));
+      }
+      // Opt-in supplementary options: never replace or downgrade safe choices.
+      // First version: vetted NAME PAIR only (Paris-Montparnasse / Paris-Gare de Lyon),
+      // one rail-to-rail change, limited to the event day (and next-day returns).
+      // Interstation journey durations are UNKNOWN: these are explicitly risky.
+      if(settings.allowRiskyInterstation && settings.mode!=='bus'){
+        const railFeeds=feeds.filter(f=>f.source.mode==='rail');
+        const dates=kind==='A'?[event.startDate]:
+          [event.endDate,shiftDate(event.endDate,1)];
+        const excluded=new Set(choices.map(j=>j.key)),risks=new Map();
+        for(const date of dates){
+          if(cancelled())throw new Error('Recherche interrompue.');
+          if(timedOut())break;
+          const query={from,to,date,earliest:'00:00',latest:'23:59'};
+          const raw=findConnections(railFeeds,query,{
+            profile:settings.buffer,officialRules,limit:250,allowRiskyInterstation:true});
+          // Only keep deliberately flagged station changes, never leak safe results
+          // from this supplemental search into the principal ranking.
+          const risky=raw.filter(j=>j.riskAlternative===true);
+          for(const journey of pickItineraries(risky,query,event,kind,{maximum:200})){
+            if(!excluded.has(journey.key)&&!risks.has(journey.key))
+              risks.set(journey.key,journey);
+          }
+        }
+        const extras=[...risks.values()].sort((a,b)=>compareJourneys(a,b,kind,boundary));
+        choices.push(...extras.slice(0,2)); // up to 2, in addition to 2–5 safe proposals
       }
       const reason=choices.length?null:mainRun?.reason||'no_published_data';
       entries.reasons[kind]=reason;

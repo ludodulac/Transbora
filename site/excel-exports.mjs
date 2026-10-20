@@ -96,7 +96,11 @@ function transferText(j){
   const changes=j.transfers||(j.transfer?[j.transfer]:[]);
   return changes.length?changes.map((t,i)=>
     (i+1)+'· '+t.station+(t.departureStation!==t.station?' → '+t.departureStation:'')
-    +' · attente '+durationText(t.waitingSeconds)+' (marge '+durationText(t.minimumSeconds)+')'
+    +' · attente '+durationText(t.waitingSeconds)+' ('+
+      (t.riskType==='paris_interstation'?'⚠ RISQUE : changement de gare NON vérifié, seuil indicatif ':
+        'marge ')+durationText(t.minimumSeconds)+')'+
+      (t.riskType==='paris_interstation'?
+        ' · Temps de transfert réel inconnu ; risque de manquer le train suivant. Vérifier avant achat.':'')
   ).join('\n'):'Direct · aucun changement';
 }
 function optionsSheet(book,name,rows,event,{individual=false}={}){
