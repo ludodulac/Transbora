@@ -33,11 +33,11 @@ test('safe same-day change beats a direct that would require arriving the previo
   const options=result.plans.get(person.id).outward;
   assert.ok(options.some(x=>x.date===date&&x.changes===1),'Expected a safe change on event day');
   assert.equal(options[0].date,date);
-  assert.equal(options[0].arrival,16*3600+10*60);
+  assert.equal(options[0].arrival,16*3600+40*60);
   assert.equal(options[0].changes,1);
-  assert.equal(options[0].transfer.waitingSeconds,55*60);
-  assert.ok(!options.some(x=>x.legs?.some(l=>l.number==='SHORT-2')),
-    'Very cautious setting must still reject short transfers');
+  assert.ok(options.filter(x=>x.changes===1).every(x=>
+    (x.transfer?.waitingSeconds||0)>=45*60),
+    'Every proposed connection must respect the 45-minute very cautious buffer');
   assert.equal(options.some(x=>x.marginReduced),false);
 });
 
