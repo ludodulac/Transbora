@@ -13,6 +13,15 @@ export function serviceDescription(leg){
     provider&&provider!==route?provider:null].filter(Boolean).join(' · ');
   return label+(number?' · n° '+number:' · numéro non renseigné par la source');
 }
+export function shortServiceSummary(route){
+  return journeyLegs(route).map(leg=>{
+    const kind=leg?.mode==='bus'?'Autocar':'Train';
+    const routeName=String(leg?.route||'').trim();
+    const label=routeName||kind;
+    const number=String(leg?.number||'').trim();
+    return label+(number?' n°'+number:' (n° non indiqué)');
+  }).join(' / ');
+}
 export function serviceSummary(route){
   return journeyLegs(route).map((leg,index)=>
     (journeyLegs(route).length>1?'Tronçon '+(index+1)+' : ':'')+
