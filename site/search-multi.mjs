@@ -11,6 +11,10 @@ export function normalizeStop(s) {
 export function matchesStop(name, value) {
   const stop=normalizeStop(name), query=normalizeStop(value);
   if(query.length<3) return false;
+  // "Paris Gare de Lyon" is a Paris station, never the city of Lyon.
+  // Otherwise a search for Lyon erroneously considers it a destination stop
+  // and rejects valid connections DEPARTING from Paris Gare de Lyon.
+  if(query==='lyon'&&stop.startsWith('paris gare de lyon'))return false;
   return stop===query || stop.startsWith(query+' ') || stop.includes(' '+query+' ') ||
          stop.endsWith(' '+query);
 }
