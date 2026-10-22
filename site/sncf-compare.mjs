@@ -21,6 +21,10 @@ function sec(iso){return +iso.slice(9,11)*3600+ +iso.slice(11,13)*60+ +iso.slice
 function date(iso){return iso.slice(0,4)+'-'+iso.slice(4,6)+'-'+iso.slice(6,8);}
 function stopName(s){return String(s||'').toLocaleLowerCase('fr-FR')
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  // The official API commonly appends the town in parentheses:
+  // "Paris - Gare de Lyon - Hall 1 & 2 (Paris)" represents the same stop as
+  // GTFS "Paris Gare de Lyon Hall 1 - 2", not a second independent train.
+  .replace(/\s*\([^)]*\)/g,' ')
   .replace(/^gare (de |du |d')?/,'').replace(/[^a-z0-9]+/g,' ').trim();}
 function hash(value){
   let out=2166136261;
