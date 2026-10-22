@@ -30,29 +30,46 @@ async function load(){
         if(!options.length)continue;
         const field=document.createElement('fieldset');field.className='journey';
         const legend=node('legend',null,label);field.append(legend);
+        field.append(node('p','rank-instruction','Sur chaque trajet, choisissez « Nº 1 » pour votre préférence et éventuellement « Nº 2 » pour une autre option.'));
+        const noBackup=node('label','backup-none');
+        const noBackupRadio=document.createElement('input');
+        noBackupRadio.type='radio';noBackupRadio.name='p:'+person.id+':'+dir+':backup';
+        noBackupRadio.value='';noBackupRadio.checked=!person.answer?.[dir+'2'];
+        noBackup.append(noBackupRadio,node('span',null,'Pas de deuxième choix'));
+        field.append(noBackup);
         for(const option of [...options,{id:'NONE',label:'Aucun de ces horaires'}]){
-          const line=node('label','route-choice');
-          const radio=document.createElement('input');
-          radio.type='radio';radio.name='p:'+person.id+':'+dir;radio.value=option.id;radio.required=true;
-          radio.checked=person.answer?.[dir]===option.id;
-          const text=node('span','route-description');
+          const line=node('div','route-choice');
+          const text=node('div','route-description');
           appendReadableRoute(text,option.label);
-          line.append(radio,text);field.append(line);
+          const ranks=node('div','rank-actions');
+          const primary=node('label','rank-action rank-primary');
+          const first=document.createElement('input');
+          first.type='radio';first.name='p:'+person.id+':'+dir;first.value=option.id;
+          first.required=true;first.checked=person.answer?.[dir]===option.id;
+          primary.append(first,node('span',null,'Nº 1'));
+          ranks.append(primary);
+          if(option.id!=='NONE'){
+            const secondary=node('label','rank-action rank-secondary');
+            const second=document.createElement('input');
+            second.type='radio';second.name='p:'+person.id+':'+dir+':backup';
+            second.value=option.id;second.checked=person.answer?.[dir+'2']===option.id;
+            secondary.append(second,node('span',null,'Nº 2'));
+            ranks.append(secondary);
+            // Keep first and backup distinct, without making travelers
+            // decipher a validation error after scrolling past 5 routes.
+            first.addEventListener('change',()=>{
+              if(second.checked)noBackupRadio.checked=true;
+            });
+            second.addEventListener('change',()=>{
+              if(first.checked){
+                second.checked=false;noBackupRadio.checked=true;
+                notice('Choisissez un autre trajet pour le nº 2.',true);
+              }
+            });
+          }
+          line.append(text,ranks);field.append(line);
         }
-        // Optional second preference, not another ticket purchase.
-        const backup=node('label','backup-choice','Choix nº 2 (facultatif, si le nº 1 est indisponible)');
-        const select=node('select','backup-select');
-        select.name='p:'+person.id+':'+dir+':backup';
-        const empty=node('option',null,'Aucun deuxième choix');empty.value='';
-        select.append(empty);
-        for(let i=0;i<options.length;i++){
-          const item=node('option',null,'Option '+(i+1)+' — '+options[i].label.replace(/\s+/g,' ').slice(0,110));
-          item.value=options[i].id;
-          if(person.answer?.[dir+'2']===item.value)item.selected=true;
-          select.append(item);
-        }
-        backup.append(select);
-        card.append(field,backup);
+        card.append(field);
       }
       if(mode==='group'){
         const confirm=node('button','main-button person-confirm','✓ Confirmer les choix de '+person.first);
@@ -83,7 +100,7 @@ function answerFor(person){
   for(const dir of ['A','R']){
     const candidates=person.options[dir]||[];
     const chosen=$('choice-form').querySelector('input[name="p:'+person.id+':'+dir+'"]:checked');
-    const backup=$('choice-form').querySelector('select[name="p:'+person.id+':'+dir+':backup"]');
+    const backup=$('choice-form').querySelector('input[name="p:'+person.id+':'+dir+':backup"]:checked');
     result[dir]=candidates.length?chosen?.value:null;
     result[dir+'2']=candidates.length?(backup?.value||null):null;
   }
