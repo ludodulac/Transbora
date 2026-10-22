@@ -58,8 +58,10 @@ function publicOnly(journey){
 function getApiToken(){
   // Serverless Node functions use process.env. Netlify.env is an optional
   // compatibility fallback, never expose its value to the client.
-  return process.env.TRANSBORA_SNCF_ACCESS||process.env.SNCF_API_TOKEN||
-    globalThis.Netlify?.env?.get('TRANSBORA_SNCF_ACCESS')||
+  // On this Netlify account a function-only scoped value was not deployed.
+  // SNCF_API_TOKEN is stored as a secret in the account's All scopes context.
+  // Only this serverless function reads it; the browser never receives it.
+  return process.env.SNCF_API_TOKEN||
     globalThis.Netlify?.env?.get('SNCF_API_TOKEN')||'';
 }
 export default async function handler(request){
