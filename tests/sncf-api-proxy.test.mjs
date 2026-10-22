@@ -54,3 +54,18 @@ test('SNCF proxy rejects cross-site calls before using third-party API',async()=
  const reply=await handler(req);
  assert.equal(reply.status,403);
 });
+
+test('SNCF server health probe confirms configuration without exposing token',async()=>{
+ const before=process.env.SNCF_API_TOKEN;
+ process.env.SNCF_API_TOKEN='test-secret-health';
+ try{
+   const response=await handler(new Request('https://app.example/api/sncf/journeys'));
+   assert.equal(response.status,200);
+   const data=await response.json();
+   assert.equal(data.configured,true);
+   assert.equal(JSON.stringify(data).includes('test-secret-health'),false);
+ }finally{
+   if(before===undefined)delete process.env.SNCF_API_TOKEN;
+   else process.env.SNCF_API_TOKEN=before;
+ }
+});
