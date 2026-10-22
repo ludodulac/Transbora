@@ -20,7 +20,9 @@ async function load(){
       card.append(node('h2','traveler-name',person.first+' '+person.last));
       card.append(node('p','subtitle','Ville habituelle : '+person.departure));
       if(!person.options.A.length&&!person.options.R.length)
-        card.append(node('p','subtitle','Aucun trajet à choisir pour cette personne. Contactez l’organisateur si un déplacement est nécessaire.'));
+        card.append(node('p','subtitle',person.onsite?.A||person.onsite?.R?
+          '✅ Déjà sur place : aucun déplacement nécessaire pour ce trajet.':
+          'Aucun horaire disponible. Contactez l’organisateur.'));
       const state=node('p','traveler-status',person.answered?'✅ Choix déjà enregistrés — modifiables':'⏳ En attente de choix');
       card.append(state);
       for(const [dir,label] of [['A','Aller'],['R','Retour']]){
