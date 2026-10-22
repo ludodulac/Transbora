@@ -24,7 +24,13 @@ function stopName(s){return String(s||'').toLocaleLowerCase('fr-FR')
   // The official API commonly appends the town in parentheses:
   // "Paris - Gare de Lyon - Hall 1 & 2 (Paris)" represents the same stop as
   // GTFS "Paris Gare de Lyon Hall 1 - 2", not a second independent train.
-  .replace(/\s*\([^)]*\)/g,' ')
+  .replace(/\s*\(([^)]*)\)/g,(match,inside,offset,full)=>{
+    const context=(full.slice(0,offset).match(/[a-z0-9]+/g)||[]).join(' ');
+    const detail=(inside.match(/[a-z0-9]+/g)||[]).join(' ');
+    // Keep distinctions like "Mulhouse (bus station)" vs. the rail station.
+    // Only remove a repeated city hint such as "(Paris)" or "(Mulhouse)".
+    return detail&&(' '+context+' ').includes(' '+detail+' ')?' ':' '+detail+' ';
+  })
   .replace(/^gare (de |du |d')?/,'').replace(/[^a-z0-9]+/g,' ').trim();}
 function hash(value){
   let out=2166136261;
@@ -105,6 +111,7 @@ export async function fetchOfficialJourneys(event,person,kind,settings,onDiagnos
 function signature(j){
   const legs=j.legs?.length?j.legs:[j];
   return [j.date,j.departure,j.arrival,stopName(legs[0]?.from),stopName(legs.at(-1)?.to),
+    legs.map(x=>x.mode||j.mode||'').join(','), // never conflate coach vs train
     legs.slice(0,-1).map(x=>stopName(x.to)).join('|')].join('|');
 }
 export function mergeOfficialJourneys(current,additional,kind,event,person,maximum=5){
