@@ -33,6 +33,15 @@ function refreshList(){
     const info=node('p','history-details',(item.destination||'Lieu non précisé')+
       ' · '+date(item.startDate)+(item.endDate!==item.startDate?' au '+date(item.endDate):'')+
       (item.peopleCount?' · '+item.peopleCount+' voyageur(s)':''));
+    // Distinct event IDs may legitimately have the same title and date.
+    // Show the creation moment so identical "Festival moche" cards do not
+    // look like accidental duplicate records. Never merge/delete by title.
+    if(Number.isFinite(item.createdAt)&&item.createdAt>0){
+      const created=new Intl.DateTimeFormat('fr-FR',{
+        dateStyle:'short',timeStyle:'short',timeZone:'Europe/Paris'
+      }).format(new Date(item.createdAt));
+      card.append(node('p','history-created','Dossier créé le '+created));
+    }
     const link=node('a','primary history-open','Ouvrir le dossier →');
     link.href=ownerUrl(item.eventId,item.ownerKey,location.href);
     card.append(heading,badge,info,link);
