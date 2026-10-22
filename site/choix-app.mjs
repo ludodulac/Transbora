@@ -27,6 +27,9 @@ async function load(){
           'Aucun horaire disponible. Contactez l’organisateur.'));
       const state=node('p','traveler-status',person.answered?'✅ Choix déjà enregistrés — modifiables':'⏳ En attente de choix');
       card.append(state);
+      // Each group member has an independent editor and confirmation receipt.
+      // Closing Michel's form must never close Sophie's, or alter her choices.
+      const editor=node('div','traveler-editor');
       for(const [dir,label] of [['A','Aller'],['R','Retour']]){
         const options=person.options[dir]||[];
         if(!options.length)continue;
@@ -71,24 +74,65 @@ async function load(){
           }
           line.append(text,ranks);field.append(line);
         }
-        card.append(field);
+        editor.append(field);
       }
+      card.append(editor);
       if(mode==='group'){
         const confirm=node('button','main-button person-confirm','✓ Confirmer les choix de '+person.first);
         confirm.type='button';
+        const receipt=node('section','traveler-saved');
+        receipt.hidden=true;
+        receipt.setAttribute('role','status');
+        receipt.setAttribute('aria-live','polite');
+        receipt.tabIndex=-1;
+        const heading=node('h3',null,'✅ Choix de '+person.first+' enregistrés !');
+        const recap=node('p','saved-choices-summary');
+        const info=node('p','saved-choices-note','Votre réponse a été transmise à l’organisateur. Aucun billet n’a encore été acheté.');
+        const edit=node('button','link-button','Modifier mes choix');
+        edit.type='button';
+        edit.addEventListener('click',()=>{
+          receipt.hidden=true;editor.hidden=false;
+          editor.querySelector('input[type="radio"]')?.focus();
+        });
+        receipt.append(heading,recap,info,edit);
+        card.append(receipt);
+        const closeEditor=(answer,focus)=>{
+          person.answer=answer;
+          person.answered=true;
+          state.textContent='✅ Choix enregistrés pour '+person.first;
+          recap.textContent=summarizeChoices(person,answer);
+          editor.hidden=true;
+          receipt.hidden=false;
+          if(focus){
+            receipt.focus();
+            receipt.scrollIntoView?.({behavior:'smooth',block:'nearest'});
+          }
+        };
+        if(person.answered && person.answer)closeEditor(person.answer,false);
+        const feedback=node('p','save-inline-feedback');
+        feedback.setAttribute('role','status');
+        editor.append(feedback);
         confirm.addEventListener('click',async()=>{
           const answer=answerFor(person);
           if(!checkAnswer(person,answer))return;
-          confirm.disabled=true;notice('Enregistrement pour '+person.first+'…');
+          confirm.disabled=true;
+          const previous=confirm.textContent;
+          confirm.textContent='Enregistrement…';
+          feedback.textContent='Enregistrement pour '+person.first+'…';
           try{
             await api('submit',{token:shareToken,answers:[answer]});
-            state.textContent='✅ Choix enregistrés pour '+person.first+' — modifiables';
-            person.answered=true;
-            notice('✅ Choix de '+person.first+' enregistrés. Les autres voyageurs peuvent répondre plus tard.');
-          }catch(error){notice(error.message,true);}
-          finally{confirm.disabled=false;}
+            feedback.textContent='';
+            $('status').hidden=true;
+            closeEditor(answer,true);
+          }catch(error){
+            feedback.textContent='⚠ '+error.message;
+            notice(error.message,true);
+          }finally{
+            confirm.disabled=false;
+            confirm.textContent=previous;
+          }
         });
-        card.append(confirm);
+        editor.append(confirm);
       }
       root.append(card);
     }
@@ -96,6 +140,19 @@ async function load(){
     $('save').hidden=mode==='group';
     $('status').hidden=true;
   }catch(error){notice(error.message,true);}
+}
+function summarizeChoices(person,answer){
+  const summary=[];
+  for(const [dir,label] of [['A','Aller'],['R','Retour']]){
+    if(!(person.options[dir]||[]).length)continue;
+    const candidates=person.options[dir];
+    const first=candidates.findIndex(option=>option.id===answer[dir]);
+    const second=candidates.findIndex(option=>option.id===answer[dir+'2']);
+    const line=label+' : '+(answer[dir]==='NONE'?'aucun horaire retenu':
+      first>=0?'choix nº 1 = option '+(first+1):'à confirmer');
+    summary.push(line+(second>=0?' · choix nº 2 = option '+(second+1):''));
+  }
+  return summary.join(' • ');
 }
 function answerFor(person){
   const result={personId:person.id};
@@ -131,6 +188,7 @@ $('choice-form').addEventListener('submit',async event=>{
   try{
     await api('submit',{token:shareToken,answers:responses});
     $('choice-form').hidden=true;$('status').hidden=true;
+    $('success-recap').textContent=summarizeChoices(documentData.people[0],responses[0]);
     $('success').hidden=false;$('success').focus();
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){notice(error.message,true);}
