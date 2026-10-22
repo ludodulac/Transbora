@@ -446,6 +446,7 @@ function renderSearchResults(issues){
           no_published_data:'Horaires non publiés pour cette période.',
           incomplete:'Recherche incomplète : le délai de calcul a été atteint.',
           not_found:'Aucun trajet correspondant aux marges et aux correspondances autorisées.',
+          already_here:'Aucun déplacement nécessaire : ville ou gare de départ et d’arrivée identiques.',
           return_window_empty:'Aucun retour adapté trouvé dans les 48 h suivant la fin de présence (marge comprise). Le logiciel ne propose pas de trains plusieurs semaines après l’événement.'
         };
         side.append(node('p','no-options',
