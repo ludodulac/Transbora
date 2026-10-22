@@ -22,7 +22,11 @@ export function buildChoicePeople(event,participants,plans){
       }
     }
     people.push({id:p.id,first:p.first,last:p.last,departure:p.departure,options,
-      onsite:{A:plan.reasons?.A==='already_here',R:plan.reasons?.R==='already_here'}});
+      onsite:{A:plan.reasons?.A==='already_here',R:plan.reasons?.R==='already_here'},
+      routeEnds:{
+        A:{from:p.outwardOrigin||p.departure,to:p.outwardDestination||event.destination},
+        R:{from:p.returnOrigin||event.destination,to:p.returnDestination||p.departure}
+      }});
   }
   return people;
 }
