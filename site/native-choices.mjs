@@ -21,7 +21,8 @@ export function buildChoicePeople(event,participants,plans){
         options[dir].push({id,label:optionLabel(j,j.date||date,i+1)});
       }
     }
-    people.push({id:p.id,first:p.first,last:p.last,departure:p.departure,options});
+    people.push({id:p.id,first:p.first,last:p.last,departure:p.departure,options,
+      onsite:{A:plan.reasons?.A==='already_here',R:plan.reasons?.R==='already_here'}});
   }
   return people;
 }

@@ -20,7 +20,11 @@ async function load(){
       card.append(node('h2','traveler-name',person.first+' '+person.last));
       card.append(node('p','subtitle','Ville habituelle : '+person.departure));
       if(!person.options.A.length&&!person.options.R.length)
-        card.append(node('p','subtitle','Aucun trajet disponible pour cette personne. Son choix sera signalé à l’organisateur.'));
+        card.append(node('p','subtitle',person.onsite?.A||person.onsite?.R?
+          '✅ Déjà sur place : aucun déplacement nécessaire pour ce trajet.':
+          'Aucun horaire disponible. Contactez l’organisateur.'));
+      const state=node('p','traveler-status',person.answered?'✅ Choix déjà enregistrés — modifiables':'⏳ En attente de choix');
+      card.append(state);
       for(const [dir,label] of [['A','Aller'],['R','Retour']]){
         const options=person.options[dir]||[];
         if(!options.length)continue;
@@ -30,34 +34,80 @@ async function load(){
           const line=node('label','route-choice');
           const radio=document.createElement('input');
           radio.type='radio';radio.name='p:'+person.id+':'+dir;radio.value=option.id;radio.required=true;
+          radio.checked=person.answer?.[dir]===option.id;
           const text=node('span','route-description');
           appendReadableRoute(text,option.label);
           line.append(radio,text);field.append(line);
         }
-        card.append(field);
+        // Optional second preference, not another ticket purchase.
+        const backup=node('label','backup-choice','Choix nº 2 (facultatif, si le nº 1 est indisponible)');
+        const select=node('select','backup-select');
+        select.name='p:'+person.id+':'+dir+':backup';
+        const empty=node('option',null,'Aucun deuxième choix');empty.value='';
+        select.append(empty);
+        for(let i=0;i<options.length;i++){
+          const item=node('option',null,'Option '+(i+1)+' — '+options[i].label.replace(/\s+/g,' ').slice(0,110));
+          item.value=options[i].id;
+          if(person.answer?.[dir+'2']===item.value)item.selected=true;
+          select.append(item);
+        }
+        backup.append(select);
+        card.append(field,backup);
+      }
+      if(mode==='group'){
+        const confirm=node('button','main-button person-confirm','✓ Confirmer les choix de '+person.first);
+        confirm.type='button';
+        confirm.addEventListener('click',async()=>{
+          const answer=answerFor(person);
+          if(!checkAnswer(person,answer))return;
+          confirm.disabled=true;notice('Enregistrement pour '+person.first+'…');
+          try{
+            await api('submit',{token:shareToken,answers:[answer]});
+            state.textContent='✅ Choix enregistrés pour '+person.first+' — modifiables';
+            person.answered=true;
+            notice('✅ Choix de '+person.first+' enregistrés. Les autres voyageurs peuvent répondre plus tard.');
+          }catch(error){notice(error.message,true);}
+          finally{confirm.disabled=false;}
+        });
+        card.append(confirm);
       }
       root.append(card);
     }
     $('choice-form').hidden=false;
+    $('save').hidden=mode==='group';
     $('status').hidden=true;
   }catch(error){notice(error.message,true);}
+}
+function answerFor(person){
+  const result={personId:person.id};
+  for(const dir of ['A','R']){
+    const candidates=person.options[dir]||[];
+    const chosen=$('choice-form').querySelector('input[name="p:'+person.id+':'+dir+'"]:checked');
+    const backup=$('choice-form').querySelector('select[name="p:'+person.id+':'+dir+':backup"]');
+    result[dir]=candidates.length?chosen?.value:null;
+    result[dir+'2']=candidates.length?(backup?.value||null):null;
+  }
+  return result;
+}
+function checkAnswer(person,answer){
+  for(const dir of ['A','R']){
+    if((person.options[dir]||[]).length&&!answer[dir]){
+      notice('Choisissez d’abord le trajet nº 1 pour '+person.first+'.',true);return false;
+    }
+    if(answer[dir+'2']&&(answer[dir+'2']===answer[dir]||answer[dir]==='NONE')){
+      notice('Le deuxième choix doit être différent du premier.',true);return false;
+    }
+  }
+  return true;
 }
 $('choice-form').addEventListener('submit',async event=>{
   event.preventDefault();
   if(!documentData)return;
-  const responses=documentData.people.map(person=>{
-    const result={personId:person.id};
-    for(const dir of ['A','R']){
-      const candidates=person.options[dir]||[];
-      result[dir]=candidates.length?$('choice-form').querySelector(
-        'input[name="p:'+person.id+':'+dir+'"]:checked')?.value:null;
-    }
-    return result;
-  });
-  if(responses.some(r=>documentData.people.find(p=>p.id===r.personId).options.A.length&&!r.A||
-    documentData.people.find(p=>p.id===r.personId).options.R.length&&!r.R)){
-    notice('Sélectionnez un choix pour chaque trajet.',true);return;
-  }
+  // Individual link retains the same one-button journey; group links use a
+  // separate button per person and must never implicitly submit a whole group.
+  if(documentData.mode==='group')return;
+  const responses=documentData.people.map(answerFor);
+  if(!responses.every((r,i)=>checkAnswer(documentData.people[i],r)))return;
   $('save').disabled=true;notice('Enregistrement…');
   try{
     await api('submit',{token:shareToken,answers:responses});

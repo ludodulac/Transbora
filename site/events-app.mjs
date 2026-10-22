@@ -9,6 +9,7 @@ import {serviceSummary,sameClockOptions} from './journey-display.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
+import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -187,25 +188,41 @@ function renderPeople(){
       (p.outwardDate?' · aller '+p.outwardDate:'')+
       (p.returnDate?' · retour '+p.returnDate:'')));
     const settings=document.createElement('details');settings.className='person-custom';
-    const toggle=node('summary',null,'⚙ Personnaliser horaires et villes');settings.append(toggle);
+    const toggle=node('summary',null,'⚙ Modifier mes gares et horaires');settings.append(toggle);
     const form=document.createElement('form');form.className='person-custom-form';
-    const baseLabel=node('label',null,'Ville de départ habituelle');
+    const defaults={
+      outwardOrigin:p.departure,returnDestination:p.departure,
+      outwardDestination:$('event-destination').value,
+      returnOrigin:$('event-destination').value,
+      arrivalDate:$('event-start-date').value,arrivalTime:$('event-start-time').value,
+      releaseDate:$('event-end-date').value,releaseTime:$('event-end-time').value
+    };
+    const primary=node('div','person-custom-main');
+    const advanced=document.createElement('details');advanced.className='person-advanced';
+    advanced.append(node('summary',null,'Autres gares et ville habituelle'));
+    const extra=node('div','person-advanced-fields');
+    const baseLabel=node('label',null,'Ville habituelle (par défaut pour les deux trajets)');
     const baseInput=node('input');baseInput.name='departure';baseInput.type='text';
     baseInput.required=true;baseInput.maxLength=140;baseInput.value=p.departure;
-    attachStationInput(baseInput);baseLabel.append(baseInput);form.append(baseLabel);
+    attachStationInput(baseInput);baseLabel.append(baseInput);extra.append(baseLabel);
+    const simple={
+      outwardOrigin:'🚉 Je pars de',
+      returnDestination:'🏠 Je reviens à',
+      arrivalDate:'📅 Je dois être sur place le',
+      arrivalTime:'🕒 À cette heure',
+      releaseDate:'📅 Je peux repartir le',
+      releaseTime:'🕒 À partir de cette heure'
+    };
     for(const [key,title,type] of personOptionalFields){
-      const label=node('label',null,title);
+      const label=node('label',null,simple[key]||title);
       const input=node('input');input.name=key;input.type=type;
-      input.value=p[key]||'';input.maxLength=type==='text'?140:10;
-      if(type==='text'){
-        input.placeholder=key==='outwardOrigin'||key==='returnDestination'?p.departure:$('event-destination').value;
-        attachStationInput(input);
-      }else if(key==='arrivalDate')label.append(node('small','muted','Par défaut : '+$('event-start-date').value));
-      else if(key==='releaseDate')label.append(node('small','muted','Par défaut : '+$('event-end-date').value));
-      else if(key==='arrivalTime')label.append(node('small','muted','Par défaut : '+$('event-start-time').value));
-      else if(key==='releaseTime')label.append(node('small','muted','Par défaut : '+$('event-end-time').value));
-      label.append(input);form.append(label);
+      input.value=p[key]||defaults[key]||'';
+      input.maxLength=type==='text'?140:10;
+      if(type==='text')attachStationInput(input);
+      label.append(input);
+      (Object.hasOwn(simple,key)?primary:extra).append(label);
     }
+    form.append(primary);advanced.append(extra);form.append(advanced);
     const actions=node('div','person-custom-actions');
     const submit=node('button','primary','Enregistrer pour '+p.first);submit.type='submit';
     const reset=node('button','secondary','Réinitialiser les personnalisations');
@@ -223,7 +240,8 @@ function renderPeople(){
       for(const [key,,type] of personOptionalFields){
         const value=String(values[key]||'').trim();
         if(value && type==='text' && value.length<3){alert('Ville trop courte : '+key);return;}
-        if(value)next[key]=value;else delete next[key];
+        const fallback=(key==='outwardOrigin'||key==='returnDestination')?next.departure:defaults[key];
+        if(value && value!==fallback)next[key]=value;else delete next[key];
       }
       try{eventForPerson(readEvent(),next);}
       catch(error){alert(error.message);return;}
@@ -282,6 +300,15 @@ async function init(){
   updateTravelOptions();
   for(const id of ['include-outward','include-return'])
     $(id).addEventListener('change',updateTravelOptions);
+  const updateRiskMode=()=>{
+    const busOnly=$('ev-mode').value==='bus';
+    const risk=$('ev-risky-interstation');
+    risk.disabled=busOnly;
+    if(busOnly)risk.checked=false;
+    risk.closest('label').hidden=busOnly;
+  };
+  $('ev-mode').addEventListener('change',updateRiskMode);
+  updateRiskMode();
   const syncEventEnd=()=>{
     // Set end to the same moment whenever the start changes. The user can then
     // change either end field without having to redo the whole date or time.
@@ -418,7 +445,9 @@ function renderSearchResults(issues){
           unknown_destination:'Ville d’arrivée absente de nos horaires.',
           no_published_data:'Horaires non publiés pour cette période.',
           incomplete:'Recherche incomplète : le délai de calcul a été atteint.',
-          not_found:'Aucun trajet correspondant aux marges et aux correspondances autorisées.'
+          not_found:'Aucun trajet correspondant aux marges et aux correspondances autorisées.',
+          already_here:'Aucun déplacement nécessaire : ville ou gare de départ et d’arrivée identiques.',
+          return_window_empty:'Aucun retour adapté trouvé dans les 48 h suivant la fin de présence (marge comprise). Le logiciel ne propose pas de trains plusieurs semaines après l’événement.'
         };
         side.append(node('p','no-options',
           (explanations[reason]||'Pas de proposition trouvée.')+
@@ -594,6 +623,38 @@ async function performSearch(event,settings){
     officialRules,progress,{...limits,shouldAbort:()=>stopRequested,onDay});
   return {plans:result.plans,issues:[...prepared.issues,...result.issues],partial:result.partial};
 }
+/** Improve near-term train suggestions using the official SNCF planner,
+ * then retain GTFS results whenever API coverage or the service is missing.
+ * The token and all credentials remain on the server.
+ */
+async function compareWithSncf(event,settings){
+  if(settings.mode==='bus')return 0;
+  const tasks=[];
+  for(const person of participants){
+    for(const [kind,enabled] of [['A',event.includeOutward],['R',event.includeReturn]]){
+      if(enabled)tasks.push({person,kind});
+    }
+  }
+  let cursor=0,added=0;
+  const run=async()=>{
+    while(cursor<tasks.length&&!stopRequested){
+      const {person,kind}=tasks[cursor++];
+      const additional=await fetchOfficialJourneys(event,person,kind,settings);
+      if(!additional.length)continue;
+      const plan=plans.get(person.id);
+      if(!plan)continue;
+      const prop=kind==='A'?'outward':'returning';
+      const previous=plan[prop]||[];
+      const combined=mergeOfficialJourneys(previous,additional,kind,event,person,settings.maxOptions);
+      const prior=new Set(previous.map(x=>x.key||x.id));
+      added+=combined.filter(x=>!prior.has(x.key||x.id)).length;
+      plan[prop]=combined;
+      if(combined.length)plan.reasons[kind]=null;
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(3,tasks.length)},()=>run()));
+  return added;
+}
 $('cancel-search').addEventListener('click',()=>{
   stopRequested=true;
   if(cancelActiveSearch)cancelActiveSearch();
@@ -611,6 +672,11 @@ $('search-everyone').addEventListener('click',async()=>{
     status('');
     const result=await performSearch(event,settings);
     plans=result.plans;hasSearched=true;
+    if(settings.mode!=='bus'){
+      $('search-detail').textContent='Comparaison des itinéraires avec l’API officielle SNCF…';
+      try{await compareWithSncf(event,settings);}
+      catch{ /* Official verification is supplementary; GTFS results survive. */ }
+    }
     const gaps=participants.reduce((total,p)=>{
       const plan=plans.get(p.id);
       return total+(event.includeOutward&&!plan.outward.length?1:0)

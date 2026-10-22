@@ -424,3 +424,17 @@ border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b460
  border-left:3px solid #5365ab;border-radius:8px;font-size:.83rem;color:#334579;font-weight:730}
 .recap-route.route-same-service{border-left:3px solid #6176bd}
 @media(max-width:620px){#etape-2 .person-custom-form{grid-template-columns:minmax(0,1fr)}}
+
+/* Compact artist override: primary fields only; advanced exceptions folded. */
+#etape-2 .person-custom-form{display:block}
+#etape-2 .person-custom-main,#etape-2 .person-advanced-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+#etape-2 .person-advanced{grid-column:1/-1;margin:13px 0;border:1px solid #d4e8dd;border-radius:10px;background:#f8fdfb}
+#etape-2 .person-advanced>summary{padding:12px;font-size:.82rem;font-weight:800;cursor:pointer}
+#etape-2 .person-advanced-fields{padding:12px}
+#etape-2 .person-custom-actions{margin-top:15px}
+@media(max-width:620px){#etape-2 .person-custom-main,#etape-2 .person-advanced-fields{grid-template-columns:minmax(0,1fr)}}
+
+.advanced-travel{grid-column:1/-1;border:1px solid #d9dfed;border-radius:10px;padding:10px;background:#f8f9fe}
+.advanced-travel>summary{font-weight:800;cursor:pointer;color:#423b76;padding:5px}
+.advanced-travel-fields{display:grid;gap:11px;margin-top:12px}
+.advanced-travel-fields label[hidden]{display:none!important}

@@ -48,3 +48,10 @@ h1{font-size:clamp(1.85rem,5.8vw,2.6rem);line-height:1.13;margin:12px 0;letter-s
 .booking-choice>strong{font-size:.84rem;color:#176a7b}
 .booking-choice>.choice-times{font-size:1.02rem}
 @media(max-width:520px){.choice-times{font-size:1.07rem}.choice-station{font-size:.86rem}}
+
+/* Optional fallback ranks and independent group confirmations. */
+.backup-choice{display:grid;gap:9px;margin:12px 0 23px;color:#195e69;font-size:.88rem;font-weight:800}
+.backup-select{display:block;width:100%;min-width:0;padding:12px;border:1px solid #b9d5db;border-radius:10px;background:#f8fdfd;color:#204958;font:inherit}
+.traveler-status{font-size:.87rem;font-weight:760;color:#247565}
+.person-confirm{margin:12px 0 0}
+.choice-backup-heading{margin-top:12px;color:#6b4c2b!important}

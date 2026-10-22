@@ -7,6 +7,10 @@ import {queryKey,itineraryKey} from './events-model.mjs';
 import {canBeDirect,canBeOneChange} from './route-topology.mjs';
 const MAX_ROUTES=3;
 const DAY_MS=86400000;
+// Normal returns: consider only departure opportunities in the 48 hours after
+// the artist is free (including station access margin). Do not fill 5 cards
+// by silently searching weeks ahead. Explicit Excel travel dates override this.
+export const RETURN_DEPARTURE_WINDOW_HOURS=48;
 // Calendar shifts avoid local DST hazards: dates are dates, not 24-hour local clocks.
 export function shiftDate(iso,days){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(iso))throw new Error('Date de voyage invalide');
@@ -56,13 +60,19 @@ function tiePenalty(route){
   const walk=transfers.filter(t=>t.proximity!=='same_station').length;
   return changes*1800+short*900+walk*1800+(route.arrival-route.departure)*0.05;
 }
-/** Primary criterion is closeness to the PRESENCE/departure boundary.
- * Allers: latest station arrival <= boundary; retours: earliest
- * station departure >= boundary. Change count & journey length break ties.
+/** Outward: favor arrival near presence. Return: favor reaching home first,
+ * never a long early-departing service over a faster later departure.
+ * No prices, available seats or connection guarantees are inferred.
  */
 export function compareJourneys(a,b,kind,boundary){
-  const time=j=>+parisInstant(j.date,kind==='A'?j.arrival:j.departure);
-  const gapA=Math.abs(time(a)-boundary),gapB=Math.abs(time(b)-boundary);
+  const arrival=j=>+parisInstant(j.date,j.arrival);
+  if(kind==='R'){
+    return arrival(a)-arrival(b)
+      ||tiePenalty(a)-tiePenalty(b)
+      ||(a.changes||0)-(b.changes||0)
+      ||absTime(a)-absTime(b);
+  }
+  const gapA=Math.abs(arrival(a)-boundary),gapB=Math.abs(arrival(b)-boundary);
   return gapA-gapB||tiePenalty(a)-tiePenalty(b)
     ||(a.changes||0)-(b.changes||0)
     ||absTime(a)-absTime(b);
@@ -73,6 +83,7 @@ export function compareJourneys(a,b,kind,boundary){
  * Preserve the organizer's arrival/departure boundary as a hard constraint.
  */
 export function compareMultimodalJourneys(a,b,kind,boundary){
+  if(kind==='R')return compareJourneys(a,b,kind,boundary);
   const score=j=>{
     const relevant=kind==='A'?j.arrival:j.departure;
     const gap=Math.abs(+parisInstant(j.date,relevant)-boundary)/1000;
@@ -157,26 +168,17 @@ export function selectPracticalOutward(candidates,{deadline,eventDate,maximum=5}
   // Chronological proposal ordering follows usefulness, not train count.
   return selected.sort(compare);
 }
-/** Return journeys: after satisfying the event-end and venue-to-station
- * margin, prefer a reasonably early departure with a short total journey.
- * A late train is NOT necessarily worse if it gets the artist home much earlier.
- * This is not a fare, seat availability, or guaranteed-connection score.
+/** Earliest possible arrival at the artist's destination, after the
+ * requested venue-to-station margin. Use penalties ONLY for equal arrivals.
  */
 export function practicalReturnScore(route,boundary){
-  const departure=+parisInstant(route.date,route.departure);
-  const waitingMinutes=Math.max(0,(departure-boundary)/60000);
+  const arrival=+parisInstant(route.date,route.arrival);
   const durationMinutes=Math.max(0,(route.arrival-route.departure)/60);
-  const legs=route.legs?.length?route.legs:[route];
-  const transfers=route.transfers||(route.transfer?[route.transfer]:[]);
-  const unverified=transfers.filter(t=>t.proximity!=='same_station').length;
-  return 0.55*waitingMinutes+0.85*durationMinutes+
-    25*Math.max(0,legs.length-1)+15*unverified;
+  return Math.max(0,(arrival-boundary)/60000)+durationMinutes*0.000001;
 }
 export function selectPracticalReturn(candidates,{deadline,maximum=5}){
   if(!candidates.length||maximum<=0)return [];
-  const ranked=[...candidates].sort((a,b)=>
-    practicalReturnScore(a,deadline)-practicalReturnScore(b,deadline)
-    ||compareJourneys(a,b,'R',deadline));
+  const ranked=[...candidates].sort((a,b)=>compareJourneys(a,b,'R',deadline));
   // Do not discard legitimate train services with the same clocks, but
   // avoid putting them side-by-side at the expense of varied itineraries.
   const seen=new Set(),different=[],sameClock=[];
@@ -305,6 +307,8 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         reason:!knownFrom?'unknown_origin':'unknown_destination'};
     }
     const deadline=travelBoundary(boundaryEvent,kind);
+    const boundedReturn=kind==='R'&&!explicit.length;
+    const returnCutoff=deadline+RETURN_DEPARTURE_WINDOW_HOURS*3600000;
     const boundaryDay=kind==='A'?boundaryEvent.startDate:boundaryEvent.endDate;
     const finalClockDay=shiftDate(publishedEnd,1);
     const starting=kind==='A'?
@@ -348,7 +352,9 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       let tierTruncated=false;
       let current=explicit.length?explicit[0]:starting;
       const tierFound=new Map();
-      while(explicit.length?(current===explicit[0]):(kind==='A'?current>=ending:current<=ending)){
+      while(explicit.length?(current===explicit[0]):
+        (kind==='A'?current>=ending:
+          current<=ending&&(!boundedReturn||+parisInstant(current,0)<=returnCutoff))){
         if(cancelled())throw new Error('Recherche interrompue.');
         if(timedOut()||Date.now()-dirStarted>perDirection){
           tierTruncated=true;
@@ -366,14 +372,16 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         try{
           if(!cache.has(key))cache.set(key,allOptions(feeds,query,tierConfig,officialRules));
           for(const route of pickItineraries(cache.get(key),query,boundaryEvent,kind,{maximum:200})){
+            // A GTFS date can include 25:00/26:00 departures on the next day:
+            // filter by actual station departure time, not only service date.
+            if(boundedReturn&&+parisInstant(route.date,route.departure)>returnCutoff)continue;
             if(!tierFound.has(route.key))tierFound.set(route.key,route);
           }
         }catch(err){
           issues.push(p.first+' '+p.last+' / '+kind+' le '+date+' : '+err.message);
         }
         const ranked=[...tierFound.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline));
-        if(!explicit.length&&ranked.length>=max){
-          if(kind==='R')break;
+        if(!explicit.length&&ranked.length>=max&&kind==='A'){
           const previous=shiftDate(date,-1);
           const latestOlderArrival=+parisInstant(previous,86400)+maxPath*1000;
           const selectedArrival=+parisInstant(ranked[max-1].date,ranked[max-1].arrival);
@@ -384,10 +392,14 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
         await new Promise(resolve=>setTimeout(resolve,0));
       }
       if(tierFound.size){
-        chosenTier=tier;
+        chosenTier ||=tier;
         for(const [k,v] of tierFound)found.set(k,v);
-        break;
+        // Always compare directs and one-change options before recommending
+        // the earliest home arrival. Search two changes if still fewer than
+        // the requested number; do not wait weeks for a direct.
+        if(kind!=='R'||!automatic)break;
       }
+      if(kind==='R'&&automatic&&tier==='only_one'&&found.size>=max)break;
       if(tierTruncated)issues.push(p.first+' '+p.last+' : niveau '+
         (tierLabels[tier]||tier)+' exploré partiellement ; résultats non exhaustifs.');
     }
@@ -396,7 +408,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       :[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max);
     return {choices,searched,covered,level:chosenTier,
       reason:directionIncomplete?'incomplete':
-        !covered?'no_published_data':!choices.length?'not_found':null};
+        !covered?'no_published_data':!choices.length?(boundedReturn?'return_window_empty':'not_found'):null};
   }
   for(let i=0;i<participants.length;i++){
     const p=participants[i];
@@ -420,7 +432,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       const from=kind==='A'?(p.outwardOrigin||p.departure):(p.returnOrigin||event.destination);
       const to=kind==='A'?(p.outwardDestination||event.destination):(p.returnDestination||p.departure);
       if(normalizeStop(from)===normalizeStop(to)){
-        issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
+        entries.reasons[kind]='already_here';
         continue;
       }
       // Train + autocar means a union of eligible itineraries, not "stop as
