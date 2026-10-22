@@ -637,6 +637,20 @@ async function compareWithSncf(event,settings){
       if(enabled)tasks.push({person,kind});
     }
   }
+  // One inexpensive read-only probe before querying several travelers:
+  // when the Netlify runtime secret is missing, preserve GTFS and explain
+  // exactly why the official comparison could not run.
+  try{
+    const probe=await fetch('/api/sncf/journeys',{method:'GET',cache:'no-store',
+      signal:AbortSignal.timeout(6000)});
+    if(probe.ok){
+      const health=await probe.json();
+      if(health.configured===false)
+        return {added:0,success:0,failed:0,outside:0,missing:1};
+    }
+  }catch{
+    // Older hosts or network errors fall back to the existing POST logic.
+  }
   let cursor=0,added=0,success=0,failed=0,outside=0;
   const run=async()=>{
     while(cursor<tasks.length&&!stopRequested){
@@ -696,6 +710,7 @@ $('search-everyone').addEventListener('click',async()=>{
     renderSearchResults(result.issues);
     renderIndividualButtons(event);
     const sncfLabel=settings.mode==='bus'?' · Mode autocar, API SNCF non utilisée.':
+      sncf.missing>0?' · ⚠ API SNCF non configurée sur Netlify : horaires GTFS utilisés.':
       sncf.success>0?' · API SNCF consultée ('+sncf.success+' recherche(s) ; '+
         sncf.added+' proposition(s) retenue(s)).':
       sncf.failed>0?' · ⚠ API SNCF temporairement indisponible : horaires GTFS utilisés.':
