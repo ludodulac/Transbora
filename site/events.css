@@ -433,3 +433,8 @@ border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b460
 #etape-2 .person-advanced-fields{padding:12px}
 #etape-2 .person-custom-actions{margin-top:15px}
 @media(max-width:620px){#etape-2 .person-custom-main,#etape-2 .person-advanced-fields{grid-template-columns:minmax(0,1fr)}}
+
+.advanced-travel{grid-column:1/-1;border:1px solid #d9dfed;border-radius:10px;padding:10px;background:#f8f9fe}
+.advanced-travel>summary{font-weight:800;cursor:pointer;color:#423b76;padding:5px}
+.advanced-travel-fields{display:grid;gap:11px;margin-top:12px}
+.advanced-travel-fields label[hidden]{display:none!important}
