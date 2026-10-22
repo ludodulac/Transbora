@@ -57,7 +57,11 @@ function checkedPeople(raw){
       });
     }
     return {id,first,last,departure:from,options,
-      onsite:{A:p.onsite?.A===true,R:p.onsite?.R===true}};
+      onsite:{A:p.onsite?.A===true,R:p.onsite?.R===true},
+      routeEnds:{
+        A:{from:safe(p.routeEnds?.A?.from||from,140),to:safe(p.routeEnds?.A?.to,140)},
+        R:{from:safe(p.routeEnds?.R?.from,140),to:safe(p.routeEnds?.R?.to||from,140)}
+      }};
   });
 }
 async function takeBody(req){
