@@ -36,6 +36,17 @@ test('group travelers confirm separately and second preference is retained',asyn
  assert.deepEqual(calls.at(-1).answers,[{personId:'P-001',A:'M1',A2:'M2',R:null,R2:null}]);
  assert.match(cards[0].querySelector('.traveler-status').textContent,/enregistrés/);
  assert.match(cards[1].querySelector('.traveler-status').textContent,/attente/);
+ assert.equal(cards[0].querySelector('.traveler-editor').hidden,true,
+   'Michel editor closes only after the successful server response');
+ assert.equal(cards[0].querySelector('.traveler-saved').hidden,false);
+ assert.match(cards[0].querySelector('.saved-choices-summary').textContent,
+   /choix nº 1 = option 1.*choix nº 2 = option 2/);
+ assert.equal(cards[1].querySelector('.traveler-editor').hidden,false,
+   'Sophie can continue choosing without reopening the form');
+ cards[0].querySelector('.traveler-saved .link-button').click();
+ assert.equal(cards[0].querySelector('.traveler-editor').hidden,false,
+   'Already confirmed traveler can explicitly edit their choice');
+ assert.equal(cards[0].querySelector('.traveler-saved').hidden,true);
  cards[1].querySelector('input[value="S1"]').checked=true;
  cards[1].querySelector('.person-confirm').click();
  await new Promise(r=>setTimeout(r,40));
