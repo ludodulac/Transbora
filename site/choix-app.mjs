@@ -40,7 +40,7 @@ async function load(){
         // Optional second preference, not another ticket purchase.
         const backup=node('label','backup-choice','Choix nº 2 (facultatif, si le nº 1 est indisponible)');
         const select=node('select','backup-select');
-        select.name='p:'+person.id+':'+dir+':backup;
+        select.name='p:'+person.id+':'+dir+':backup';
         const empty=node('option',null,'Aucun deuxième choix');empty.value='';
         select.append(empty);
         for(let i=0;i<options.length;i++){
