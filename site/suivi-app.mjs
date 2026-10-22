@@ -1,6 +1,7 @@
 import {api,choiceUrl,textLinks} from './native-choices.mjs';
 import {registerHistory,forgetHistory} from './event-history.mjs';
 import {appendReadableRoute} from './route-label.mjs';
+import {stationPair} from './traveler-stations.mjs';
 const $=id=>document.getElementById(id), params=new URLSearchParams(location.hash.slice(1));
 const eventId=params.get('event'),ownerKey=params.get('key');
 let report=null;
@@ -19,7 +20,10 @@ async function refresh({confirmUpdate=false}={}){
     const summary=$('summary');summary.replaceChildren();
     for(const p of report.people){
       const row=node('article','summary-row');
-      row.append(node('strong',null,p.first+' '+p.last+' · '+p.departure));
+      row.append(node('strong',null,p.first+' '+p.last));
+      const out=stationPair(p,'A',report.event.destination),ret=stationPair(p,'R',report.event.destination);
+      row.append(node('p','station-summary','Aller : '+out.from+' → '+out.to));
+      row.append(node('p','station-summary','Retour : '+ret.from+' → '+ret.to));
       if(!p.options.A.length&&!p.options.R.length)
         row.append(node('p',null,p.onsite?.A||p.onsite?.R?
           '✅ Aucun déplacement nécessaire : ville ou gare identique.':
