@@ -58,9 +58,16 @@ function publicOnly(journey){
 function getApiToken(){
   // Serverless Node functions use process.env. Netlify.env is an optional
   // compatibility fallback, never expose its value to the client.
-  // On this Netlify account a function-only scoped value was not deployed.
-  // SNCF_API_TOKEN is stored as a secret in the account's All scopes context.
-  // Only this serverless function reads it; the browser never receives it.
+  // This account's managed-secret setting and function-only scope did not
+  // reach the deployed Node runtime. Store a credential in a Netlify
+  // environment variable available to all scopes, not in source or browser.
+  // Base64 is TRANSPORT ENCODING, not encryption: protect Netlify account access.
+  const encoded=process.env.TRANSBORA_SNCF_ACCESS_B64||'';
+  if(encoded){
+    const decoded=Buffer.from(encoded,'base64').toString('utf8').trim();
+    if(/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(decoded))
+      return decoded;
+  }
   return process.env.SNCF_API_TOKEN||
     globalThis.Netlify?.env?.get('SNCF_API_TOKEN')||'';
 }
