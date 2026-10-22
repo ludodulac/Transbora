@@ -136,9 +136,20 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
         if(!record.shareLinks.some(link=>link.token===shareToken))
           return failure('Ce lien a été remplacé. Demandez le nouveau lien à votre organisateur.',410);
         const authorized=record.people.filter(p=>lookup.personIds.includes(p.id));
-        if(op==='view')return json({event:record.event,mode:record.mode,
-          people:authorized.map(p=>({...p,options:p.options})),expiresAt:record.expiresAt});
-        if(!Array.isArray(body.answers)||body.answers.length!==authorized.length)
+        if(op==='view'){
+          const people=await Promise.all(authorized.map(async p=>{
+            const answer=await replies.get(prefix('r',record.id+'/'+p.id),{type:'json'});
+            // This token already grants access to this group / traveler, not to
+            // the organizer's booking tracking or private owner credential.
+            return {...p,answered:Boolean(answer),answer:answer?{
+              A:answer.A??null,R:answer.R??null,A2:answer.A2??null,R2:answer.R2??null
+            }:null};
+          }));
+          return json({event:record.event,mode:record.mode,people,expiresAt:record.expiresAt});
+        }
+        // A group member can confirm JUST their own choices without waiting
+        // for all other travelers. Keep the original bulk format compatible.
+        if(!Array.isArray(body.answers)||!body.answers.length||body.answers.length>authorized.length)
           return failure('Sélection incomplète.');
         const chosen=new Map();
         for(const answer of body.answers){
@@ -151,12 +162,21 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
             if(selected!=='NONE'&&!p.options[d].some(o=>o.id===selected))
               return failure('Choisissez une proposition valide ou Aucun.');
             values[d]=selected;
+            const backup=safe(answer[d+'2'],180);
+            if(backup && backup!=='NONE'){
+              if(backup===selected||!p.options[d].some(o=>o.id===backup))
+                return failure('Le deuxième choix doit être différent du premier.');
+              if(selected==='NONE')return failure('Aucun horaire et un deuxième choix sont incompatibles.');
+              values[d+'2']=backup;
+            }else values[d+'2']=null;
           }
           chosen.set(p.id,values);
         }
-        for(const p of authorized){
-          await replies.setJSON(prefix('r',record.id+'/'+p.id),
-            {personId:p.id,...chosen.get(p.id),updatedAt:clock()});
+        // Write only explicitly submitted traveler IDs. Existing answers for
+        // Michel are NEVER touched when Sophie submits later.
+        for(const [personId,selected] of chosen){
+          await replies.setJSON(prefix('r',record.id+'/'+personId),
+            {personId,...selected,updatedAt:clock()});
         }
         return json({saved:true,count:chosen.size});
       }
