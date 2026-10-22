@@ -704,7 +704,7 @@ $('search-everyone').addEventListener('click',async()=>{
       'Recherche partielle : '+gaps+' trajets sans option affichée. Une autre recherche peut trouver davantage de trains.':
       'Recherche terminée : '+participants.length+' voyageur(s), '+gaps+
       ' trajet(s) sans option dans les horaires consultés. Vérifiez avant de réserver.')+sncfLabel,
-      Boolean(result.partial||gaps||sncf.failed));
+      Boolean(result.partial||gaps));
     updateButtons();
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(error){
