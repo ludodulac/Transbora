@@ -432,7 +432,7 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       const from=kind==='A'?(p.outwardOrigin||p.departure):(p.returnOrigin||event.destination);
       const to=kind==='A'?(p.outwardDestination||event.destination):(p.returnDestination||p.departure);
       if(normalizeStop(from)===normalizeStop(to)){
-        issues.push(p.first+' '+p.last+' : départ et arrivée identiques.');
+        entries.reasons[kind]='already_here';
         continue;
       }
       // Train + autocar means a union of eligible itineraries, not "stop as
