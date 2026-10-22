@@ -39,5 +39,8 @@ test('traveler chooses one actual departure and return on mobile without externa
  assert.equal(calls[1].answers[0].A,'a-1');
  assert.equal(calls[1].answers[0].R,'r-1');
  assert.equal(window.document.getElementById('success').hidden,false);
+ assert.match(window.document.getElementById('success').textContent,/Votre réponse a bien été transmise/);
+ assert.match(window.document.getElementById('success-recap').textContent,/Aller.*option 1.*Retour.*option 1/);
+ assert.equal(window.document.getElementById('choice-form').hidden,true);
  dom.window.close();
 });

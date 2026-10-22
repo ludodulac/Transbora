@@ -81,3 +81,14 @@ h1{font-size:clamp(1.85rem,5.8vw,2.6rem);line-height:1.13;margin:12px 0;letter-s
 
 .station-summary{font-size:.84rem;color:#496b75;line-height:1.5;margin:0 0 4px;
  overflow-wrap:anywhere}
+
+/* 036 — confirmation receipt stays with its traveler, not offscreen at the top. */
+.traveler-saved{background:#e8f9ef;border:2px solid #7ecab2;border-radius:14px;padding:19px;
+  margin:16px 0 3px;outline-offset:4px}
+.traveler-saved[hidden],.traveler-editor[hidden]{display:none!important}
+.traveler-saved h3{margin:0 0 10px;color:#166f54;font-size:1.14rem}
+.saved-choices-summary{margin:12px 0;color:#244c53;font-size:.94rem;font-weight:750;line-height:1.65}
+.saved-choices-note{margin:8px 0;color:#2f6253;line-height:1.55;font-size:.89rem}
+.traveler-saved .link-button{margin-top:8px;min-height:42px}
+.save-inline-feedback{color:#a13d2f;font-size:.88rem;font-weight:750;line-height:1.5}
+.save-inline-feedback:empty{display:none}
