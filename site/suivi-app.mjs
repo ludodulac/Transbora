@@ -28,11 +28,19 @@ async function refresh({confirmUpdate=false}={}){
         const status=chosen==='NONE'?'Aucun horaire souhaité':
           option?option.label:'En attente de réponse';
         const answer=node('div','booking-choice');
-        answer.append(node('strong',null,label+' — '+(option?'Trajet choisi':status)));
+        answer.append(node('strong',null,label+' — '+(option?'Choix nº 1':status)));
         if(option){
           const route=node('div','booking-route');
           appendReadableRoute(route,option.label);
           answer.append(route);
+        }
+        const secondId=p.answer?.[dir+'2'];
+        const second=p.options[dir].find(o=>o.id===secondId);
+        if(second){
+          const subtitle=node('strong','choice-backup-heading','Choix nº 2 (solution de secours)');
+          const alternative=node('div','booking-route');
+          appendReadableRoute(alternative,second.label);
+          answer.append(subtitle,alternative);
         }
         row.append(answer);
         const booking=p.booking?.[dir]||null;
@@ -111,17 +119,18 @@ $('copy-links').addEventListener('click',async()=>{
 });
 $('download').addEventListener('click',()=>{
   if(!report)return;
-  const csv=[['Voyageur','Ville de départ','Sens','Choix','Statut','Date de réponse','Date de réservation confirmée'].join(';')];
+  const csv=[['Voyageur','Ville de départ','Sens','Choix nº 1','Choix nº 2','Statut','Date de réponse','Date de réservation confirmée'].join(';')];
   const escape=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
   for(const p of report.people){
     for(const [dir,label] of [['A','ALLER'],['R','RETOUR']]){
       if(!p.options[dir].length)continue;
       const choice=p.options[dir].find(x=>x.id===p.answer?.[dir]);
       const name=choice?.label|| (p.answer?.[dir]==='NONE'?'Aucun horaire':'—');
+      const backup=p.options[dir].find(x=>x.id===p.answer?.[dir+'2']);
       const booking=p.booking?.[dir];
       const state=booking?(booking.optionId===p.answer?.[dir]?'Billet acheté':'⚠ Choix modifié après achat'):
         !p.answer?'En attente':p.answer?.[dir]==='NONE'?'À revoir':'À acheter';
-      csv.push([p.first+' '+p.last,p.departure,label,name,state,
+      csv.push([p.first+' '+p.last,p.departure,label,name,backup?.label||'—',state,
         p.answer?.updatedAt?new Date(p.answer.updatedAt).toLocaleString('fr-FR'):'',
         booking?.bookedAt?new Date(booking.bookedAt).toLocaleString('fr-FR'):''].map(escape).join(';'));
     }
