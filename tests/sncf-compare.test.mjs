@@ -76,4 +76,10 @@ test('official API and GTFS equivalent Paris–Mulhouse direct trains are one op
  const distinct=mergeOfficialJourneys([gtfs,otherStation],[official],
    'A',concert,{departure:'Paris'},5);
  assert.equal(distinct.length,2,'different Paris departure stations cannot be silently merged');
+ const bus={...gtfs,key:'different-coach',
+   legs:[{from:'Paris Gare de Lyon Hall 1 - 2',to:'Mulhouse (bus station)',mode:'bus'}],
+   mode:'bus'};
+ const withCoach=mergeOfficialJourneys([gtfs,bus],[official],
+   'A',concert,{departure:'Paris'},5);
+ assert.equal(withCoach.length,2,'bus station and train options must remain separate');
 });
