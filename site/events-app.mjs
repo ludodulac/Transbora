@@ -9,6 +9,7 @@ import {serviceSummary,sameClockOptions} from './journey-display.mjs';
 import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choices.mjs';
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
+import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -612,6 +613,38 @@ async function performSearch(event,settings){
     officialRules,progress,{...limits,shouldAbort:()=>stopRequested,onDay});
   return {plans:result.plans,issues:[...prepared.issues,...result.issues],partial:result.partial};
 }
+/** Improve near-term train suggestions using the official SNCF planner,
+ * then retain GTFS results whenever API coverage or the service is missing.
+ * The token and all credentials remain on the server.
+ */
+async function compareWithSncf(event,settings){
+  if(settings.mode==='bus')return 0;
+  const tasks=[];
+  for(const person of participants){
+    for(const [kind,enabled] of [['A',event.includeOutward],['R',event.includeReturn]]){
+      if(enabled)tasks.push({person,kind});
+    }
+  }
+  let cursor=0,added=0;
+  const run=async()=>{
+    while(cursor<tasks.length&&!stopRequested){
+      const {person,kind}=tasks[cursor++];
+      const additional=await fetchOfficialJourneys(event,person,kind,settings);
+      if(!additional.length)continue;
+      const plan=plans.get(person.id);
+      if(!plan)continue;
+      const prop=kind==='A'?'outward':'returning';
+      const previous=plan[prop]||[];
+      const combined=mergeOfficialJourneys(previous,additional,kind,event,person,settings.maxOptions);
+      const prior=new Set(previous.map(x=>x.key||x.id));
+      added+=combined.filter(x=>!prior.has(x.key||x.id)).length;
+      plan[prop]=combined;
+      if(combined.length)plan.reasons[kind]=null;
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(3,tasks.length)},()=>run()));
+  return added;
+}
 $('cancel-search').addEventListener('click',()=>{
   stopRequested=true;
   if(cancelActiveSearch)cancelActiveSearch();
@@ -629,6 +662,11 @@ $('search-everyone').addEventListener('click',async()=>{
     status('');
     const result=await performSearch(event,settings);
     plans=result.plans;hasSearched=true;
+    if(settings.mode!=='bus'){
+      $('search-detail').textContent='Comparaison des itinéraires avec l’API officielle SNCF…';
+      try{await compareWithSncf(event,settings);}
+      catch{ /* Official verification is supplementary; GTFS results survive. */ }
+    }
     const gaps=participants.reduce((total,p)=>{
       const plan=plans.get(p.id);
       return total+(event.includeOutward&&!plan.outward.length?1:0)
