@@ -1,5 +1,6 @@
 import {api} from './native-choices.mjs';
 import {appendReadableRoute} from './route-label.mjs';
+import {stationPair} from './traveler-stations.mjs';
 const $=id=>document.getElementById(id);
 let documentData=null,shareToken='';
 const notice=(message,error=false)=>{$('status').textContent=message;$('status').classList.toggle('error',error);$('status').hidden=false;};
@@ -18,7 +19,8 @@ async function load(){
     for(const person of people){
       const card=node('section','traveler');
       card.append(node('h2','traveler-name',person.first+' '+person.last));
-      card.append(node('p','subtitle','Ville habituelle : '+person.departure));
+      const out=stationPair(person,'A',event.destination),ret=stationPair(person,'R',event.destination);
+      card.append(node('p','subtitle','Aller : '+out.from+' → '+out.to+' · Retour : '+ret.from+' → '+ret.to));
       if(!person.options.A.length&&!person.options.R.length)
         card.append(node('p','subtitle',person.onsite?.A||person.onsite?.R?
           '✅ Déjà sur place : aucun déplacement nécessaire pour ce trajet.':
