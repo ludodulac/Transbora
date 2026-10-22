@@ -56,7 +56,8 @@ function checkedPeople(raw){
         ids.add(id);return {id,label};
       });
     }
-    return {id,first,last,departure:from,options};
+    return {id,first,last,departure:from,options,
+      onsite:{A:p.onsite?.A===true,R:p.onsite?.R===true}};
   });
 }
 async function takeBody(req){
