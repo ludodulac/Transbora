@@ -28,8 +28,8 @@ test('group travelers confirm separately and second preference is retained',asyn
  const cards=[...window.document.querySelectorAll('.traveler')];
  assert.equal(cards.length,2);
  assert.equal(window.document.getElementById('save').hidden,true);
- cards[0].querySelector('input[value="M1"]').checked=true;
- cards[0].querySelector('select').value='M2';
+ cards[0].querySelector('input[name="p:P-001:A"][value="M1"]').checked=true;
+ cards[0].querySelector('input[name="p:P-001:A:backup"][value="M2"]').checked=true;
  cards[0].querySelector('.person-confirm').click();
  await new Promise(r=>setTimeout(r,40));
  assert.equal(calls.at(-1).action,'submit');

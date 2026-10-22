@@ -10,6 +10,7 @@ import {api,buildChoicePeople,choiceUrl,statusUrl,textLinks} from './native-choi
 import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
+import {curateJourneys} from './journey-quality.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -484,6 +485,7 @@ function renderSearchResults(issues){
         const changes=legs.length>1?legs.length-1:0;
         option.append(node('span','route-meta',durationText(j.arrival-j.departure)+
           ' · '+(changes===0?'Direct':changes+' correspondance'+(changes>1?'s':''))));
+        if(j.efficientAlternative)option.append(node('span','route-benefit','Alternative beaucoup plus courte : arrivée un peu plus tard.'));
         if(j.marginReduced)option.append(node('span','route-warning',
           '⚠ Alternative : '+j.actualMarginMinutes+' min disponibles au lieu des '+
           j.requestedMarginMinutes+' min demandées. L’organisateur doit valider le temps entre gare et lieu.'));
@@ -628,18 +630,22 @@ async function performSearch(event,settings){
  * The token and all credentials remain on the server.
  */
 async function compareWithSncf(event,settings){
-  if(settings.mode==='bus')return 0;
+  if(settings.mode==='bus')return {added:0,success:0,failed:0,outside:0};
   const tasks=[];
   for(const person of participants){
     for(const [kind,enabled] of [['A',event.includeOutward],['R',event.includeReturn]]){
       if(enabled)tasks.push({person,kind});
     }
   }
-  let cursor=0,added=0;
+  let cursor=0,added=0,success=0,failed=0,outside=0;
   const run=async()=>{
     while(cursor<tasks.length&&!stopRequested){
       const {person,kind}=tasks[cursor++];
-      const additional=await fetchOfficialJourneys(event,person,kind,settings);
+      const additional=await fetchOfficialJourneys(event,person,kind,settings,state=>{
+        if(state==='success')success++;
+        else if(state==='outside_coverage')outside++;
+        else failed++;
+      });
       if(!additional.length)continue;
       const plan=plans.get(person.id);
       if(!plan)continue;
@@ -653,7 +659,7 @@ async function compareWithSncf(event,settings){
     }
   };
   await Promise.all(Array.from({length:Math.min(3,tasks.length)},()=>run()));
-  return added;
+  return {added,success,failed,outside};
 }
 $('cancel-search').addEventListener('click',()=>{
   stopRequested=true;
@@ -672,10 +678,15 @@ $('search-everyone').addEventListener('click',async()=>{
     status('');
     const result=await performSearch(event,settings);
     plans=result.plans;hasSearched=true;
+    let sncf={added:0,success:0,failed:0,outside:0};
     if(settings.mode!=='bus'){
       $('search-detail').textContent='Comparaison des itinéraires avec l’API officielle SNCF…';
-      try{await compareWithSncf(event,settings);}
-      catch{ /* Official verification is supplementary; GTFS results survive. */ }
+      try{sncf=await compareWithSncf(event,settings);}
+      catch{sncf.failed++; /* GTFS results are never thrown away. */ }
+    }
+    for(const plan of plans.values()){
+      plan.outward=curateJourneys(plan.outward,'A');
+      plan.returning=curateJourneys(plan.returning,'R');
     }
     const gaps=participants.reduce((total,p)=>{
       const plan=plans.get(p.id);
@@ -684,10 +695,15 @@ $('search-everyone').addEventListener('click',async()=>{
     },0);
     renderSearchResults(result.issues);
     renderIndividualButtons(event);
-    status(result.partial?
+    const sncfLabel=settings.mode==='bus'?' · Mode autocar, API SNCF non utilisée.':
+      sncf.success>0?' · API SNCF consultée ('+sncf.success+' recherche(s) ; '+
+        sncf.added+' proposition(s) retenue(s)).':
+      sncf.failed>0?' · ⚠ API SNCF temporairement indisponible : horaires GTFS utilisés.':
+      ' · API SNCF hors période ou sans trajet compatible : horaires GTFS utilisés.';
+    status((result.partial?
       'Recherche partielle : '+gaps+' trajets sans option affichée. Une autre recherche peut trouver davantage de trains.':
       'Recherche terminée : '+participants.length+' voyageur(s), '+gaps+
-      ' trajet(s) sans option dans les horaires consultés. Vérifiez avant de réserver.',
+      ' trajet(s) sans option dans les horaires consultés. Vérifiez avant de réserver.')+sncfLabel,
       Boolean(result.partial||gaps));
     updateButtons();
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});

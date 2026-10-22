@@ -12,7 +12,12 @@ async function official(path,params,token){
     authorization:'Basic '+Buffer.from(token+':').toString('base64'),
     accept:'application/json'
   },signal:AbortSignal.timeout(11000)});
-  if(!response.ok)throw Error('SNCF '+response.status);
+  if(!response.ok){
+    const err=new Error('Réponse fournisseur inattendue.');
+    err.phase=path==='/places'?'stations':'itineraries';
+    err.httpStatus=response.status;
+    throw err;
+  }
   return response.json();
 }
 function safeDate(date){
@@ -50,12 +55,26 @@ function publicOnly(journey){
   return {departure:first.departure_date_time,arrival:last.arrival_date_time,
     legs,changes:legs.length-1,source:'SNCF API',disruptions:[]};
 }
+function getApiToken(){
+  // Serverless Node functions use process.env. Netlify.env is an optional
+  // compatibility fallback, never expose its value to the client.
+  return process.env.SNCF_API_TOKEN||globalThis.Netlify?.env?.get('SNCF_API_TOKEN')||'';
+}
 export default async function handler(request){
+  const token=getApiToken();
+  // Read-only configuration probe (no provider calls, never returns the key).
+  // Makes a missing runtime secret distinguishable from a SNCF outage.
+  if(request.method==='GET')
+    return Response.json({service:'sncf',configured:Boolean(token),ready:Boolean(token)},
+      {headers:{'cache-control':'no-store','x-robots-tag':'noindex'}});
   if(request.method!=='POST')return fail('Méthode non autorisée.',405);
   const origin=request.headers.get('origin');
   if(!origin||origin!==new URL(request.url).origin)return fail('Origine non autorisée.',403);
-  const token=globalThis.Netlify?.env?.get('SNCF_API_TOKEN')||process.env.SNCF_API_TOKEN;
-  if(!token)return fail('API SNCF non configurée.',503);
+  if(!token){
+    console.warn('[TRANSBORA_SNCF] configuration_missing');
+    return Response.json({error:'API SNCF non configurée.',code:'configuration_missing'},
+      {status:503,headers:{'cache-control':'no-store'}});
+  }
   try{
     const raw=await request.text();
     if(raw.length>1500)return fail('Requête trop volumineuse.',413);
@@ -90,8 +109,16 @@ export default async function handler(request){
     cache.set(key,{data,expires:Date.now()+10*60000});
     return Response.json(data,{headers:{'cache-control':'no-store'}});
   }catch(error){
-    // Do not leak auth values, SNCF URLs, or transport-provider response text.
-    return fail('Consultation SNCF temporairement indisponible.',503);
+    // Intentionally log only category/HTTP status; never token, request
+    // authorization, user itinerary or response body from provider.
+    const code=Number.isInteger(error?.httpStatus)?
+      'sncf_'+error.phase+'_'+error.httpStatus:
+      error?.name==='TimeoutError'?'upstream_timeout':'upstream_unavailable';
+    console.warn('[TRANSBORA_SNCF]',code);
+    return Response.json({
+      error:'Consultation SNCF temporairement indisponible.',
+      code
+    },{status:503,headers:{'cache-control':'no-store'}});
   }
 }
 export const config={

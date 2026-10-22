@@ -55,3 +55,29 @@ h1{font-size:clamp(1.85rem,5.8vw,2.6rem);line-height:1.13;margin:12px 0;letter-s
 .traveler-status{font-size:.87rem;font-weight:760;color:#247565}
 .person-confirm{margin:12px 0 0}
 .choice-backup-heading{margin-top:12px;color:#6b4c2b!important}
+
+/* 035 — the artist can select preferred/fallback ON each route, without
+   scrolling below all five options to locate a second-choice dropdown. */
+.route-choice{display:grid;grid-template-columns:minmax(0,1fr);gap:13px;cursor:auto}
+.route-choice:hover{border-color:#a7d6d1}
+.route-choice:has(.rank-primary input:checked){border-color:#0b8c84;background:#edfaf5}
+.route-choice:has(.rank-secondary input:checked){border-color:#aa83c7;background:#faf5ff}
+.rank-instruction{font-size:.91rem;line-height:1.5;color:#355963;margin:0 0 7px}
+.rank-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:10px;border-top:1px solid #e1ebed}
+.rank-action{display:flex;justify-content:center;align-items:center;gap:10px;min-height:45px;padding:8px;border-radius:10px;border:1px solid #b8d8d8;font-weight:850;cursor:pointer;background:#f4fafb;color:#116c70}
+.rank-action.rank-secondary{border-color:#d8c0e7;color:#734c90;background:#fcf8ff}
+.rank-action:has(input:checked){border-color:#087e7e;background:#d9f5e9}
+.rank-action.rank-secondary:has(input:checked){border-color:#9863bc;background:#f1e3fc}
+.rank-action input{width:21px;height:21px;flex:none}
+.backup-none{display:flex;align-items:center;gap:9px;font-weight:750;font-size:.85rem;color:#5a6f77}
+.backup-none input{height:20px;width:20px;accent-color:#667e83}
+.booking-route{display:grid;grid-template-columns:minmax(0,1fr);gap:5px;width:100%;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.booking-route>span{display:block;min-width:0;overflow-wrap:anywhere}
+.booking-route .choice-operator{font-size:1rem}
+.booking-route .choice-times{font-size:clamp(1.05rem,4vw,1.3rem)}
+.booking-choice{gap:8px}
+.summary-row{min-width:0;overflow-wrap:anywhere}
+.summary-row>button{width:100%;border:1px solid #b6d6d5;border-radius:10px;min-height:42px;background:#eef8f7;color:#17666a;font-size:.88rem;font-weight:750}
+
+.station-summary{font-size:.84rem;color:#496b75;line-height:1.5;margin:0 0 4px;
+ overflow-wrap:anywhere}

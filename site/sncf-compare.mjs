@@ -68,7 +68,7 @@ export function officialJourney(raw,kind,personEvent,buffer='very_cautious'){
     provider:'SNCF (API officielle)',route:legs[0].route,
     officialAlternative:true};
 }
-export async function fetchOfficialJourneys(event,person,kind,settings){
+export async function fetchOfficialJourneys(event,person,kind,settings,onDiagnostic=()=>{}){
   if(settings.mode==='bus')return [];
   const personEvent=eventForPerson(event,person);
   const boundary=travelBoundary(personEvent,kind);
@@ -84,11 +84,19 @@ export async function fetchOfficialJourneys(event,person,kind,settings){
       cache:'no-store',
       body:JSON.stringify({from,to,date:when.date,time:when.time,direction:kind}),
       signal:AbortSignal.timeout(16000)});
-    if(!response.ok)return [];
+    if(!response.ok){
+      onDiagnostic(response.status===422?'outside_coverage':'unavailable');
+      return [];
+    }
     const data=await response.json();
-    return (data.journeys||[]).map(raw=>officialJourney(raw,kind,personEvent,settings.buffer))
+    const valid=(data.journeys||[]).map(raw=>officialJourney(raw,kind,personEvent,settings.buffer))
       .filter(Boolean);
-  }catch{return [];}
+    onDiagnostic('success');
+    return valid;
+  }catch{
+    onDiagnostic('unavailable');
+    return [];
+  }
 }
 function signature(j){
   const legs=j.legs?.length?j.legs:[j];
