@@ -1,8 +1,8 @@
 /** Safe per-person station summary, including dossiers created before routeEnds. */
 function legacyStop(p,kind,field){
  const text=p.options?.[kind]?.[0]?.label||'';
- const part=text.split(' | ').find(x=>x.startsWith(field+': '));
- return part?part.slice(field.length+2).trim():'';
+ const part=text.split(' | ').find(x=>x.startsWith(field+' : '));
+ return part?part.slice(field.length+3).trim():'';
 }
 export function stationPair(p,kind,eventDestination=''){
  const ends=p.routeEnds?.[kind]||{};
