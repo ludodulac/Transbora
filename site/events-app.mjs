@@ -300,6 +300,15 @@ async function init(){
   updateTravelOptions();
   for(const id of ['include-outward','include-return'])
     $(id).addEventListener('change',updateTravelOptions);
+  const updateRiskMode=()=>{
+    const busOnly=$('ev-mode').value==='bus';
+    const risk=$('ev-risky-interstation');
+    risk.disabled=busOnly;
+    if(busOnly)risk.checked=false;
+    risk.closest('label').hidden=busOnly;
+  };
+  $('ev-mode').addEventListener('change',updateRiskMode);
+  updateRiskMode();
   const syncEventEnd=()=>{
     // Set end to the same moment whenever the start changes. The user can then
     // change either end field without having to redo the whole date or time.
