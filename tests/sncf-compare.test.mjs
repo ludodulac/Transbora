@@ -52,3 +52,28 @@ test('earliest actual home arrival wins even if other train departs earlier',()=
  assert.equal(+parisInstant(result[0].date,result[0].arrival),
   +parisInstant('2026-10-31',3600));
 });
+
+test('official API and GTFS equivalent Paris–Mulhouse direct trains are one option',()=>{
+ const concert={...event,destination:'Mulhouse',startDate:'2026-10-31',
+   startTime:'14:00',endDate:'2026-10-31',endTime:'20:00'};
+ const official=officialJourney({
+   departure:'20261031T092200',arrival:'20261031T122100',
+   legs:[{from:'Paris - Gare de Lyon - Hall 1 & 2 (Paris)',to:'Mulhouse (Mulhouse)',
+     departure:'20261031T092200',arrival:'20261031T122100',route:'TGV INOUI'}]
+ },'A',concert);
+ assert.ok(official);
+ const gtfs={
+   date:'2026-10-31',departure:9*3600+22*60,arrival:12*3600+21*60,
+   legs:[{from:'Paris Gare de Lyon Hall 1 - 2',to:'Mulhouse',mode:'rail'}],
+   changes:0,key:'gtfs-611b'
+ };
+ const merged=mergeOfficialJourneys([gtfs],[official],'A',concert,{departure:'Paris'},5);
+ assert.equal(merged.length,1,'same exact train must not occupy both preferred slots');
+ assert.equal(merged[0].officialAlternative,true);
+ const otherStation={
+   ...gtfs,legs:[{...gtfs.legs[0],from:'Paris Est'}],key:'independent-paris-est'
+ };
+ const distinct=mergeOfficialJourneys([gtfs,otherStation],[official],
+   'A',concert,{departure:'Paris'},5);
+ assert.equal(distinct.length,2,'different Paris departure stations cannot be silently merged');
+});
