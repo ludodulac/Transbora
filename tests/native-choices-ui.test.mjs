@@ -26,10 +26,12 @@ test('traveler chooses one actual departure and return on mobile without externa
  };
  await import('../site/choix-app.mjs');
  await new Promise(resolve=>setTimeout(resolve,50));
- assert.equal(window.document.querySelectorAll('.route-choice input[type="radio"]').length,4);
+ assert.equal(window.document.querySelectorAll('.route-choice input[type="radio"]').length,6);
+ assert.match(window.document.querySelector('.rank-instruction').textContent,/Nº 1/);
+ assert.match(window.document.querySelector('.rank-instruction').textContent,/Nº 2/);
  assert.match(window.document.body.textContent,/Sophie/);
- const buttons=window.document.querySelectorAll('input[type="radio"]');
- buttons[0].checked=true;buttons[2].checked=true;
+ window.document.querySelector('input[name="p:P-001:A"][value="a-1"]').checked=true;
+ window.document.querySelector('input[name="p:P-001:R"][value="r-1"]').checked=true;
  window.document.getElementById('choice-form').dispatchEvent(new window.Event('submit',{
    bubbles:true,cancelable:true}));
  await new Promise(resolve=>setTimeout(resolve,50));
