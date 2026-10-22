@@ -58,7 +58,9 @@ function publicOnly(journey){
 function getApiToken(){
   // Serverless Node functions use process.env. Netlify.env is an optional
   // compatibility fallback, never expose its value to the client.
-  return process.env.SNCF_API_TOKEN||globalThis.Netlify?.env?.get('SNCF_API_TOKEN')||'';
+  return process.env.TRANSBORA_SNCF_ACCESS||process.env.SNCF_API_TOKEN||
+    globalThis.Netlify?.env?.get('TRANSBORA_SNCF_ACCESS')||
+    globalThis.Netlify?.env?.get('SNCF_API_TOKEN')||'';
 }
 export default async function handler(request){
   const token=getApiToken();
