@@ -64,19 +64,40 @@ test('participant radio choices saved, rejected if unknown, repeatable and visib
  status=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
  assert.equal(status.people[0].answer.A,'NONE');
 });
-test('organizer group link permits one response per person, refuses omissions',async()=>{
+test('group link saves Michel without Sophie, later reply never overwrites Michel',async()=>{
  const f=fixture();
  const c=(await f.call('create',{event:f.event,people:f.people,mode:'group'},'very-private-secret-123')).data;
- assert.equal(c.links.length,1);
- const view=(await f.call('view',{token:c.links[0].token})).data;
- assert.equal(view.people.length,2);
- assert.equal((await f.call('submit',{token:c.links[0].token,
-   answers:[{personId:'P-001',A:'aller-2',R:'retour-1'}]})).status,400);
- const done=await f.call('submit',{token:c.links[0].token,answers:[
-  {personId:'P-001',A:'aller-2',R:'retour-1'},{personId:'P-002',A:'aller-3'}]});
- assert.equal(done.status,200);assert.equal(done.data.count,2);
+ const token=c.links[0].token;
+ const first=await f.call('submit',{token,answers:[
+   {personId:'P-001',A:'aller-1',A2:'aller-2',R:'retour-1'}]});
+ assert.equal(first.status,200);assert.equal(first.data.count,1);
+ const early=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
+ assert.equal(early.people[0].answer.A2,'aller-2');
+ assert.equal(early.people[1].answer,null);
+ const view=(await f.call('view',{token})).data;
+ assert.equal(view.people[0].answered,true);
+ assert.equal(view.people[1].answered,false);
+ const second=await f.call('submit',{token,answers:[{personId:'P-002',A:'aller-3'}]});
+ assert.equal(second.status,200);assert.equal(second.data.count,1);
+ const late=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
+ assert.deepEqual(late.people[0].answer,early.people[0].answer);
+ assert.equal(late.people[1].answer.A,'aller-3');
+ assert.equal(late.people[1].answer.A2,null);
+});
+test('ranked fallback must differ from first choice and preserves legacy single choices',async()=>{
+ const f=fixture();
+ const c=(await f.call('create',{event:f.event,people:f.people,mode:'individual'},'very-private-secret-123')).data;
+ const token=c.links[0].token;
+ for(const answers of [
+   {personId:'P-001',A:'aller-1',A2:'aller-1',R:'retour-1'},
+   {personId:'P-001',A:'NONE',A2:'aller-2',R:'retour-1'},
+   {personId:'P-001',A:'aller-1',A2:'invented',R:'retour-1'}
+ ])assert.equal((await f.call('submit',{token,answers:[answers]})).status,400);
+ assert.equal((await f.call('submit',{token,answers:[
+   {personId:'P-001',A:'aller-1',R:'retour-1'}]})).status,200);
  const status=(await f.call('status',{eventId:c.eventId,ownerKey:c.ownerKey})).data;
- assert.equal(status.people[1].answer.A,'aller-3');
+ assert.equal(status.people[0].answer.A,'aller-1');
+ assert.equal(status.people[0].answer.A2,null);
 });
 test('owner can revoke all links and permanently delete saved responses',async()=>{
  const f=fixture(),c=(await f.call('create',{event:f.event,people:f.people,mode:'individual'},'very-private-secret-123')).data;
