@@ -12,7 +12,7 @@ export default async function organizerWorkspace(request){
   const secret=globalThis.Netlify?.env?.get('TRANSBORA_WORKSPACE_SETUP_KEY')||
     process.env.TRANSBORA_WORKSPACE_SETUP_KEY||'';
   const handle=createWorkspaceHandler({
-    getStore:name=>getStore({name,consistency:'strong'}),
+    getStore:name=>getStore({name,region:'eu-central-1',consistency:'strong'}),
     masterKey:()=>secret
   });
   return handle(request);
