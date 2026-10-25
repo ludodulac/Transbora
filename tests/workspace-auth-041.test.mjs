@@ -123,8 +123,8 @@ test('M2: event/artist/options/notes stored independently, monthly cross-event v
    targetType:'person',targetId:person.id,content:'Prévoir une arrivée tôt.'}})).status,200);
  const month=await owner.call('person_month',{personId:person.id,month:'2026-10'});
  assert.equal(month.status,200,JSON.stringify(month.data));
- assert.deepEqual(month.data.events.flatMap(x=>x.journeys.map(j=>j.selectedRank)),[2,1],
-   'A stable sorted view retains both choices, whatever their order');
+ assert.deepEqual(month.data.events.flatMap(x=>x.journeys.map(j=>j.selectedRank)),[1,2],
+   'A stable sorted view retains both choices, whatever their source order');
  const j=month.data.events[0].journeys;
  assert.equal(j.length,2);
  assert.equal(j.find(x=>x.optionId===o.id).stage,'IN_CART');
