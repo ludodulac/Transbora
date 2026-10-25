@@ -153,3 +153,21 @@ test('M2: prevent a foreign participant, broken leg or filing without reference'
    participationId:joined.id,direction:'R',travelDate:'2026-10-31',
    legs:[{from:'Mulhouse',to:'Brest',departure:'',arrival:'10:00'}]}})).status,400);
 });
+
+test('M2: duplicate person assignment refused and wrong passwords locked out',async()=>{
+ const {owner,handle}=await setup();
+ const p=(await owner.call('save',{type:'person',record:{name:'Michel'}})).data.item;
+ const e=(await owner.call('save',{type:'event',record:{
+   title:'Une date',startDate:'2026-11-03'}})).data.item;
+ assert.equal((await owner.call('save',{type:'participation',
+   record:{personId:p.id,eventId:e.id}})).status,200);
+ assert.equal((await owner.call('save',{type:'participation',
+   record:{personId:p.id,eventId:e.id}})).status,409);
+ const client=createClient(handle);
+ for(let i=0;i<5;i++){
+   assert.equal((await client.call('login',
+     {email:'jeanne@example.org',password:'wrong-password-guess'})).status,401);
+ }
+ assert.equal((await client.call('login',
+    {email:'jeanne@example.org',password:'my-long-test-password'})).status,429);
+});
