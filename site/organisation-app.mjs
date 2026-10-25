@@ -137,6 +137,7 @@ async function connect(){
  $('user-identity').textContent=state.user.email+
   (state.user.role==='manager'?' · direction':' · organisatrice');
  $('invite-form').hidden=state.user.role!=='manager';
+ $('export-backup').hidden=state.user.role!=='manager';
  $('month-filter').value=new Date().toISOString().slice(0,7);
  await reload();showTab('overview');
 }
@@ -165,15 +166,33 @@ function renderEverything(){
   const c=card(p.name,[p.departure||'Gare non renseignée',
     p.reductionCards?'Cartes : '+p.reductionCards:'']);
   if(p.preferences)c.append(node('p','tiny',p.preferences));
-  people.append(c);
+  const edit=node('button','item-action','Modifier la fiche');
+  edit.type='button';edit.addEventListener('click',()=>{
+    const form=$('person-form');form.dataset.recordId=p.id;
+    for(const field of ['name','departure','email','phone','reductionCards','preferences'])
+      form.elements[field].value=p[field]||'';
+    form.querySelector('button').textContent='Enregistrer les modifications';
+    form.scrollIntoView?.({behavior:'smooth',block:'start'});
+  });
+  c.append(edit);people.append(c);
  }
  if(!items('person').length)people.append(node('p','muted','Aucune personne. Commencez par une fiche.'));
  const events=$('events-output');events.replaceChildren();
  for(const event of items('event').sort((a,b)=>a.startDate.localeCompare(b.startDate))){
   const n=items('participation').filter(p=>p.eventId===event.id).length;
-  events.append(card(event.title,[fmtDate(event.startDate)+' · '+(event.destination||'Ville à préciser'),
+  const c=card(event.title,[fmtDate(event.startDate)+' · '+(event.destination||'Ville à préciser'),
    (event.theater||'')+' · '+n+' personne(s)',
-   'Enveloppe transport : '+fmtEuro(event.budgetCents)]));
+   'Enveloppe transport : '+fmtEuro(event.budgetCents)]);
+  const edit=node('button','item-action','Modifier l’événement');
+  edit.type='button';edit.addEventListener('click',()=>{
+    const form=$('event-form');form.dataset.recordId=event.id;
+    for(const field of ['title','startDate','destination','theater'])
+      form.elements[field].value=event[field]||'';
+    form.elements.budgetEuros.value=event.budgetCents===null?'':String(event.budgetCents/100);
+    form.querySelector('button').textContent='Enregistrer les modifications';
+    form.scrollIntoView?.({behavior:'smooth',block:'start'});
+  });
+  c.append(edit);events.append(c);
  }
  if(!items('event').length)events.append(node('p','muted','Aucun événement.'));
  const journeys=$('journeys-output');journeys.replaceChildren();
@@ -255,8 +274,12 @@ function bindForm(id,create){
   if(button)button.disabled=true;
   try{
    const fd=new FormData(form),{type,record}=create(fd);
+   if(form.dataset.recordId)record.id=form.dataset.recordId;
    await api('save',{type,record});
-   form.reset();await reload();feedback('✅ Enregistré. Les tableaux utilisent maintenant cette information.');
+   form.reset();delete form.dataset.recordId;
+   if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
+     id==='event-form'?'Enregistrer l’événement':button.textContent;
+   await reload();feedback('✅ Enregistré. Les tableaux utilisent maintenant cette information.');
   }catch(e){feedback(e.message,true)}
   finally{if(button)button.disabled=false;}
  });
@@ -296,6 +319,17 @@ $('invite-form').addEventListener('submit',async e=>{
   $('invitation-result').hidden=false;
   feedback('✅ Invitation prête. Transmettez le lien de manière privée.');
  }catch(err){feedback(err.message,true)}
+});
+$('export-backup').addEventListener('click',async()=>{
+ try{
+  const data=await api('export_backup');
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=node('a');
+  a.href=url;a.download='TRANSBORA_sauvegarde_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+  feedback('✅ Sauvegarde privée enregistrée dans les téléchargements.');
+ }catch(e){feedback(e.message,true)}
 });
 $('copy-invite').addEventListener('click',async()=>{
  try{await navigator.clipboard.writeText($('invitation-link').value);
