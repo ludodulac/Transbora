@@ -142,10 +142,20 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
     if(action==='login'){
       const mail=email(body.email),user=at(mail)?
         await store.get('user/'+hash(mail),{type:'json'}):null;
+      const attemptKey='attempt/'+hash(mail);
+      const attempts=await store.get(attemptKey,{type:'json'});
+      if(attempts?.lockedUntil>clock())return deny('Trop de tentatives. Réessayez plus tard.',429);
       // Hash a dummy value as well: do not allow easy account enumeration.
       const ok=await matchesPassword(String(body.password||''),user?.password||
         {salt:'0'.repeat(48),derived:'0'.repeat(128)});
-      if(!user||!ok)return deny('Identifiants incorrects.',401);
+      if(!user||!ok){
+        const withinWindow=attempts?.expiresAt>clock();
+        const failedCount=(withinWindow?attempts.count:0)+1;
+        await store.setJSON(attemptKey,{count:failedCount,expiresAt:clock()+15*60*1000,
+          lockedUntil:failedCount>=5?clock()+15*60*1000:null});
+        return deny('Identifiants incorrects.',401);
+      }
+      await store.delete(attemptKey);
       const token=random(),session={email:mail,organizationId:user.organizationId,
         role:user.role,expiresAt:clock()+SESSION_AGE};
       await store.setJSON('session/'+hash(token),session);
@@ -205,6 +215,11 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
         if(type==='participation'){
           await requireItem(store,'event',org,obj.eventId);
           await requireItem(store,'person',org,obj.personId);
+          if(!existing&&(await all(store,'participation',org)).some(p=>
+            p.eventId===obj.eventId&&p.personId===obj.personId))
+            return deny('Cette personne participe déjà à cet événement.',409);
+          if(existing&&(existing.eventId!==obj.eventId||existing.personId!==obj.personId))
+            return deny('La participation ne peut pas changer de personne ou d’événement.',409);
           result={...common,eventId:obj.eventId,personId:obj.personId,
             outwardOrigin:safe(obj.outwardOrigin,150),
             returnDestination:safe(obj.returnDestination,150)};
@@ -241,19 +256,24 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
             return deny('Options nº1 et nº2 identiques.',400);
           // One saved choice per traveler + direction.
           const id='c-'+hash(p.id+':'+obj.direction).slice(0,42);
-          result={...common,id,participationId:p.id,direction:obj.direction,
+          if(obj.id&&obj.id!==id)return deny('Identifiant de choix incompatible.',409);
+          const previousChoice=await store.get(key('choice',org,id),{type:'json'});
+          result={...common,id,createdAt:previousChoice?.createdAt||common.createdAt,
+            participationId:p.id,direction:obj.direction,
             firstOptionId,backupOptionId,confirmedBy:session.email};
         }else if(type==='booking'){
           const o=await requireItem(store,'option',org,obj.optionId);
           if(!['PROPOSED','IN_CART','PAID','FILED'].includes(obj.stage)||
              !money(obj.paidCents??null))return deny('Statut ou montant invalide.',400);
           const id='b-'+hash(o.id).slice(0,42);
+          if(obj.id&&obj.id!==id)return deny('Identifiant de billet incompatible.',409);
           const earlier=await store.get(key('booking',org,id),{type:'json'});
           if(obj.stage==='FILED'&&!obj.receiptReference)
             return deny('Indiquez où le billet est classé.',400);
           if(earlier?.paidAt&&['PROPOSED','IN_CART'].includes(obj.stage))
             return deny('Un achat déjà confirmé nécessite une correction explicite.',409);
-          result={...common,id,participationId:o.participationId,optionId:o.id,
+          result={...common,id,createdAt:earlier?.createdAt||common.createdAt,
+            participationId:o.participationId,optionId:o.id,
             inCartAt:obj.stage==='IN_CART'||obj.stage==='PAID'||obj.stage==='FILED'?
               earlier?.inCartAt||clock():null,
             paidAt:['PAID','FILED'].includes(obj.stage)?earlier?.paidAt||clock():null,
