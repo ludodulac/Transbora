@@ -298,6 +298,14 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
       await store.setJSON(key(type,org,result.id),result);
       return json({saved:true,item:result});
     }
+    if(action==='export_backup'){
+      if(session.role!=='manager')return deny('Seule la direction peut sauvegarder la totalité des données.');
+      const data={};
+      for(const type of ['person','event','participation','option','choice','booking','note'])
+        data[type]=await all(store,type,org);
+      return json({format:'transbora-organizer-backup-v1',organizationId:org,
+        exportedAt:new Date(clock()).toISOString(),data});
+    }
     if(action==='person_month'||action==='event_budget'){
       const data={organizationId:org};
       for(const [prop,type] of [['people','person'],['events','event'],
