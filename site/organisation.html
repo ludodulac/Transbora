@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Espace organisation — TRANSBORA</title>
+<link rel="stylesheet" href="./organisation.css">
+<script src="./organisation-app.mjs" type="module"></script>
+</head><body>
+<header class="head"><a href="./events.html" class="brand">🚆 TRANSBORA</a><span>Organisation · bêta privée</span></header>
+<main class="shell">
+<section id="login-panel" class="panel auth">
+ <p class="eyebrow">NOUVEL ESPACE ORGANISATEUR</p>
+ <h1 id="auth-title">Retrouver mon organisation</h1>
+ <p id="auth-description" class="muted">Les artistes utilisent toujours leurs liens habituels. Cet espace privé est réservé à l'équipe organisatrice.</p>
+ <form id="auth-form">
+  <label>Adresse e-mail<input type="email" name="email" id="auth-email" required autocomplete="username"></label>
+  <label>Mot de passe<input type="password" name="password" id="auth-password" required minlength="12" autocomplete="current-password"></label>
+  <div id="bootstrap-fields" hidden>
+    <label>Nom de l'organisation<input name="organizationName" maxlength="100"></label>
+    <label>Code d'initialisation Netlify<input name="setupKey" type="password" autocomplete="off"></label>
+  </div>
+  <button class="primary" id="auth-submit">Se connecter</button>
+ </form>
+ <div class="auth-links">
+  <button id="switch-setup" class="plain" type="button">Première utilisation : créer l'organisation</button>
+  <button id="switch-login" class="plain" type="button" hidden>Revenir à la connexion</button>
+ </div>
+ <p id="auth-feedback" class="feedback" role="alert" hidden></p>
+ <p class="small">Le code d'initialisation est nécessaire une seule fois et doit rester privé. Ne communiquez jamais ce code aux artistes.</p>
+</section>
+<section id="private-panel" hidden>
+ <div class="masthead"><div><p class="eyebrow">TABLEAU DE BORD PRIVÉ</p><h1 id="company-name">Mon organisation</h1><p class="muted">Événements, personnes, billets et notes au même endroit.</p></div>
+ <div><span id="user-identity" class="identity"></span><button id="logout" class="outline" type="button">Déconnexion</button></div></div>
+ <div class="notice">🧪 <strong>Version pilote indépendante</strong> : les événements déjà créés sur le site de recherche ne sont pas encore importés automatiquement. <a href="./mes-evenements.html">Accéder à mes anciens dossiers ↗</a></div>
+ <nav id="tabs" class="tabs" aria-label="Espaces de travail">
+  <button type="button" data-tab="overview" aria-current="page">📅 Le mois</button>
+  <button type="button" data-tab="people">👥 Personnes</button>
+  <button type="button" data-tab="events">🎭 Événements</button>
+  <button type="button" data-tab="travels">🚆 Déplacements</button>
+  <button type="button" data-tab="notes">📝 Notes</button>
+  <button type="button" data-tab="team">🔒 Équipe</button>
+ </nav>
+ <p id="global-feedback" class="feedback" role="status" hidden></p>
+ <section id="panel-overview" class="tab-panel">
+  <h2>Vue mensuelle</h2><div class="row">
+  <label>Mois<input type="month" id="month-filter"></label>
+  <label>Personne<select id="month-person"></select></label>
+  <button class="secondary" id="view-person-month" type="button">Afficher tous ses trains</button></div>
+  <div id="month-output" class="cards"></div>
+  <h2>Événements et budgets</h2><div id="budget-output" class="cards"></div>
+ </section>
+ <section id="panel-people" class="tab-panel" hidden>
+  <h2>Répertoire des personnes</h2><p class="muted">Une fiche stable, des préférences et des notes conservées.</p>
+  <form id="person-form" class="form-grid panel nested">
+   <label>Nom *<input name="name" required maxlength="100" placeholder="Sophie Test"></label>
+   <label>Gare ou ville habituelle<input name="departure" maxlength="150" placeholder="Paris"></label>
+   <label>E-mail<input name="email" type="email"></label>
+   <label>Téléphone<input name="phone" maxlength="50"></label>
+   <label>Cartes de réduction<input name="reductionCards" maxlength="240" placeholder="Carte Avantage"></label>
+   <label>Préférences de voyage<input name="preferences" maxlength="600"></label>
+   <button class="primary">Enregistrer la personne</button>
+  </form>
+  <div id="people-output" class="cards"></div>
+ </section>
+ <section id="panel-events" class="tab-panel" hidden>
+  <h2>Événements</h2>
+  <form id="event-form" class="form-grid panel nested">
+   <label>Titre *<input name="title" required maxlength="120"></label>
+   <label>Date *<input name="startDate" type="date" required></label>
+   <label>Ville / destination<input name="destination" maxlength="160"></label>
+   <label>Théâtre ou salle<input name="theater" maxlength="160"></label>
+   <label>Enveloppe transport (€)<input name="budgetEuros" type="number" step=".01" min="0" placeholder="750"></label>
+   <button class="primary">Enregistrer l'événement</button>
+  </form>
+  <h3>Inscrire une personne à un événement</h3>
+  <form id="participation-form" class="row panel nested">
+   <label>Événement<select name="eventId" required></select></label>
+   <label>Personne<select name="personId" required></select></label>
+   <button class="secondary">Ajouter</button>
+  </form>
+  <div id="events-output" class="cards"></div>
+ </section>
+ <section id="panel-travels" class="tab-panel" hidden>
+  <h2>Trajets et billets</h2>
+  <p class="muted">Saisie manuelle pilote. Notre moteur de recherche reste disponible via « Mes anciens dossiers » et sera relié dans une prochaine mission.</p>
+  <form id="option-form" class="form-grid panel nested">
+   <label>Voyageur / événement<select name="participationId" required></select></label>
+   <label>Sens<select name="direction"><option value="A">Aller</option><option value="R">Retour</option></select></label>
+   <label>Date du trajet<input type="date" name="travelDate" required></label>
+   <label>Origine<input name="from" required placeholder="Paris Gare de Lyon"></label>
+   <label>Destination<input name="to" required placeholder="Mulhouse"></label>
+   <label>Départ (heure)<input type="time" name="departure" required></label>
+   <label>Arrivée (heure)<input type="time" name="arrival" required></label>
+   <label>Prix prévu (€), si connu<input name="estimatedEuros" type="number" min="0" step=".01"></label>
+   <button class="primary">Ajouter cette option de voyage</button>
+  </form>
+  <p class="small">Pour un trajet à plusieurs tronçons, la future interface ajoutera des correspondances sans créer de nouvelles options. Le modèle de données sait déjà les représenter.</p>
+  <h3>Choix nº 1 et solution de secours</h3>
+  <form id="choice-form" class="form-grid panel nested">
+   <label>Voyageur / événement<select name="participationId" required></select></label>
+   <label>Sens<select name="direction"><option value="A">Aller</option><option value="R">Retour</option></select></label>
+   <label>Choix nº 1<select name="firstOptionId"></select></label>
+   <label>Choix nº 2, facultatif<select name="backupOptionId"></select></label>
+   <button class="secondary">Enregistrer les préférences (organisateur)</button>
+  </form>
+  <h3>Suivi de l'achat</h3>
+  <form id="booking-form" class="form-grid panel nested">
+   <label>Option<select name="optionId" required></select></label>
+   <label>État<select name="stage">
+     <option value="PROPOSED">Proposé</option><option value="IN_CART">Dans le panier</option>
+     <option value="PAID">Acheté / payé</option><option value="FILED">Billet classé</option>
+   </select></label>
+   <label>Montant payé (€)<input name="paidEuros" type="number" step=".01" min="0"></label>
+   <label>Référence du dossier (si classé)<input name="receiptReference" maxlength="400"></label>
+   <button class="secondary">Actualiser le suivi</button>
+  </form>
+  <div id="journeys-output" class="cards"></div>
+ </section>
+ <section id="panel-notes" class="tab-panel" hidden>
+  <h2>Notes privées</h2>
+  <p class="muted">Ces notes ne sont jamais visibles dans les liens envoyés aux artistes.</p>
+  <form id="note-form" class="form-grid panel nested">
+   <label>Type<select name="targetType"><option value="person">Personne</option><option value="event">Événement</option></select></label>
+   <label>Personne ou événement<select name="targetId"></select></label>
+   <label class="full">Note<textarea name="content" rows="4" required maxlength="2000"></textarea></label>
+   <button class="primary">Enregistrer la note</button>
+  </form>
+  <div id="notes-output" class="cards"></div>
+ </section>
+ <section id="panel-team" class="tab-panel" hidden>
+  <h2>Mon équipe</h2>
+  <p class="muted">La direction peut inviter une collaboratrice par un lien valable 48 heures. Les artistes ne doivent pas utiliser ces liens.</p>
+  <form id="invite-form" class="form-grid panel nested">
+   <label>E-mail de la collaboratrice<input name="email" type="email" required></label>
+   <label>Droit<select name="role"><option value="editor">Organisatrice</option><option value="manager">Direction</option></select></label>
+   <button class="secondary">Créer une invitation privée</button>
+  </form>
+  <div id="invitation-result" class="panel nested" hidden><p>Copiez ce lien et transmettez-le uniquement à la personne concernée :</p><input id="invitation-link" readonly aria-label="Lien d'invitation"><button id="copy-invite" class="secondary" type="button">Copier le lien</button></div>
+ </section>
+</section>
+</main><footer>TRANSBORA · Les horaires, tarifs, places et paniers externes restent à vérifier avant achat.</footer>
+</body></html>
