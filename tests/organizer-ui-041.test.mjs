@@ -6,7 +6,7 @@ import {JSDOM} from 'jsdom';
 test('M2 organizer UI is private, displays month and personal notes with no html injection',async()=>{
  const html=readFileSync(new URL('../site/organisation.html',import.meta.url),'utf8');
  const dom=new JSDOM(html,{
-   url:'https://transbora-ludo.netlify.app/organisation.html',pretendToBeVisual:true
+   url:'https://transbora-ludo.netlify.app/organisation.html?connexion',pretendToBeVisual:true
  });
  const {window}=dom;
  globalThis.window=window;globalThis.document=window.document;

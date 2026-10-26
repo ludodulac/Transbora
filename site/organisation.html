@@ -7,9 +7,9 @@
 <link rel="stylesheet" href="./organisation.css">
 <script src="./organisation-app.mjs" type="module"></script>
 </head><body>
-<header class="head"><a href="./events.html" class="brand">🚆 TRANSBORA</a><span>Organisation · bêta privée</span></header>
+<header class="head"><a href="./events.html" class="brand">🚆 TRANSBORA</a><span>Organisation · aperçu</span></header>
 <main class="shell">
-<section id="login-panel" class="panel auth">
+<section id="login-panel" class="panel auth" hidden>
  <p class="eyebrow">NOUVEL ESPACE ORGANISATEUR</p>
  <h1 id="auth-title">Retrouver mon organisation</h1>
  <p id="auth-description" class="muted">Les artistes utilisent toujours leurs liens habituels. Cet espace privé est réservé à l'équipe organisatrice.</p>
@@ -32,6 +32,7 @@
 <section id="private-panel" hidden>
  <div class="masthead"><div><p class="eyebrow">TABLEAU DE BORD PRIVÉ</p><h1 id="company-name">Mon organisation</h1><p class="muted">Événements, personnes, billets et notes au même endroit.</p></div>
  <div><span id="user-identity" class="identity"></span><button id="logout" class="outline" type="button">Déconnexion</button></div></div>
+ <div id="demo-warning" class="notice" hidden>🧪 <strong>Mode essai immédiat.</strong> Sophie et Michel sont des exemples fictifs. Les modifications restent sur ce navigateur et ne sont pas partagées. N’utilisez pas de données personnelles réelles.</div>
  <div class="notice">🧪 <strong>Version pilote indépendante</strong> : les événements déjà créés sur le site de recherche ne sont pas encore importés automatiquement. <a href="./mes-evenements.html">Accéder à mes anciens dossiers ↗</a></div>
  <nav id="tabs" class="tabs" aria-label="Espaces de travail">
   <button type="button" data-tab="overview" aria-current="page">📅 Le mois</button>
@@ -130,7 +131,9 @@
  </section>
  <section id="panel-team" class="tab-panel" hidden>
   <h2>Mon équipe</h2>
-  <p class="muted">Sauvegarde locale : à conserver en lieu sûr. Elle contient les coordonnées et notes privées de votre organisation.</p>
+  <p class="muted">Télécharger les données de cet espace pour conserver une copie sur votre appareil.</p>
+  <p id="team-secret-hint" class="small" hidden>Cet aperçu fonctionne sur cet appareil uniquement. Vous pouvez réinitialiser les exemples à tout moment.</p>
+  <button id="reset-demo" class="outline" type="button" hidden>↻ Recommencer la démonstration</button>
   <button id="export-backup" class="outline" type="button">⬇ Télécharger une sauvegarde privée</button>
   <p class="muted">La direction peut inviter une collaboratrice par un lien valable 48 heures. Les artistes ne doivent pas utiliser ces liens.</p>
   <form id="invite-form" class="form-grid panel nested">

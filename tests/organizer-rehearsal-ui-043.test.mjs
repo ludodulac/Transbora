@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
+test('043: organizer opens immediately on fictional examples without entering a password',async()=>{
+ const html=readFileSync(new URL('../site/organisation.html',import.meta.url),'utf8');
+ const dom=new JSDOM(html,{url:'https://transbora-ludo.netlify.app/organisation.html',pretendToBeVisual:true});
+ const w=dom.window;
+ globalThis.window=w;globalThis.document=w.document;globalThis.location=w.location;
+ globalThis.history=w.history;globalThis.FormData=w.FormData;
+ globalThis.fetch=async()=>{throw Error('A local rehearsal must never request private organizer data');};
+ await import('../site/organisation-app.mjs');
+ await new Promise(resolve=>setTimeout(resolve,50));
+ assert.equal(w.document.getElementById('private-panel').hidden,false);
+ assert.equal(w.document.getElementById('login-panel').hidden,true);
+ assert.equal(w.document.getElementById('demo-warning').hidden,false);
+ assert.match(w.document.getElementById('company-name').textContent,/démonstration/);
+ assert.match(w.document.getElementById('people-output').textContent,/Sophie \(exemple\)/);
+ assert.match(w.document.getElementById('budget-output').textContent,/Festival exemple/);
+ const input=w.document.getElementById('month-person');
+ input.value='sophie-demo';
+ w.document.getElementById('view-person-month').click();
+ await new Promise(resolve=>setTimeout(resolve,30));
+ assert.match(w.document.getElementById('month-output').textContent,/09:22 Paris Gare de Lyon/);
+ assert.match(w.document.getElementById('month-output').textContent,/Choix nº 1/);
+ assert.equal(w.document.getElementById('invite-form').hidden,true);
+ w.close();
+});

@@ -1,6 +1,8 @@
-/** TRANSBORA — private organizer workbench. All user content uses textContent. */
+/** TRANSBORA — organizer workbench. All user content uses textContent. */
+import {createRehearsalApi} from './organizer-rehearsal.mjs';
 const $=id=>document.getElementById(id);
-const state={user:null,data:{},mode:'login',tab:'overview'};
+const state={user:null,data:{},mode:'login',tab:'overview',demo:false};
+let rehearsal=null;
 const kinds=['person','event','participation','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
  const e=document.createElement(tag);if(cls)e.className=cls;
@@ -25,6 +27,7 @@ function feedback(message,error=false,auth=false){
  e.textContent=message;e.classList.toggle('error',error);e.hidden=false;
 }
 async function api(action,payload={}){
+ if(state.demo)return rehearsal(action,payload);
  let response;
  try{
   response=await fetch('/api/transbora-workspace',{
@@ -136,8 +139,13 @@ async function connect(){
  $('company-name').textContent=state.user.organizationName||'Mon organisation';
  $('user-identity').textContent=state.user.email+
   (state.user.role==='manager'?' · direction':' · organisatrice');
- $('invite-form').hidden=state.user.role!=='manager';
+ $('demo-warning').hidden=!state.demo;
+ $('invite-form').hidden=state.demo||state.user.role!=='manager';
  $('export-backup').hidden=state.user.role!=='manager';
+ $('reset-demo').hidden=!state.demo;
+ $('logout').hidden=state.demo;
+ $('team-secret-hint').hidden=!state.demo;
+ $('user-identity').textContent=state.demo?'Essai sur cet appareil (non partagé)':$('user-identity').textContent;
  $('month-filter').value=new Date().toISOString().slice(0,7);
  await reload();showTab('overview');
 }
@@ -331,10 +339,27 @@ $('export-backup').addEventListener('click',async()=>{
   feedback('✅ Sauvegarde privée enregistrée dans les téléchargements.');
  }catch(e){feedback(e.message,true)}
 });
+$('reset-demo').addEventListener('click',async()=>{
+ if(!state.demo||!confirm('Remettre à zéro uniquement les données fictives de cet appareil ?'))return;
+ try{await api('reset_demo');await reload();feedback('✅ Démonstration remise à zéro.');}
+ catch(e){feedback(e.message,true);}
+});
 $('copy-invite').addEventListener('click',async()=>{
  try{await navigator.clipboard.writeText($('invitation-link').value);
   feedback('✅ Lien d’invitation copié.');}catch{feedback('Impossible de copier automatiquement.',true);}
 });
-if(!inviteToken)api('me').then(async user=>{
- state.user=user;await connect();
-}).catch(()=>{});
+async function startDemo(){
+ state.demo=true;
+ rehearsal=createRehearsalApi(window.localStorage);
+ $('login-panel').hidden=true;
+ $('private-panel').hidden=false;
+ try{await connect();}
+ catch(error){$('global-feedback').hidden=false;feedback(error.message,true);}
+}
+if(inviteToken){$('login-panel').hidden=false;}
+else if(new URLSearchParams(location.search).has('connexion')){
+ $('login-panel').hidden=false;
+ api('me').then(connect).catch(()=>{});
+}else{
+ startDemo();
+}
