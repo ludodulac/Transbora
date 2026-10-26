@@ -139,6 +139,7 @@ async function connect(){
  $('company-name').textContent=state.user.organizationName||'Mon organisation';
  $('user-identity').textContent=state.user.email+
   (state.user.role==='manager'?' · direction':' · organisatrice');
+ $('demo-warning').hidden=!state.demo;
  $('invite-form').hidden=state.demo||state.user.role!=='manager';
  $('export-backup').hidden=state.user.role!=='manager';
  $('reset-demo').hidden=!state.demo;
@@ -360,5 +361,5 @@ else if(new URLSearchParams(location.search).has('connexion')){
  $('login-panel').hidden=false;
  api('me').then(connect).catch(()=>{});
 }else{
- api('me').then(connect).catch(startDemo);
+ startDemo();
 }
