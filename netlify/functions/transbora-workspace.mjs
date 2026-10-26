@@ -5,8 +5,12 @@ import {createWorkspaceHandler} from '../../backend/workspace-core.mjs';
 export default async function organizerWorkspace(request){
   // Site-wide Blobs are SHARED by preview and production deploys.
   // Never allow private organizer data access from a deploy preview.
-  const context=process.env.CONTEXT||globalThis.Netlify?.env?.get('CONTEXT')||'production';
-  if(context!=='production')
+  const context=process.env.CONTEXT||globalThis.Netlify?.env?.get('CONTEXT')||'';
+  // A preview runtime can omit CONTEXT: trust neither environment nor the
+  // incoming Host header by itself. Only the canonical Netlify primary host
+  // is allowed in this pilot, combined with a non-preview context.
+  if(new URL(request.url).hostname!=='transbora-ludo.netlify.app'||
+     (context&&context!=='production'))
     return new Response(JSON.stringify({error:'Disponible uniquement sur le site principal.'}),
       {status:403,headers:{'content-type':'application/json','cache-control':'no-store'}});
   const secret=globalThis.Netlify?.env?.get('TRANSBORA_WORKSPACE_SETUP_KEY')||
