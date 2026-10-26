@@ -39,8 +39,10 @@ export function createRehearsalApi(store){
   const get=(kind,key)=>data[kind].find(x=>x.id===key)||die('Élément introuvable.');
   if(action==='list')return {items:structuredClone(data[type]||[])};
   if(action==='export_backup')return {type:'local-rehearsal',...data};
-  if(action==='person_month')return personMonthView({...data,organizationId:ORG,personId:args.personId,month:args.month});
-  if(action==='event_budget')return eventBudgetSummary({...data,organizationId:ORG,eventId:args.eventId});
+  const model={organizationId:ORG,people:data.person,events:data.event,
+    participations:data.participation,options:data.option,choices:data.choice,bookings:data.booking};
+  if(action==='person_month')return personMonthView({...model,personId:args.personId,month:args.month});
+  if(action==='event_budget')return eventBudgetSummary({...model,eventId:args.eventId});
   if(action!=='save'||!KINDS.includes(type)||!record)die('Opération impossible.');
   const prev=record.id?get(type,record.id):null;
   const base={id:prev?.id||uuid(),organizationId:ORG,createdAt:prev?.createdAt||Date.now(),updatedAt:Date.now()};
