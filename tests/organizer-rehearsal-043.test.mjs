@@ -47,7 +47,7 @@ test('043: local edits persist but never cross to another device',async()=>{
  assert.equal((await apiReload('person_month',{personId:record.id,month:'2026-11'}))
    .events[0].journeys[0].stage,'FILED');
  assert.equal((await createRehearsalApi(storage())('list',{type:'person'})).items.length,2);
- assert.throws(()=>JSON.parse(s1.getItem(KEY)).session,undefined);
+ assert.equal(JSON.parse(s1.getItem(KEY)).session,undefined);
  const exported=await api('export_backup');
  assert.equal(exported.type,'local-rehearsal');
  await api('reset_demo');
