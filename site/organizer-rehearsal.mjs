@@ -49,7 +49,7 @@ export function createRehearsalApi(store){
     for(const item of rows){
       if(!['A','R'].includes(item?.direction)||!date(item.travelDate)||
         typeof item.sourceKey!=='string'||!item.sourceKey||
-        item.sourceKey.length>2000||!Array.isArray(item.legs)||
+        item.sourceKey.length>6000||!Array.isArray(item.legs)||
         !item.legs.length||item.legs.length>6)die('Proposition de transport invalide.');
       const participant=data.participation.find(p=>p.personId===item.personId&&p.eventId===eventId);
       if(!participant)die('Participant non inscrit à cet événement.');
