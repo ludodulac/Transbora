@@ -1,5 +1,6 @@
 /** TRANSBORA — organizer workbench. All user content uses textContent. */
 import {createRehearsalApi} from './organizer-rehearsal.mjs';
+import {createSearchHandoff,readSearchResults,RESULTS_KEY} from './organizer-bridge.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false};
 let rehearsal=null;
@@ -200,7 +201,21 @@ function renderEverything(){
     form.querySelector('button').textContent='Enregistrer les modifications';
     form.scrollIntoView?.({behavior:'smooth',block:'start'});
   });
-  c.append(edit);events.append(c);
+  c.append(edit);
+  if(state.demo){
+   const search=node('button','item-action','🔎 Rechercher les trajets de cet événement');
+   search.type='button';
+   search.addEventListener('click',()=>{
+    try{
+     createSearchHandoff(window.localStorage,{
+      event,people:items('person'),participations:items('participation')
+     });
+     location.assign('./events.html?from_organizer=1');
+    }catch(error){feedback(error.message,true);}
+   });
+   c.append(search);
+  }
+  events.append(c);
  }
  if(!items('event').length)events.append(node('p','muted','Aucun événement.'));
  const journeys=$('journeys-output');journeys.replaceChildren();
@@ -215,7 +230,10 @@ function renderEverything(){
    'Prix estimé : '+fmtEuro(option.estimatedCents)]);
   for(const leg of option.legs||[]){
    c.append(node('p','segment',
-    leg.departure+' '+leg.from+' → '+leg.arrival+' '+leg.to+
+    (leg.departureDate&&leg.departureDate!==option.travelDate?fmtDate(leg.departureDate)+' ':'')+
+    leg.departure+' '+leg.from+' → '+
+    (leg.arrivalDate&&leg.arrivalDate!==leg.departureDate?fmtDate(leg.arrivalDate)+' ':'')+
+    leg.arrival+' '+leg.to+
      (leg.operator?' · '+leg.operator:'')));
   }
   const label=booking?.filedAt?'✅ Billet classé':
@@ -353,8 +371,24 @@ async function startDemo(){
  rehearsal=createRehearsalApi(window.localStorage);
  $('login-panel').hidden=true;
  $('private-panel').hidden=false;
- try{await connect();}
- catch(error){$('global-feedback').hidden=false;feedback(error.message,true);}
+ try{
+  await connect();
+  if(new URLSearchParams(location.search).get('import_search')==='1'){
+   const results=readSearchResults(window.localStorage);
+   if(!results)feedback('Aucun résultat de recherche récent à importer.',true);
+   else{
+    const imported=await api('import_search_results',{
+     eventId:results.eventId,rows:results.rows
+    });
+    window.localStorage.removeItem(RESULTS_KEY);
+    await reload();showTab('travels');
+    feedback('✅ '+imported.imported+' trajet(s) ajouté(s), '+
+      imported.alreadyPresent+' déjà présent(s). Les tarifs restent inconnus : '+
+      'renseignez les montants au moment de l’achat.');
+   }
+   history.replaceState({},'',location.pathname);
+  }
+ }catch(error){$('global-feedback').hidden=false;feedback(error.message,true);}
 }
 if(inviteToken){$('login-panel').hidden=false;}
 else if(new URLSearchParams(location.search).has('connexion')){
