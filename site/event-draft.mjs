@@ -22,7 +22,10 @@ export function saveDraft(storage,draft,now=Date.now()){
       arrivalTime:String(p.arrivalTime||'').slice(0,5),
       releaseDate:String(p.releaseDate||'').slice(0,10),
       releaseTime:String(p.releaseTime||'').slice(0,5),
-      notes:String(p.notes||'').slice(0,300)
+      notes:String(p.notes||'').slice(0,300),
+      organizerPersonId:String(p.organizerPersonId||'').slice(0,140),
+      reductionCards:String(p.reductionCards||'').slice(0,160),
+      preferences:String(p.preferences||'').slice(0,240)
     }));
     storage.setItem(DRAFT_KEY,JSON.stringify({
       version:1,savedAt:now,step:Math.max(1,Math.min(3,Number(draft.step)||1)),

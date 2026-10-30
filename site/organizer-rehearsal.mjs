@@ -39,6 +39,41 @@ export function createRehearsalApi(store){
   const get=(kind,key)=>data[kind].find(x=>x.id===key)||die('Élément introuvable.');
   if(action==='list')return {items:structuredClone(data[type]||[])};
   if(action==='export_backup')return {type:'local-rehearsal',...data};
+  if(action==='import_search_results'){
+    const {eventId,rows}=args;
+    if(!data.event.some(e=>e.id===eventId))die('Événement de destination introuvable.');
+    if(!Array.isArray(rows)||rows.length>1000)die('Liste de trajets trop longue.');
+    const now=Date.now(),additions=[];
+    let alreadyPresent=0;
+    const seen=new Set(data.option.map(x=>x.sourceKey).filter(Boolean));
+    for(const item of rows){
+      if(!['A','R'].includes(item?.direction)||!date(item.travelDate)||
+        typeof item.sourceKey!=='string'||!item.sourceKey||
+        item.sourceKey.length>6000||!Array.isArray(item.legs)||
+        !item.legs.length||item.legs.length>6)die('Proposition de transport invalide.');
+      const participant=data.participation.find(p=>p.personId===item.personId&&p.eventId===eventId);
+      if(!participant)die('Participant non inscrit à cet événement.');
+      const legs=item.legs.map((l,index)=>({
+        order:index+1,from:str(l.from,150),to:str(l.to,150),
+        departure:str(l.departure,5),arrival:str(l.arrival,5),
+        departureDate:str(l.departureDate,10),arrivalDate:str(l.arrivalDate,10),
+        mode:l.mode==='bus'?'bus':'rail',operator:str(l.operator,100)
+      }));
+      if(legs.some(l=>!l.from||!l.to||!date(l.departureDate)||!date(l.arrivalDate)||
+         !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(l.departure)||
+         !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(l.arrival))||
+         legs[0].departureDate!==item.travelDate)die('Horaire de transport invalide.');
+      if(seen.has(item.sourceKey)){alreadyPresent++;continue;}
+      seen.add(item.sourceKey);
+      additions.push({id:uuid(),organizationId:ORG,createdAt:now,updatedAt:now,
+        participationId:participant.id,direction:item.direction,
+        travelDate:item.travelDate,estimatedCents:null,
+        source:'Horaires théoriques, prix et disponibilité inconnus',
+        sourceKey:item.sourceKey,legs});
+    }
+    data.option.push(...additions);write(data);
+    return {imported:additions.length,alreadyPresent};
+  }
   const model={organizationId:ORG,people:data.person,events:data.event,
     participations:data.participation,options:data.option,choices:data.choice,bookings:data.booking};
   if(action==='person_month')return personMonthView({...model,personId:args.personId,month:args.month});
