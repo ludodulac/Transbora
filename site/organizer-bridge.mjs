@@ -97,8 +97,13 @@ export function routesFromSearch(handoff,participants,plans,{parisDate,parisTime
            !TIME.test(leg.arrival)||!ISO.test(leg.departureDate||'')||
            !ISO.test(leg.arrivalDate||'')))continue;
         const travelDate=legs[0].departureDate;
+        // Distinct services can share the very same stations and clock times.
+        // Retain the transport provider and source identifiers when present.
         const sourceKey=JSON.stringify([person.organizerPersonId,direction,travelDate,
-          legs.map(x=>[x.from,x.to,x.departureDate,x.departure,x.arrivalDate,x.arrival,x.mode])]);
+          trip.key||trip.id||'',
+          raw.map(x=>x.tripKey||x.id||x.route||''),
+          legs.map(x=>[x.from,x.to,x.departureDate,x.departure,
+            x.arrivalDate,x.arrival,x.mode,x.operator])]);
         rows.push({personId:person.organizerPersonId,direction,travelDate,legs,
           sourceKey,estimatedCents:null});
       }
