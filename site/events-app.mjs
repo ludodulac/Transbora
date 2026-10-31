@@ -12,6 +12,7 @@ import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {curateJourneys} from './journey-quality.mjs';
 import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults} from './organizer-bridge.mjs';
+import {registerNativeLink} from './organizer-replies-bridge.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -778,6 +779,24 @@ function renderPublished(record,mode){
     eventId:record.eventId,ownerKey:record.ownerKey,
     event:readEvent(),peopleCount:participants.length
   });
+  const returnToOrganizer=$('native-organizer-link');
+  returnToOrganizer.hidden=true;
+  if(activeOrganizerHandoff&&hasSearched){
+    try{
+      const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+      const choicePeople=buildChoicePeople(readEvent(),participants,plans);
+      registerNativeLink(window.localStorage,{
+        organizerHandoff:activeOrganizerHandoff,nativeEventId:record.eventId,
+        participants,plans,choicePeople,routes
+      });
+      writeSearchResults(window.localStorage,routes);
+      returnToOrganizer.href='./organisation.html?import_search=1';
+      returnToOrganizer.hidden=false;
+    }catch(error){
+      shareStatus('Liens voyageurs créés, mais la liaison au tableau a échoué : '+error.message+
+        ' Vous pouvez continuer à utiliser le suivi des réponses.');
+    }
+  }
   const host=$('native-share-links');host.replaceChildren();
   for(const link of record.links){
     const row=node('div','file-row');
