@@ -121,7 +121,7 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
       const previous=choices.find(c=>c.participationId===pid&&c.direction===dir);
       if(previous?.firstOptionId===first &&
          (previous?.backupOptionId||null)===(backup||null)){summary.unchanged++;continue;}
-      if(previous && (previous.origin!=='native'||
+      if(previous && previous.origin!=='sample' && (previous.origin!=='native'||
          previous.nativeEventId!==mapping.nativeEventId)){
         summary.conflicts.push(str(native.first+' '+native.last,100)+
           ' ('+dir+') : choix local déjà différent, aucune écriture automatique.');
