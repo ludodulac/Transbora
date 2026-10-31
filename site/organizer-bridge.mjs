@@ -104,8 +104,9 @@ export function routesFromSearch(handoff,participants,plans,{parisDate,parisTime
           raw.map(x=>x.tripKey||x.id||x.route||''),
           legs.map(x=>[x.from,x.to,x.departureDate,x.departure,
             x.arrivalDate,x.arrival,x.mode,x.operator])]);
+        const nativeOptionId=String(trip.key||trip.id||'').trim();
         rows.push({personId:person.organizerPersonId,direction,travelDate,legs,
-          sourceKey,estimatedCents:null});
+          sourceKey,nativeOptionId:nativeOptionId.slice(0,180),estimatedCents:null});
       }
     }
   }
