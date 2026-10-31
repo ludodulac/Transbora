@@ -1,4 +1,5 @@
 import {personMonthView,eventBudgetSummary} from './organizer-domain.mjs';
+import {planNativeAnswers} from './organizer-replies-bridge.mjs';
 export const KEY='transbora_local_example_043';
 const ORG='local-rehearsal',KINDS=['person','event','participation','option','choice','booking','note'];
 const str=(x,n=200)=>String(x??'').trim().slice(0,n);
@@ -73,6 +74,28 @@ export function createRehearsalApi(store){
     }
     data.option.push(...additions);write(data);
     return {imported:additions.length,alreadyPresent};
+  }
+  if(action==='sync_native_answers'){
+    const mapping=args.mapping,report=args.report;
+    const event=data.event.find(e=>e.id===mapping?.organizerEventId);
+    if(!event)die('Événement de démonstration introuvable.');
+    const summary=planNativeAnswers({
+      mapping,report,event,participations:data.participation,
+      options:data.option,choices:data.choice,bookings:data.booking
+    });
+    const now=Date.now();
+    for(const update of summary.updates){
+      const old=data.choice.find(row=>row.participationId===update.participationId&&
+        row.direction===update.direction);
+      data.choice=data.choice.filter(row=>row!==old);
+      data.choice.push({id:old?.id||uuid(),createdAt:old?.createdAt||now,
+        updatedAt:now,organizationId:ORG,...update});
+    }
+    if(summary.updates.length)write(data);
+    return {synced:summary.updates.length,unchanged:summary.unchanged,
+      pending:summary.pending,none:summary.none,
+      paidStatusNotImported:summary.paidStatusNotImported,
+      conflicts:summary.conflicts};
   }
   const model={organizationId:ORG,people:data.person,events:data.event,
     participations:data.participation,options:data.option,choices:data.choice,bookings:data.booking};
