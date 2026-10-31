@@ -779,6 +779,7 @@ function renderPublished(record,mode){
     eventId:record.eventId,ownerKey:record.ownerKey,
     event:readEvent(),peopleCount:participants.length
   });
+  let bridgeError='';
   const returnToOrganizer=$('native-organizer-link');
   returnToOrganizer.hidden=true;
   if(activeOrganizerHandoff&&hasSearched){
@@ -793,8 +794,8 @@ function renderPublished(record,mode){
       returnToOrganizer.href='./organisation.html?import_search=1';
       returnToOrganizer.hidden=false;
     }catch(error){
-      shareStatus('Liens voyageurs créés, mais la liaison au tableau a échoué : '+error.message+
-        ' Vous pouvez continuer à utiliser le suivi des réponses.');
+      bridgeError=' ⚠ Liaison au tableau impossible : '+error.message+
+        '. Le suivi des réponses reste disponible.';
     }
   }
   const host=$('native-share-links');host.replaceChildren();
@@ -812,7 +813,7 @@ function renderPublished(record,mode){
   $('native-ready').hidden=false;
   shareStatus(record.links.length+' lien(s) créés.'+
     (saved?' Dossier ajouté à « Mes événements ».':
-     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.'));
+     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.')+bridgeError);
 }
 async function createNativeLinks(mode){
   try{
