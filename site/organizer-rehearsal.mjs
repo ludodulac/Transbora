@@ -1,4 +1,5 @@
 import {personMonthView,eventBudgetSummary} from './organizer-domain.mjs';
+import {planNativeAnswers} from './organizer-replies-bridge.mjs';
 export const KEY='transbora_local_example_043';
 const ORG='local-rehearsal',KINDS=['person','event','participation','option','choice','booking','note'];
 const str=(x,n=200)=>String(x??'').trim().slice(0,n);
@@ -17,7 +18,7 @@ const init=()=>{
   option:[{id:'opt1-demo',participationId:'ps-demo',direction:'A',travelDate:'2026-10-31',estimatedCents:6500,legs:[leg('Paris Gare de Lyon','Mulhouse','09:22','12:21')]},
           {id:'opt2-demo',participationId:'ps-demo',direction:'A',travelDate:'2026-10-31',estimatedCents:8000,legs:[leg('Paris Gare de Lyon','Mulhouse','07:22','10:03')]},
           {id:'opt3-demo',participationId:'pm-demo',direction:'A',travelDate:'2026-10-30',estimatedCents:12000,legs:[leg('Brest','Paris Montparnasse','08:00','12:00'),leg('Paris Est','Mulhouse','13:45','16:50',2)]}],
-  choice:[{id:'choice-demo',participationId:'ps-demo',direction:'A',firstOptionId:'opt1-demo',backupOptionId:'opt2-demo'}],
+  choice:[{id:'choice-demo',participationId:'ps-demo',direction:'A',firstOptionId:'opt1-demo',backupOptionId:'opt2-demo',origin:'sample'}],
   booking:[],
   note:[{id:'note-demo',targetType:'event',targetId:'festival-demo',content:'Note fictive : vérifier les horaires.',updatedBy:'Démonstration',updatedAt:Date.now()}]};
  for(const k of KINDS)for(const row of data[k])row.organizationId=ORG;
@@ -39,6 +40,63 @@ export function createRehearsalApi(store){
   const get=(kind,key)=>data[kind].find(x=>x.id===key)||die('Élément introuvable.');
   if(action==='list')return {items:structuredClone(data[type]||[])};
   if(action==='export_backup')return {type:'local-rehearsal',...data};
+  if(action==='import_search_results'){
+    const {eventId,rows}=args;
+    if(!data.event.some(e=>e.id===eventId))die('Événement de destination introuvable.');
+    if(!Array.isArray(rows)||rows.length>1000)die('Liste de trajets trop longue.');
+    const now=Date.now(),additions=[];
+    let alreadyPresent=0;
+    const seen=new Set(data.option.map(x=>x.sourceKey).filter(Boolean));
+    for(const item of rows){
+      if(!['A','R'].includes(item?.direction)||!date(item.travelDate)||
+        typeof item.sourceKey!=='string'||!item.sourceKey||
+        item.sourceKey.length>6000||!Array.isArray(item.legs)||
+        !item.legs.length||item.legs.length>6)die('Proposition de transport invalide.');
+      const participant=data.participation.find(p=>p.personId===item.personId&&p.eventId===eventId);
+      if(!participant)die('Participant non inscrit à cet événement.');
+      const legs=item.legs.map((l,index)=>({
+        order:index+1,from:str(l.from,150),to:str(l.to,150),
+        departure:str(l.departure,5),arrival:str(l.arrival,5),
+        departureDate:str(l.departureDate,10),arrivalDate:str(l.arrivalDate,10),
+        mode:l.mode==='bus'?'bus':'rail',operator:str(l.operator,100)
+      }));
+      if(legs.some(l=>!l.from||!l.to||!date(l.departureDate)||!date(l.arrivalDate)||
+         !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(l.departure)||
+         !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(l.arrival))||
+         legs[0].departureDate!==item.travelDate)die('Horaire de transport invalide.');
+      if(seen.has(item.sourceKey)){alreadyPresent++;continue;}
+      seen.add(item.sourceKey);
+      additions.push({id:uuid(),organizationId:ORG,createdAt:now,updatedAt:now,
+        participationId:participant.id,direction:item.direction,
+        travelDate:item.travelDate,estimatedCents:null,
+        source:'Horaires théoriques, prix et disponibilité inconnus',
+        sourceKey:item.sourceKey,legs});
+    }
+    data.option.push(...additions);write(data);
+    return {imported:additions.length,alreadyPresent};
+  }
+  if(action==='sync_native_answers'){
+    const mapping=args.mapping,report=args.report;
+    const event=data.event.find(e=>e.id===mapping?.organizerEventId);
+    if(!event)die('Événement de démonstration introuvable.');
+    const summary=planNativeAnswers({
+      mapping,report,event,participations:data.participation,
+      options:data.option,choices:data.choice,bookings:data.booking
+    });
+    const now=Date.now();
+    for(const update of summary.updates){
+      const old=data.choice.find(row=>row.participationId===update.participationId&&
+        row.direction===update.direction);
+      data.choice=data.choice.filter(row=>row!==old);
+      data.choice.push({id:old?.id||uuid(),createdAt:old?.createdAt||now,
+        updatedAt:now,organizationId:ORG,...update});
+    }
+    if(summary.updates.length)write(data);
+    return {synced:summary.updates.length,unchanged:summary.unchanged,
+      pending:summary.pending,none:summary.none,
+      paidStatusNotImported:summary.paidStatusNotImported,
+      conflicts:summary.conflicts};
+  }
   const model={organizationId:ORG,people:data.person,events:data.event,
     participations:data.participation,options:data.option,choices:data.choice,bookings:data.booking};
   if(action==='person_month')return personMonthView({...model,personId:args.personId,month:args.month});

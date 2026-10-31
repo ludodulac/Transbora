@@ -11,6 +11,8 @@ import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {curateJourneys} from './journey-quality.mjs';
+import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults} from './organizer-bridge.mjs';
+import {registerNativeLink} from './organizer-replies-bridge.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -22,7 +24,7 @@ let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,offic
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
-let draftSaving=null,restoredDraft=false;
+let draftSaving=null,restoredDraft=false,activeOrganizerHandoff=null;
 let stationNames=[];
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
@@ -95,6 +97,8 @@ function updateButtons(){
   $('individual-details').hidden=!havePlans;
   $('copy-invitation').hidden=!havePlans;
   $('download-template').disabled=isBusy;
+  $('send-to-organizer').hidden=!(activeOrganizerHandoff&&havePlans);
+  $('send-to-organizer').disabled=isBusy;
   const next=$('wizard-next'),search=$('search-everyone');
   if(currentView==='wizard'){
     const isThird=activeStep===3;
@@ -260,6 +264,9 @@ function renderPeople(){
     });
     const personalized=personOptionalFields.some(([key])=>p[key]);
     if(personalized)content.append(node('span','person-custom-badge','Horaires ou lieux personnalisés'));
+    if(p.reductionCards)content.append(node('span','person-custom-badge',
+      'Carte déclarée : '+p.reductionCards+' · aucun tarif calculé'));
+    if(p.preferences)content.append(node('span','person-custom-badge','Préférences : '+p.preferences));
     item.append(content,remove,settings);frag.append(item);
   });
   holder.append(frag);
@@ -324,7 +331,28 @@ async function init(){
     $(id).addEventListener('input',scheduleDraft);
   }
   if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
-  else loadSavedDraft();
+  else if(new URLSearchParams(location.search).get('from_organizer')!=='1')loadSavedDraft();
+  if(new URLSearchParams(location.search).get('from_organizer')==='1'){
+    const handoff=readSearchHandoff(localStorage);
+    if(!handoff){
+      status('Aucun événement de démonstration récent à importer. Revenez dans Organisation.',true);
+    }else{
+      // The organizer card has a date but no presence-time fields. Never
+      // silently interpret the wizard's default 14:00 as an actual deadline.
+      activeOrganizerHandoff=handoff;
+      $('event-title').value=handoff.title;
+      $('event-destination').value=handoff.destination;
+      $('event-start-date').value=handoff.startDate;
+      $('event-end-date').value=handoff.startDate;
+      $('event-start-time').value='';
+      $('event-end-time').value='';
+      participants=wizardPeople(handoff);
+      nextId=participants.length+1;
+      restoredDraft=true;
+      renderPeople();storeDraft();
+      $('org-search-warning').hidden=false;
+    }
+  }
   updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -332,7 +360,8 @@ async function init(){
     manifest=await response.json();
     if(!manifest?.sources?.some(s=>s.status==='ok'))throw new Error('Aucune source GTFS active');
     status('Prêt : '+manifest.sources.filter(s=>s.status==='ok').length+
-      ' sources de transport disponibles. '+(restoredDraft?
+      ' sources de transport disponibles. '+(activeOrganizerHandoff?
+        'Événement et fiches repris depuis Organisation. Renseignez les heures réelles de présence.':restoredDraft?
         'Votre événement et vos voyageurs ont été retrouvés. Vous pouvez relancer la recherche.':
         'Créez un événement puis ajoutez les voyageurs.'));
     let stations;
@@ -661,6 +690,20 @@ async function compareWithSncf(event,settings){
   await Promise.all(Array.from({length:Math.min(3,tasks.length)},()=>run()));
   return {added,success,failed,outside};
 }
+$('send-to-organizer').addEventListener('click',()=>{
+ try{
+  if(!activeOrganizerHandoff||!hasSearched)
+    throw Error('Ouvrez la recherche depuis un événement de démonstration.');
+  const event=readEvent();
+  if(event.title!==activeOrganizerHandoff.title||
+     event.destination!==activeOrganizerHandoff.destination||
+     event.startDate!==activeOrganizerHandoff.startDate)
+    throw Error('Cet événement a changé. Reprenez sa fiche dans Organisation pour éviter de mélanger les dossiers.');
+  const result=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+  writeSearchResults(window.localStorage,result);
+  location.assign('./organisation.html?import_search=1');
+ }catch(error){status(error.message,true);}
+});
 $('cancel-search').addEventListener('click',()=>{
   stopRequested=true;
   if(cancelActiveSearch)cancelActiveSearch();
@@ -736,6 +779,25 @@ function renderPublished(record,mode){
     eventId:record.eventId,ownerKey:record.ownerKey,
     event:readEvent(),peopleCount:participants.length
   });
+  let bridgeError='';
+  const returnToOrganizer=$('native-organizer-link');
+  returnToOrganizer.hidden=true;
+  if(activeOrganizerHandoff&&hasSearched){
+    try{
+      const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+      const choicePeople=buildChoicePeople(readEvent(),participants,plans);
+      registerNativeLink(window.localStorage,{
+        organizerHandoff:activeOrganizerHandoff,nativeEventId:record.eventId,
+        participants,plans,choicePeople,routes
+      });
+      writeSearchResults(window.localStorage,routes);
+      returnToOrganizer.href='./organisation.html?import_search=1';
+      returnToOrganizer.hidden=false;
+    }catch(error){
+      bridgeError=' ⚠ Liaison au tableau impossible : '+error.message+
+        '. Le suivi des réponses reste disponible.';
+    }
+  }
   const host=$('native-share-links');host.replaceChildren();
   for(const link of record.links){
     const row=node('div','file-row');
@@ -751,7 +813,7 @@ function renderPublished(record,mode){
   $('native-ready').hidden=false;
   shareStatus(record.links.length+' lien(s) créés.'+
     (saved?' Dossier ajouté à « Mes événements ».':
-     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.'));
+     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.')+bridgeError);
 }
 async function createNativeLinks(mode){
   try{

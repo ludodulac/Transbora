@@ -1,5 +1,9 @@
 # 🚆 Transbora — recherche multimodale de propositions de transport
 
+> **Version 044 — Démonstration reliée :** depuis le [tableau organisateur](https://transbora-ludo.netlify.app/organisation.html), lancez une recherche sur un événement et renvoyez les horaires réellement trouvés dans son suivi. Cartes de réduction informatives ; prix et places inconnus. Le transfert reste local au navigateur et ne synchronise ni le registre privé ni les réponses natives des artistes. [Mode d'emploi et limites](docs/liaison-organisation-recherche-044.md).
+
+> **Version 045 — Réponses des artistes :** après création des liens depuis cette recherche liée, retour au tableau organisateur et bouton « Récupérer les réponses des artistes » (actualisation manuelle sur le même appareil). Les choix nº1/nº2 peuvent être repris sans modifier les dépenses ou les billets. [Fonctionnement et limites](docs/liaison-reponses-045.md).
+
 Application indépendante pour gagner du temps lors de la préparation d'horaires à proposer : rechercher des trajets directs en train ou en autocar, en cocher plusieurs, **copier une proposition**.
 
 ## Compagnies prévues et état

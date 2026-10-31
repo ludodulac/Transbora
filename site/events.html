@@ -29,6 +29,7 @@
   <button type="button" id="menu-event" class="drawer-link">✏️ Brouillon en cours</button>
   <button type="button" id="clear-saved-draft" class="drawer-link">＋ Nouvel événement</button>
   <a href="./recherche.html" class="drawer-link">🚆 Recherche rapide</a>
+  <a href="./organisation.html" class="drawer-link">🗂️ Tableau organisateur</a>
   </nav>
   <details class="settings-fold"><summary>Comment ça marche ?</summary>
     <p>Créez un événement, ajoutez vos voyageurs, recherchez les horaires puis envoyez leurs liens. Vos dossiers déjà créés se retrouvent dans « Mes événements ».</p>
@@ -123,6 +124,9 @@
       <button id="cancel-search" type="button" class="text-button">Arrêter la recherche</button>
     </div>
    <div id="journey-recap" class="recap-list" aria-live="polite"></div>
+   <div id="org-search-warning" class="notice warning" hidden>🔗 <strong>Recherche liée au tableau de démonstration.</strong> Les personnes et leurs gares ont été reprises. Renseignez les véritables heures de présence avant de rechercher : elles ne sont pas connues dans la fiche organisateur. Les cartes sont informatives, les tarifs et les places restent inconnus.</div>
+   <button type="button" id="send-to-organizer" class="secondary action-button" hidden>← Envoyer ces trajets au tableau organisateur</button>
+   <p class="small">Le transfert fonctionne uniquement dans la démonstration sur cet appareil. Après avoir créé les liens à l’étape 4, vous pourrez récupérer les réponses depuis la fiche événement dans Organisation, sans synchroniser les achats ni les tarifs.</p>
   </section>
 
   <section class="panel event-panel wizard-screen" id="etape-4" data-step="4" aria-labelledby="step-four-heading" hidden>
@@ -158,6 +162,7 @@
        <button type="button" class="secondary switch-share-mode" id="switch-sharing-mode">↔ Changer le type de lien</button>
        <p class="small">Vous pouvez corriger votre choix sans refaire la recherche. Les anciens liens seront désactivés, mais les réponses déjà reçues seront conservées.</p>
        <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir le suivi des réponses ↗</a></div>
+       <p class="native-admin-link"><a id="native-organizer-link" class="secondary" href="./organisation.html?import_search=1" hidden>🗂️ Retrouver les trajets et les réponses dans Organisation →</a></p>
        <p class="small">Votre événement est enregistré. Retrouvez-le dans « Mes événements » depuis ce navigateur. Ne partagez pas le lien privé de suivi.</p>
         <div class="finished-actions"><a class="primary" href="./mes-evenements.html">📂 Mes événements</a><a class="secondary" href="./events.html?new=1">＋ Créer un autre événement</a></div>
      </section>
