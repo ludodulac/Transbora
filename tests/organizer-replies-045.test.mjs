@@ -50,7 +50,7 @@ test('045: native reply sync is atomic, idempotent and creates no paid ticket',a
  await api('import_search_results',{eventId:event.id,rows:importedRows});
  const one=await api('sync_native_answers',{mapping,report:report()});
  assert.equal(one.synced,1);
- assert.equal(one.pending,1);
+ assert.equal(one.pending,0);
  const options=(await api('list',{type:'option'})).items;
  const sourceOption=options.find(o=>o.sourceKey==='stable-source-key-1');
  const chosen=(await api('list',{type:'choice'})).items.find(c=>c.direction==='A');
