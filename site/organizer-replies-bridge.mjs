@@ -91,6 +91,8 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
     for(const dir of directions){
       if(native.booking?.[dir])summary.paidStatusNotImported++;
       const answer=native.answer?.[dir];
+      if((answer===null||answer===undefined||answer==='')&&
+          !(native.options?.[dir]||[]).length)continue;
       if(answer===null||answer===undefined||answer===''){summary.pending++;continue;}
       const translate=(id)=>{
         if(!id)return null;
