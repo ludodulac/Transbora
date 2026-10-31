@@ -18,7 +18,7 @@ const init=()=>{
   option:[{id:'opt1-demo',participationId:'ps-demo',direction:'A',travelDate:'2026-10-31',estimatedCents:6500,legs:[leg('Paris Gare de Lyon','Mulhouse','09:22','12:21')]},
           {id:'opt2-demo',participationId:'ps-demo',direction:'A',travelDate:'2026-10-31',estimatedCents:8000,legs:[leg('Paris Gare de Lyon','Mulhouse','07:22','10:03')]},
           {id:'opt3-demo',participationId:'pm-demo',direction:'A',travelDate:'2026-10-30',estimatedCents:12000,legs:[leg('Brest','Paris Montparnasse','08:00','12:00'),leg('Paris Est','Mulhouse','13:45','16:50',2)]}],
-  choice:[{id:'choice-demo',participationId:'ps-demo',direction:'A',firstOptionId:'opt1-demo',backupOptionId:'opt2-demo'}],
+  choice:[{id:'choice-demo',participationId:'ps-demo',direction:'A',firstOptionId:'opt1-demo',backupOptionId:'opt2-demo',origin:'sample'}],
   booking:[],
   note:[{id:'note-demo',targetType:'event',targetId:'festival-demo',content:'Note fictive : vérifier les horaires.',updatedBy:'Démonstration',updatedAt:Date.now()}]};
  for(const k of KINDS)for(const row of data[k])row.organizationId=ORG;
