@@ -41,14 +41,16 @@ export function registerNativeLink(storage,{
     const options={A:[],R:[]};
     for(const dir of directions){
       for(const option of published.options?.[dir]||[]){
+        // The existing native endpoint stores its option IDs at max 180 chars.
+        const optionId=str(option.id,180);
         const matching=routes.rows.filter(row=>row.personId===traveler.personId &&
-          row.direction===dir && row.nativeOptionId===option.id);
+          row.direction===dir && row.nativeOptionId===optionId);
         if(matching.length!==1)
           throw Error('Trajet de '+traveler.name+' impossible à associer à son lien.');
         const key=matching[0].sourceKey;
-        if(options[dir].some(o=>o.nativeOptionId===option.id))
-          throw Error('Identifiant de proposition en double.');
-        options[dir].push({nativeOptionId:str(option.id,180),sourceKey:str(key,6000)});
+        if(!optionId||options[dir].some(o=>o.nativeOptionId===optionId))
+          throw Error('Identifiant de proposition en double ou vide.');
+        options[dir].push({nativeOptionId:optionId,sourceKey:str(key,6000)});
       }
     }
     travelers.push({organizerPersonId:traveler.personId,nativePersonId:person.id,options});
