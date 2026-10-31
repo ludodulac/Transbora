@@ -1,6 +1,9 @@
 /** TRANSBORA — organizer workbench. All user content uses textContent. */
 import {createRehearsalApi} from './organizer-rehearsal.mjs';
 import {createSearchHandoff,readSearchResults,RESULTS_KEY} from './organizer-bridge.mjs';
+import {nativeLinkFor} from './organizer-replies-bridge.mjs';
+import {readHistory} from './event-history.mjs';
+import {api as nativeChoicesApi} from './native-choices.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false};
 let rehearsal=null;
@@ -214,6 +217,34 @@ function renderEverything(){
     }catch(error){feedback(error.message,true);}
    });
    c.append(search);
+   const mapping=nativeLinkFor(window.localStorage,event.id);
+   if(mapping){
+    c.append(node('p','tiny','🔗 Dossier artistes associé. Actualisez les réponses ici, à la demande.'));
+    const sync=node('button','item-action','🔄 Récupérer les réponses des artistes');
+    sync.type='button';
+    sync.addEventListener('click',async()=>{
+      sync.disabled=true;
+      try{
+       const owner=readHistory(window.localStorage).find(row=>row.eventId===mapping.nativeEventId);
+       if(!owner)throw Error('Lien privé du suivi introuvable sur cet appareil. Ouvrez d’abord « Mes événements » ou importez votre lien de suivi.');
+       const report=await nativeChoicesApi('status',{
+         eventId:mapping.nativeEventId,ownerKey:owner.ownerKey
+       });
+       // The capability and the report are transient: neither is persisted
+       // into the demonstration, and the real booking status is not copied.
+       const result=await api('sync_native_answers',{mapping,report});
+       await reload();showTab('events');
+       const incidents=result.conflicts.length?
+         ' ⚠ À contrôler : '+result.conflicts.slice(0,3).join(' / '):'';
+       feedback('✅ Réponses : '+result.synced+' choix mis à jour, '+
+         result.unchanged+' inchangé(s), '+result.pending+' en attente. '+
+         'Aucun prix ou achat importé.'+incidents,
+         Boolean(result.conflicts.length));
+      }catch(error){feedback('Synchronisation impossible : '+error.message,true);}
+      finally{sync.disabled=false;}
+    });
+    c.append(sync);
+   }
   }
   events.append(c);
  }
@@ -227,7 +258,9 @@ function renderEverything(){
     choice?.backupOptionId===option.id?' · CHOIX Nº2':'';
   const c=card(displayParticipation(option.participationId)+rank,[
    (option.direction==='A'?'ALLER':'RETOUR')+' · '+fmtDate(option.travelDate),
-   'Prix estimé : '+fmtEuro(option.estimatedCents)]);
+   'Prix estimé : '+fmtEuro(option.estimatedCents),
+   choice?.firstOptionId==='NONE'?'Aucun trajet souhaité pour ce sens':
+   choice?.origin==='native'?'Choix de l’artiste synchronisé':'']);
   for(const leg of option.legs||[]){
    c.append(node('p','segment',
     (leg.departureDate&&leg.departureDate!==option.travelDate?fmtDate(leg.departureDate)+' ':'')+
