@@ -27,6 +27,7 @@ export async function ledgerWorkbook(register,{label='',Excel=globalThis.ExcelJS
  const sheet=wb.addWorksheet('Trajets du mois',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1}});
  const columns=[14,27,24,11,22,12,22,14,8,7,7,16,17,17,23];
  columns.forEach((w,i)=>{sheet.getColumn(i+1).width=w;});
+ for(const index of [13,14])sheet.getColumn(index).numFmt='#,##0.00 "€"';
  sheet.mergeCells(1,1,1,15);
  const t=sheet.getCell('A1');t.value=label?'TRANSBORA — '+label:'TRANSBORA — Déplacements';
  t.font={bold:true,size:18,color:{argb:'FFFFFFFF'}};
@@ -62,7 +63,10 @@ export async function ledgerWorkbook(register,{label='',Excel=globalThis.ExcelJS
  sheet.mergeCells(total.number,1,total.number,12);
  total.getCell(1).value='Total billets achetés avec montant connu';
  total.getCell(1).font={bold:true};
- total.getCell(13).value=register.summary.paidKnownCents/100;
+ total.getCell(13).value={
+  formula:'SUM(M4:M'+Math.max(4,total.number-1)+')',
+  result:register.summary.paidKnownCents/100
+ };
  total.getCell(13).numFmt='#,##0.00 "€"';
  total.getCell(13).font={bold:true};
  sheet.mergeCells(total.number+1,1,total.number+1,15);
