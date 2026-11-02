@@ -13,8 +13,10 @@ test('043: organizer opens immediately on fictional examples without entering a 
  await new Promise(resolve=>setTimeout(resolve,50));
  assert.equal(w.document.getElementById('private-panel').hidden,false);
  assert.equal(w.document.getElementById('login-panel').hidden,true);
- assert.equal(w.document.getElementById('demo-warning').hidden,false);
- assert.match(w.document.getElementById('company-name').textContent,/démonstration/);
+ assert.equal(w.document.getElementById('demo-warning').hidden,true);
+ assert.equal(w.document.getElementById('company-name').hidden,true);
+ assert.doesNotMatch(w.document.querySelector('.head').textContent,/organisation · aperçu/i);
+ assert.doesNotMatch(w.document.querySelector('.masthead').textContent,/démonstration|tableau de bord/i);
  assert.match(w.document.getElementById('people-output').textContent,/Sophie \(exemple\)/);
  assert.match(w.document.getElementById('budget-output').textContent,/Festival exemple/);
  const input=w.document.getElementById('month-person');
