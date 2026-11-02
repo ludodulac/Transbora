@@ -161,6 +161,7 @@ async function connect(){
  $('reset-demo').hidden=!state.demo;
  $('logout').hidden=state.demo;
  $('team-secret-hint').hidden=!state.demo;
+ $('demo-backup-import').hidden=!state.demo;
  $('user-identity').textContent=state.demo?'Essai sur cet appareil (non partagé)':$('user-identity').textContent;
  $('month-filter').value=new Date().toISOString().slice(0,7);
  $('budget-month-filter').value=$('month-filter').value;
@@ -544,6 +545,26 @@ $('export-backup').addEventListener('click',async()=>{
   setTimeout(()=>URL.revokeObjectURL(url),5000);
   feedback('✅ Sauvegarde privée enregistrée dans les téléchargements.');
  }catch(e){feedback(e.message,true)}
+});
+$('restore-demo-file').addEventListener('change',async e=>{
+ const file=e.currentTarget.files?.[0];
+ if(!file||!state.demo)return;
+ const message=$('restore-demo-status');
+ try{
+  if(!/\\.json$/i.test(file.name)||file.size>2*1024*1024)
+   throw Error('Choisissez une sauvegarde JSON de 2 Mo maximum.');
+  const backup=JSON.parse(await file.text());
+  if(!confirm('Remplacer les données de cette démonstration par celles du fichier ? Les données actuelles seront perdues.'))return;
+  const result=await api('restore_demo_backup',{backup});
+  state.activeSearchEventId=null;
+  $('search-frame-area').hidden=true;
+  $('search-frame').removeAttribute('src');
+  await reload();showTab('people');
+  message.textContent='✅ '+result.persons+' personne(s) et '+result.events+
+    ' événement(s) restauré(s) dans ce navigateur.';
+  feedback(message.textContent);
+ }catch(error){message.textContent='⚠ '+error.message;}
+ finally{e.currentTarget.value='';}
 });
 $('reset-demo').addEventListener('click',async()=>{
  if(!state.demo||!confirm('Remettre à zéro uniquement les données fictives de cet appareil ?'))return;
