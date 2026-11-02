@@ -12,7 +12,7 @@ import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {curateJourneys} from './journey-quality.mjs';
 import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults,extendSearchHandoff} from './organizer-bridge.mjs';
-import {createRehearsalApi} from './organizer-rehearsal.mjs';
+import {createRehearsalApi,KEY as ORGANIZER_STORE_KEY} from './organizer-rehearsal.mjs';
 import {registerNativeLink} from './organizer-replies-bridge.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
@@ -45,6 +45,9 @@ async function loadRegisteredPeople(){
   $('directory-select').hidden=true;
  }
 }
+window.addEventListener('storage',e=>{
+ if(e.key===ORGANIZER_STORE_KEY)loadRegisteredPeople();
+});
 $('add-directory-person').addEventListener('click',async()=>{
  const label=$('directory-person-find').value.trim();
  const found=savedDirectory.filter(p=>personLabel(p)===label);
