@@ -61,3 +61,31 @@
  .masthead{justify-content:space-between;margin:0 0 8px}
  .card-option-list{grid-template-columns:1fr}
 }
+
+/* 048 — Jeanne's compact monthly tracking grid */
+.month-toolbar{display:flex;gap:9px;align-items:end;flex-wrap:wrap;margin:12px 0 16px}
+.month-toolbar label{flex:1 1 160px;max-width:300px}
+.month-toolbar button{min-height:42px;padding:9px 11px;font-size:.82rem}
+.month-summary{font-size:.88rem;font-weight:650;color:#176870;background:#eaf7f4;
+ border:1px solid #c4e5de;padding:11px;border-radius:9px;margin:12px 0}
+.month-table-wrap{overflow-x:auto;max-width:100%;border:1px solid #d5e4e7;border-radius:12px;margin:10px 0}
+.month-table{border-collapse:collapse;width:100%;min-width:1000px;font-size:.83rem}
+.month-table thead{background:#153d4b;color:white}
+.month-table th,.month-table td{padding:11px 9px;text-align:left;
+ border-bottom:1px solid #e2ecee;vertical-align:middle}
+.month-table tbody tr:nth-child(even){background:#f6fafb}
+.month-table .paid-month-row{background:#ecf9ef}
+.month-table .pending-month-row{background:#fff7e4}
+.month-table .choice-column{font-weight:750;color:#087f85}
+.month-table .status-column{text-align:center;font-weight:800}
+.month-table .month-empty{text-align:center;padding:24px;color:#667f87}
+.person-sheet-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+ padding:12px 2px;margin:14px 0}
+.person-sheet-actions strong{margin-right:auto}
+#month-output[hidden],#person-sheet-actions[hidden]{display:none!important}
+@media(max-width:770px){
+ .month-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .month-toolbar label{max-width:none}
+ .month-toolbar button{font-size:.82rem;min-width:0}
+ .month-table{min-width:930px}
+}
