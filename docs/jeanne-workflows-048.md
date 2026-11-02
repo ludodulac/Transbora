@@ -10,11 +10,11 @@ Les alternatives restent visibles mais **ne sont jamais comptées comme un deuxi
 Actions sur une ligne : ouvrir son choix, préparer un panier / un achat / un classement ; elles utilisent les formulaires déjà existants et conservent l'événement et la participation.
 
 ## 2. Fiche individuelle mensuelle : réalisé
-Sélectionner une personne : la vue mensuelle affiche ses voyages dans **tous** les événements concernés. Export XLSX individuel ou mensuel ; total en formule Excel `SUM` avec résultat connu, filtres, ligne d'en-têtes figée et coloration des vrais achats.
+Sélectionner une personne : la vue mensuelle affiche ses voyages dans **tous** les événements concernés, **directement dans TRANSBORA**, sans fichier Excel à télécharger, renseigner ou réimporter.
 
-Bouton « Fiche PDF » et « PDF du mois » : fenêtre d'impression A4 paysage, où le navigateur propose « Enregistrer au format PDF ». Il s'agit d'une **impression PDF par le navigateur**, et non d'un téléchargement PDF direct.
+L'impression du mois ou de la fiche reste facultative : « Imprimer » ouvre la boîte de dialogue du navigateur, où l'utilisateur peut éventuellement choisir « Enregistrer en PDF ». Aucun export n'est nécessaire pour gérer les trajets et les billets.
 
-Tous les exports utilisent le même moteur `monthLedger` pour ne pas diverger du tableau. Les valeurs textuelles sont échappées lors de l'impression. Un prix absent ne devient jamais « 0 € ».
+Les données du tableau et de la fiche proviennent du même moteur `monthLedger`. La seule sauvegarde des fiches proposée dans la démonstration se trouve dans **Paramètres** (copie JSON destinée à restaurer une autre prévisualisation), jamais dans le parcours quotidien. Les anciennes fonctions techniques d'export XLSX restent hors de l'interface pour compatibilité, mais ne doivent plus être présentées comme une étape normale.
 
 ## 3. Espace partagé : implémenté côté code, activation de production distincte
 Le backend privé de `backend/workspace-core.mjs` utilise des comptes individuels, des invitations 48 h, des rôles manager/editor, une organisation unique et des sessions HttpOnly. Deux membres voient les mêmes enregistrements de leur organisation.
@@ -30,7 +30,7 @@ Nouveautés : bouton « Actualiser » après connexion, refus de modification de
 Les **réponses aux liens natifs des artistes** restent synchronisables dans le mode de démonstration locale, mais ne le sont **pas encore** dans le registre privé partagé. Cette limitation est signalée dans le logiciel ; aucune synchronisation trompeuse ni transfert de clé propriétaire.
 
 ## 4. Vérifications de bout en bout
-- `tests/organizer-monthly-048.test.mjs` : plusieurs événements/mois, premier et second choix, statuts panier/achat/classement, prix manquants, XLSX réel lu par ExcelJS, HTML impression sécurisé.
+- `tests/organizer-monthly-048.test.mjs` : plusieurs événements/mois, premier et second choix, statuts panier/achat/classement, prix manquants, ancien utilitaire XLSX hors interface, HTML impression sécurisé.
 - `tests/month-dashboard-ui-048.test.mjs` : deux spectacles, plusieurs artistes, filtre, fiche individuelle, choix et billet modifiables depuis le tableau.
 - `tests/workspace-shared-048.test.mjs` : deux comptes distincts, invitation, même stockage, refus des modifications obsolètes, import sécurisé de vrais horaires sans prix inventé.
 - `tests/shared-search-wizard-048.test.mjs` : transfert de fiches par messages de même origine sans écriture dans le stockage local.
