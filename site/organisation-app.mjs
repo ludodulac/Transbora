@@ -551,7 +551,7 @@ $('restore-demo-file').addEventListener('change',async e=>{
  if(!file||!state.demo)return;
  const message=$('restore-demo-status');
  try{
-  if(!/\\.json$/i.test(file.name)||file.size>2*1024*1024)
+  if(!/\.json$/i.test(file.name)||file.size>2*1024*1024)
    throw Error('Choisissez une sauvegarde JSON de 2 Mo maximum.');
   const backup=JSON.parse(await file.text());
   if(!confirm('Remplacer les données de cette démonstration par celles du fichier ? Les données actuelles seront perdues.'))return;
