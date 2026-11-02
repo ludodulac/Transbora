@@ -421,7 +421,7 @@ async function init(){
         event.data?.type!=='transbora:shared-handoff')return;
       const handoff=event.data.handoff;
       if(handoff?.version!==1||!handoff.eventId||!handoff.title||
-       !handoff.destination||!/^\\d{4}-\\d{2}-\\d{2}$/.test(handoff.startDate||'')||
+       !handoff.destination||!isoDate(handoff.startDate||'')||
        !Array.isArray(handoff.travelers)||handoff.travelers.length<1||
        handoff.travelers.length>100||
        handoff.travelers.some(x=>!x.personId||!x.name||!x.departure))return;
