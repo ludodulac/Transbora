@@ -4,6 +4,7 @@ import {createSearchHandoff,readSearchResults,RESULTS_KEY} from './organizer-bri
 import {nativeLinkFor} from './organizer-replies-bridge.mjs';
 import {readHistory} from './event-history.mjs';
 import {api as nativeChoicesApi} from './native-choices.mjs';
+import {FRENCH_RAIL_CARDS,unpackRailCards,packRailCards} from './reduction-cards.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null};
 let rehearsal=null;
@@ -101,12 +102,48 @@ function options(sel,values,placeholder='Sélectionner…'){
  for(const [value,label] of values){const opt=node('option',null,label);opt.value=value;sel.append(opt);}
  if([...sel.options].some(x=>x.value===prev))sel.value=prev;
 }
+
+/* Compact card picker keeps the same saved person.reductionCards field. */
+const cardList=$('person-card-options');
+let currentCardGroup='';
+for(const entry of FRENCH_RAIL_CARDS){
+ if(entry.group!==currentCardGroup){
+  currentCardGroup=entry.group;
+  cardList.append(node('strong','card-group-heading',currentCardGroup));
+ }
+ const label=node('label','card-choice');
+ const input=node('input');input.type='checkbox';input.value=entry.name;
+ label.append(input,node('span',null,entry.name));cardList.append(label);
+}
+function selectedCardLabels(){
+ return [...cardList.querySelectorAll('input[type="checkbox"]:checked')].map(x=>x.value);
+}
+function updateCardCaption(){
+ const known=selectedCardLabels(),other=$('person-card-other').value.trim();
+ const count=known.length+(other?1:0);
+ $('person-card-summary').textContent=count?count===1?(known[0]||other):
+  count+' sélectionnés':'Aucun';
+}
+function setCardsFromSaved(value){
+ const saved=unpackRailCards(value);
+ for(const input of cardList.querySelectorAll('input[type="checkbox"]'))
+  input.checked=saved.known.includes(input.value);
+ $('person-card-other').value=saved.other;
+ updateCardCaption();
+ $('person-form').elements.reductionCards.value=String(value||'');
+}
+function applyCardsToForm(){
+ $('person-form').elements.reductionCards.value=
+  packRailCards(selectedCardLabels(),$('person-card-other').value);
+}
+cardList.addEventListener('change',updateCardCaption);
+$('person-card-other').addEventListener('input',updateCardCaption);
 function fillSelects(){
  const persons=items('person').map(p=>[p.id,p.name]),
    events=items('event').map(e=>[e.id,e.title+' · '+fmtDate(e.startDate)]);
  const participants=items('participation').map(p=>[p.id,displayParticipation(p.id)]);
  options($('month-person'),persons,'Choisir une personne');
- options($('search-event-select'),events,'Sélectionner un événement');
+ options($('search-event-select'),events,'Choisir…');
  const matches=$('registered-person-names');matches.replaceChildren();
  for(const person of items('person')){
    const item=node('option');item.value=person.name;item.label=person.departure||'';
@@ -152,17 +189,19 @@ async function reload(){
 async function connect(){
  state.user=await api('me');
  $('login-panel').hidden=true;$('private-panel').hidden=false;
- $('company-name').textContent=state.user.organizationName||'Mon organisation';
+ $('company-name').textContent=state.demo?'':state.user.organizationName||'';
+ $('company-name').hidden=state.demo||!state.user.organizationName;
  $('user-identity').textContent=state.user.email+
   (state.user.role==='manager'?' · direction':' · organisatrice');
- $('demo-warning').hidden=!state.demo;
+ $('demo-warning').hidden=true;
  $('invite-form').hidden=state.demo||state.user.role!=='manager';
  $('export-backup').hidden=state.user.role!=='manager';
  $('reset-demo').hidden=!state.demo;
  $('logout').hidden=state.demo;
- $('team-secret-hint').hidden=!state.demo;
+ $('team-secret-hint').hidden=true;
  $('demo-backup-import').hidden=!state.demo;
- $('user-identity').textContent=state.demo?'Essai sur cet appareil (non partagé)':$('user-identity').textContent;
+ if(state.demo)$('user-identity').textContent='';
+ $('user-identity').hidden=state.demo;
  $('month-filter').value=new Date().toISOString().slice(0,7);
  $('budget-month-filter').value=$('month-filter').value;
  await reload();
@@ -199,7 +238,7 @@ function showTab(tab){
   if(!state.demo)$('search-context').textContent=
     'La recherche intégrée est disponible dans la démonstration locale. Aucune donnée privée de votre organisation connectée ne sera transférée vers cette démonstration.';
   else if(!state.activeSearchEventId)
-    $('search-context').textContent='Choisissez un événement pour utiliser les personnes déjà enregistrées.';
+    $('search-context').textContent='';
  }
 }
 $('nav-toggle').addEventListener('click',()=>{
@@ -224,9 +263,8 @@ function openIntegratedSearch(eventId){
  });
  state.activeSearchEventId=eventId;
  $('search-event-select').value=eventId;
- $('search-context').textContent=event.title+' · '+fmtDate(event.startDate)+
-   ' · '+items('participation').filter(p=>p.eventId===eventId).length+
-   ' personne(s). Leurs gares seront préremplies.';
+ $('search-context').textContent=event.title+' · '+
+   items('participation').filter(p=>p.eventId===eventId).length+' voyageur(s)';
  const frame=$('search-frame');
  // Reload only when the organizer explicitly chooses an event; changing
  // sidebar tabs never destroys the ongoing timetable search.
@@ -319,8 +357,9 @@ function renderEverything(){
   const edit=node('button','item-action','Modifier la fiche');
   edit.type='button';edit.addEventListener('click',()=>{
     const form=$('person-form');form.dataset.recordId=p.id;
-    for(const field of ['name','departure','email','phone','reductionCards','preferences'])
+    for(const field of ['name','departure','email','phone','preferences'])
       form.elements[field].value=p[field]||'';
+    setCardsFromSaved(p.reductionCards);
     form.querySelector('button').textContent='Enregistrer les modifications';
     form.scrollIntoView?.({behavior:'smooth',block:'start'});
   });
@@ -514,10 +553,12 @@ function bindForm(id,create){
   const button=form.querySelector('button[type="submit"],button:not([type])');
   if(button)button.disabled=true;
   try{
+   if(id==='person-form')applyCardsToForm();
    const fd=new FormData(form),{type,record}=create(fd);
    if(form.dataset.recordId)record.id=form.dataset.recordId;
    await api('save',{type,record});
-   form.reset();delete form.dataset.recordId;
+   form.reset();if(id==='person-form')setCardsFromSaved('');
+   delete form.dataset.recordId;
    if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
      id==='event-form'?'Enregistrer l’événement':button.textContent;
    await reload();feedback('✅ Enregistré. Les tableaux utilisent maintenant cette information.');
