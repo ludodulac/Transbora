@@ -24,7 +24,7 @@ function read(storage,key,now){
     return data;
   }catch{return null;}
 }
-export function createSearchHandoff(storage,{event,people,participations},now=Date.now()){
+export function buildSearchHandoff({event,people,participations},now=Date.now()){
   if(!event?.id||!event.title||!ISO.test(event.startDate||'')||!event.destination)
     throw Error('Événement incomplet : renseignez son nom, sa date et sa ville.');
   const members=(participations||[]).filter(p=>p.eventId===event.id);
@@ -45,9 +45,13 @@ export function createSearchHandoff(storage,{event,people,participations},now=Da
   const handoff={version:1,createdAt:now,eventId:event.id,
     title:shorten(event.title,90),destination:shorten(event.destination,120),
     startDate:event.startDate,travelers};
-  storage.setItem(HANDOFF_KEY,JSON.stringify(handoff));
-  storage.removeItem(RESULTS_KEY);
   return handoff;
+}
+export function createSearchHandoff(storage,data,now=Date.now()){
+ const handoff=buildSearchHandoff(data,now);
+ storage.setItem(HANDOFF_KEY,JSON.stringify(handoff));
+ storage.removeItem(RESULTS_KEY);
+ return handoff;
 }
 /**
  * New registered people added while planning an event are attached to the
