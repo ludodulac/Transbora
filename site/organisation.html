@@ -172,6 +172,12 @@
   <p id="team-secret-hint" class="small" hidden>Cet aperçu fonctionne sur cet appareil uniquement. Vous pouvez réinitialiser les exemples à tout moment.</p>
   <button id="reset-demo" class="outline" type="button" hidden>↻ Recommencer la démonstration</button>
   <button id="export-backup" class="outline" type="button">⬇ Télécharger une sauvegarde privée</button>
+  <div id="demo-backup-import" class="panel nested">
+   <strong>Retrouver mes fiches depuis une ancienne démonstration</strong>
+   <p class="small">Chaque adresse de prévisualisation utilise son propre stockage. Pour retrouver vos personnes et événements sur une nouvelle version, téléchargez la sauvegarde depuis l’ancienne, puis importez-la ici sur cet appareil. L'import remplace les données de démonstration actuelles après confirmation.</p>
+   <label>Importer une sauvegarde TRANSBORA (.json)<input id="restore-demo-file" type="file" accept=".json,application/json"></label>
+   <p id="restore-demo-status" class="small" role="status"></p>
+  </div>
   <p class="muted">La direction peut inviter une collaboratrice par un lien valable 48 heures. Les artistes ne doivent pas utiliser ces liens.</p>
   <form id="invite-form" class="form-grid panel nested">
    <label>E-mail de la collaboratrice<input name="email" type="email" required></label>
