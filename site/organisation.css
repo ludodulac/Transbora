@@ -39,3 +39,25 @@
 .workspace-content .help-details{padding:8px 13px;margin:0 0 14px;border-color:#dce8ea;background:#f8fbfc;font-size:.82rem}
 .workspace-content .help-details summary{cursor:pointer;font-weight:750}
 .workspace-content .help-details p{margin:10px 0 2px}
+
+/* 047 — shorter copy, visible work area, compact card selector */
+.masthead{justify-content:flex-end;gap:13px;margin:0 0 3px;min-height:10px}
+.masthead .identity{font-weight:600}
+.masthead #logout[hidden],.masthead .identity[hidden]{display:none!important}
+.workspace-content .tab-panel h2:first-child{margin-top:0}
+#search-context:empty{display:none}
+.workspace-legal{margin:18px 0 0;color:#607680;font-size:.77rem;line-height:1.5}
+.card-selector-wrap{min-width:0}
+.card-selector{border:1px solid #bdd6da;background:#fff;border-radius:10px;padding:0 12px}
+.card-selector summary{padding:13px 0;cursor:pointer;font-weight:750;color:#1b4952}
+.card-selector summary span{color:#5b7881;font-size:.78rem;margin-left:7px;font-weight:500}
+.card-option-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px;margin:4px 0 15px}
+.card-group-heading{grid-column:1/-1;color:#23717b;font-size:.75rem;margin:9px 0 3px;font-weight:800}
+.card-choice{display:flex;flex-direction:row;align-items:center;gap:9px;font-size:.82rem;font-weight:500;min-height:35px}
+.card-choice input{width:18px;height:18px;min-height:18px;flex:0 0 18px;accent-color:#087f85}
+.card-selector>label{margin:14px 0}
+#person-card-picker[open]{padding-bottom:4px}
+@media(max-width:770px){
+ .masthead{justify-content:space-between;margin:0 0 8px}
+ .card-option-list{grid-template-columns:1fr}
+}
