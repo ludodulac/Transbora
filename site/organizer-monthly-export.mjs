@@ -39,19 +39,19 @@ export async function ledgerWorkbook(register,{label='',Excel=globalThis.ExcelJS
  sheet.getRow(2).height=28;
  sheet.addRow(monthColumns);
  sheet.getRow(3).height=31;
- for(const cell of sheet.getRow(3).cells){
+ sheet.getRow(3).eachCell(cell=>{
   cell.font={bold:true,color:{argb:'FFFFFFFF'}};
   cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF087F85'}};
   cell.alignment={wrapText:true,vertical:'middle'};
- }
+ });
  for(const row of register.rows){
   const line=sheet.addRow(ledgerValues(row));
   line.height=31;
-  for(const cell of line.cells){
+  line.eachCell(cell=>{
    cell.alignment={wrapText:true,vertical:'middle'};
    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+
     (row.paid?'E3F6EB':row.pending?'FFF3D6':line.number%2?'FFFFFF':'F3F8FA')}};
-  }
+  });
   if(row.paid&&row.paidCents==null)
     line.getCell(13).font={color:{argb:'FFAB4D11'},bold:true};
   if(row.choiceRank===1)line.getCell(9).font={bold:true,color:{argb:'FF087F85'}};
