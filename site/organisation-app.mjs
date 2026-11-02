@@ -204,6 +204,9 @@ async function connect(){
  $('shared-workspace-access').hidden=!state.demo;
  $('team-secret-hint').hidden=true;
  $('demo-backup-import').hidden=!state.demo;
+ $('workspace-legal').textContent=state.demo?
+  'Horaires indicatifs. Prix et places à vérifier · Données de cet appareil uniquement.':
+  'Horaires indicatifs. Prix et places à vérifier · Espace partagé : actualisez pour voir les changements.';
  if(state.demo)$('user-identity').textContent='';
  $('user-identity').hidden=state.demo;
  $('month-filter').value=new Date().toISOString().slice(0,7);
