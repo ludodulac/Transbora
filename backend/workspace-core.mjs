@@ -206,6 +206,11 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
       if(!['person','event','participation','option','choice','booking','note'].includes(type))
         return deny('Catégorie invalide.',400);
       const existing=obj.id?await requireItem(store,type,org,obj.id):null;
+      // Every connected editor works on the same organization records.
+      // A stale form must never silently overwrite a newer saved version.
+      const expects=Object.prototype.hasOwnProperty.call(obj,'expectedUpdatedAt');
+      if(existing&&expects&&(existing.updatedAt??null)!==(obj.expectedUpdatedAt??null))
+        return deny('Cette fiche a changé depuis votre ouverture. Actualisez les données.',409);
       let result;
       if(type==='person'||type==='event'){
         result=passFields(type,obj,existing,org);
@@ -258,6 +263,8 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
           const id='c-'+hash(p.id+':'+obj.direction).slice(0,42);
           if(obj.id&&obj.id!==id)return deny('Identifiant de choix incompatible.',409);
           const previousChoice=await store.get(key('choice',org,id),{type:'json'});
+          if(expects&&(previousChoice?.updatedAt??null)!==(obj.expectedUpdatedAt??null))
+            return deny('Un autre membre a modifié ce choix. Actualisez les données.',409);
           result={...common,id,createdAt:previousChoice?.createdAt||common.createdAt,
             participationId:p.id,direction:obj.direction,
             firstOptionId,backupOptionId,confirmedBy:session.email};
@@ -268,6 +275,8 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
           const id='b-'+hash(o.id).slice(0,42);
           if(obj.id&&obj.id!==id)return deny('Identifiant de billet incompatible.',409);
           const earlier=await store.get(key('booking',org,id),{type:'json'});
+          if(expects&&(earlier?.updatedAt??null)!==(obj.expectedUpdatedAt??null))
+            return deny('Un autre membre a modifié ce billet. Actualisez les données.',409);
           if(obj.stage==='FILED'&&!obj.receiptReference)
             return deny('Indiquez où le billet est classé.',400);
           if(earlier?.paidAt&&['PROPOSED','IN_CART'].includes(obj.stage))
