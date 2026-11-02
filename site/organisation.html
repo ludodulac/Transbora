@@ -5,7 +5,6 @@
 <meta name="referrer" content="no-referrer">
 <title>Espace organisation — TRANSBORA</title>
 <link rel="stylesheet" href="./organisation.css">
-<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="./organisation-app.mjs" type="module"></script>
 </head><body>
 <header class="head"><a href="./organisation.html" class="brand">🚆 TRANSBORA</a></header>
@@ -56,8 +55,7 @@
    <label>Mois<input type="month" id="month-filter"></label>
    <label>Personne<select id="month-person"></select></label>
    <button class="secondary" id="view-person-month" type="button">Voir la fiche</button>
-   <button class="outline" id="export-month-xlsx" type="button">⬇ Excel du mois</button>
-   <button class="outline" id="print-month" type="button">🖨 PDF du mois</button>
+   <button class="outline" id="print-month" type="button">🖨 Imprimer le mois</button>
   </div>
   <div id="month-summary" class="month-summary" role="status"></div>
   <div class="month-table-wrap" role="region" aria-label="Tableau mensuel" tabindex="0">
@@ -68,8 +66,7 @@
   </div>
   <div class="person-sheet-actions" id="person-sheet-actions" hidden>
    <strong id="person-sheet-title"></strong>
-   <button class="secondary" id="export-person-xlsx" type="button">⬇ Fiche Excel</button>
-   <button class="outline" id="print-person" type="button">🖨 Fiche PDF</button>
+   <button class="outline" id="print-person" type="button">🖨 Imprimer la fiche</button>
   </div>
   <div id="month-output" class="cards" hidden></div>
   <h3>Budgets</h3><div id="budget-output" class="cards"></div>
