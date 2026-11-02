@@ -1,5 +1,6 @@
 import {personMonthView,eventBudgetSummary} from './organizer-domain.mjs';
 import {planNativeAnswers} from './organizer-replies-bridge.mjs';
+import {validateRehearsalBackup} from './organizer-recovery.mjs';
 export const KEY='transbora_local_example_043';
 const ORG='local-rehearsal',KINDS=['person','event','participation','option','choice','booking','note'];
 const str=(x,n=200)=>String(x??'').trim().slice(0,n);
@@ -40,6 +41,11 @@ export function createRehearsalApi(store){
   const get=(kind,key)=>data[kind].find(x=>x.id===key)||die('Élément introuvable.');
   if(action==='list')return {items:structuredClone(data[type]||[])};
   if(action==='export_backup')return {type:'local-rehearsal',...data};
+  if(action==='restore_demo_backup'){
+    const restored=validateRehearsalBackup(args.backup);
+    write(restored);
+    return {restored:true,persons:restored.person.length,events:restored.event.length};
+  }
   if(action==='import_search_results'){
     const {eventId,rows}=args;
     if(!data.event.some(e=>e.id===eventId))die('Événement de destination introuvable.');
