@@ -30,18 +30,26 @@
  <p class="small">Le code d'initialisation est nécessaire une seule fois et doit rester privé. Ne communiquez jamais ce code aux artistes.</p>
 </section>
 <section id="private-panel" hidden>
- <div class="masthead"><div><p class="eyebrow">TABLEAU DE BORD PRIVÉ</p><h1 id="company-name">Mon organisation</h1><p class="muted">Événements, personnes, billets et notes au même endroit.</p></div>
+ <div class="masthead"><button id="nav-toggle" class="outline mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="tabs" aria-label="Ouvrir le menu">☰ Menu</button><div><p class="eyebrow">TABLEAU DE BORD</p><h1 id="company-name">Mon organisation</h1><p class="muted">Événements, personnes, billets et notes au même endroit.</p></div>
  <div><span id="user-identity" class="identity"></span><button id="logout" class="outline" type="button">Déconnexion</button></div></div>
  <div id="demo-warning" class="notice" hidden>🧪 <strong>Mode essai immédiat.</strong> Sophie et Michel sont des exemples fictifs. Les modifications restent sur ce navigateur et ne sont pas partagées. N’utilisez pas de données personnelles réelles.</div>
  <div class="notice">🔗 <strong>Recherche reliée en démonstration :</strong> dans « Événements », utilisez « Rechercher les trajets ». Les horaires trouvés reviennent ici sur <em>cet appareil seulement</em>, sans tarifs ni places en direct. Les liens sont gérés dans <a href="./mes-evenements.html">Mes événements ↗</a>. Après création des liens depuis cette démonstration, vous pouvez <strong>récupérer les choix à la demande</strong> ici dans la fiche événement. Aucun achat ni prix n’est importé. L’espace privé et les anciens dossiers restent séparés.</div>
+ <div id="nav-backdrop" class="nav-backdrop" hidden></div>
+ <div class="app-workspace">
  <nav id="tabs" class="tabs" aria-label="Espaces de travail">
-  <button type="button" data-tab="overview" aria-current="page">📅 Le mois</button>
+  <p class="nav-title">🚆 TRANSBORA</p>
+  <button type="button" data-tab="overview" aria-current="page">🏠 Tableau de bord</button>
   <button type="button" data-tab="people">👥 Personnes</button>
-  <button type="button" data-tab="events">🎭 Événements</button>
-  <button type="button" data-tab="travels">🚆 Déplacements</button>
+  <button type="button" data-tab="events">📅 Événements</button>
+  <button type="button" data-tab="search">🔎 Recherche</button>
+  <button type="button" data-tab="travels">🚆 Trajets</button>
+  <button type="button" data-tab="answers">✅ Réponses</button>
+  <button type="button" data-tab="bookings">🎫 Billets</button>
+  <button type="button" data-tab="budget">💶 Budgets</button>
   <button type="button" data-tab="notes">📝 Notes</button>
-  <button type="button" data-tab="team">🔒 Équipe</button>
+  <button type="button" data-tab="team">⚙️ Paramètres</button>
  </nav>
+ <div class="workspace-content">
  <p id="global-feedback" class="feedback" role="status" hidden></p>
  <section id="panel-overview" class="tab-panel">
   <h2>Vue mensuelle</h2><div class="row">
@@ -62,6 +70,7 @@
    <label>Préférences de voyage<input name="preferences" maxlength="600"></label>
    <button class="primary">Enregistrer la personne</button>
   </form>
+  <label class="directory-filter">🔎 Retrouver une personne<input id="person-filter" type="search" placeholder="Nom, gare, carte de réduction…" autocomplete="off"></label>
   <div id="people-output" class="cards"></div>
  </section>
  <section id="panel-events" class="tab-panel" hidden>
@@ -75,12 +84,40 @@
    <button class="primary">Enregistrer l'événement</button>
   </form>
   <h3>Inscrire une personne à un événement</h3>
+  <label class="directory-filter">🔎 Choisir une personne déjà enregistrée<input id="participation-person-find" type="search" list="registered-person-names" placeholder="Tapez le nom de la personne…" autocomplete="off"><datalist id="registered-person-names"></datalist></label>
   <form id="participation-form" class="row panel nested">
    <label>Événement<select name="eventId" required></select></label>
    <label>Personne<select name="personId" required></select></label>
    <button class="secondary">Ajouter</button>
   </form>
   <div id="events-output" class="cards"></div>
+ </section>
+ <section id="panel-search" class="tab-panel" hidden>
+  <h2>Rechercher des trajets</h2>
+  <p class="muted">Choisissez un événement : sa liste de personnes et leurs gares habituelles seront automatiquement reprises. Les horaires trouvés seront reliés à ce même dossier.</p>
+  <div id="search-select-area" class="search-select-area">
+   <label>Événement à préparer<select id="search-event-select"></select></label>
+   <button type="button" id="search-open" class="primary">🔎 Ouvrir la recherche liée</button>
+  </div>
+  <p id="search-context" class="small" aria-live="polite"></p>
+  <div id="search-frame-area" hidden><iframe id="search-frame" title="Recherche de trains et autocars pour l'événement" loading="lazy"></iframe></div>
+  <p class="small">Les horaires et disponibilités doivent être vérifiés avant tout achat. Démonstration locale uniquement : aucune donnée de l’espace privé n’est copiée.</p>
+ </section>
+ <section id="panel-answers" class="tab-panel" hidden>
+  <h2>Réponses des artistes</h2>
+  <p class="muted">Les réponses reçues sur les liens Transbora apparaissent après actualisation du dossier concerné. Les choix manuels ne sont jamais effacés silencieusement.</p>
+  <div id="answers-output" class="cards"></div>
+ </section>
+ <section id="panel-budget" class="tab-panel" hidden>
+  <h2>Budgets des événements</h2>
+  <label>Mois affiché<input id="budget-month-filter" type="month"></label>
+  <div id="budget-standalone" class="cards"></div>
+ </section>
+ <section id="panel-bookings" class="tab-panel" hidden>
+  <h2>Billets des voyageurs</h2>
+  <p class="muted">L’organisateur renseigne lui-même les achats et montants réellement payés. Aucun billet n’est réservé par TRANSBORA.</p>
+  <div id="bookings-output" class="cards"></div>
+  <button class="secondary" type="button" id="open-booking-form">🎫 Mettre à jour un achat</button>
  </section>
  <section id="panel-travels" class="tab-panel" hidden>
   <h2>Trajets et billets</h2>
@@ -143,6 +180,8 @@
   </form>
   <div id="invitation-result" class="panel nested" hidden><p>Copiez ce lien et transmettez-le uniquement à la personne concernée :</p><input id="invitation-link" readonly aria-label="Lien d'invitation"><button id="copy-invite" class="secondary" type="button">Copier le lien</button></div>
  </section>
+ </div>
+ </div>
 </section>
 </main><footer>TRANSBORA · Les horaires, tarifs, places et paniers externes restent à vérifier avant achat.</footer>
 </body></html>
