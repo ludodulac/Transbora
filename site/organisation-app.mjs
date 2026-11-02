@@ -164,7 +164,18 @@ async function connect(){
  $('user-identity').textContent=state.demo?'Essai sur cet appareil (non partagé)':$('user-identity').textContent;
  $('month-filter').value=new Date().toISOString().slice(0,7);
  $('budget-month-filter').value=$('month-filter').value;
- await reload();showTab('overview');
+ await reload();
+ // On an empty current month, display the most recent recorded event rather
+ // than an empty dashboard (also makes historical rehearsal data discoverable).
+ if(items('event').length&&!items('event').some(e=>e.startDate?.startsWith($('month-filter').value))){
+  const recent=[...items('event')].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''))[0];
+  if(recent?.startDate){
+   $('month-filter').value=recent.startDate.slice(0,7);
+   $('budget-month-filter').value=$('month-filter').value;
+   await renderBudget();
+  }
+ }
+ showTab('overview');
 }
 function closeMobileNav(){
  $('tabs').classList.remove('open');
