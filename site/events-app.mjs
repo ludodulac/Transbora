@@ -11,7 +11,8 @@ import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {curateJourneys} from './journey-quality.mjs';
-import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults} from './organizer-bridge.mjs';
+import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults,extendSearchHandoff} from './organizer-bridge.mjs';
+import {createRehearsalApi} from './organizer-rehearsal.mjs';
 import {registerNativeLink} from './organizer-replies-bridge.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
@@ -19,6 +20,71 @@ import {
 } from './excel-exports.mjs';
 
 const $=id=>document.getElementById(id);
+const embeddedMode=new URLSearchParams(location.search).get('embedded')==='1';
+if(embeddedMode)document.body.classList.add('embedded-workspace');
+let savedDirectory=[];
+function personLabel(p){return p.name+' · '+(p.departure||'Départ non précisé');}
+async function loadRegisteredPeople(){
+ try{
+  const rehearsal=createRehearsalApi(window.localStorage);
+  const {items}=await rehearsal('list',{type:'person'});
+  savedDirectory=items.filter(p=>p.id&&p.name&&p.departure);
+  const choices=$('directory-person-names');
+  choices.replaceChildren();
+  for(const p of savedDirectory){
+   const option=document.createElement('option');
+   option.value=personLabel(p);choices.append(option);
+  }
+  $('directory-select').hidden=!savedDirectory.length;
+  if(!savedDirectory.length){
+   $('directory-message').textContent=
+    'Ajoutez une personne dans Organisation pour retrouver automatiquement ses informations.';
+  }
+ }catch{
+  savedDirectory=[];
+  $('directory-select').hidden=true;
+ }
+}
+$('add-directory-person').addEventListener('click',async()=>{
+ const label=$('directory-person-find').value.trim();
+ const found=savedDirectory.filter(p=>personLabel(p)===label);
+ if(found.length!==1){
+  msg($('directory-message'),
+   found.length>1?'Deux fiches identiques existent : renommez-les pour éviter une confusion.':
+     'Choisissez une personne dans la liste des fiches enregistrées.',true);
+  return;
+ }
+ const registered=found[0];
+ if(participants.some(p=>p.organizerPersonId===registered.id)){
+  msg($('directory-message'),'Cette personne est déjà dans le dossier.',true);return;
+ }
+ const pieces=registered.name.trim().split(/\s+/);
+ if(pieces.length<2){
+  msg($('directory-message'),
+    'Complétez le prénom et le nom dans la fiche Personnes pour pouvoir créer son lien individuel.',true);
+  return;
+ }
+ try{
+  if(activeOrganizerHandoff){
+    const rehearsal=createRehearsalApi(window.localStorage);
+    await rehearsal('save',{type:'participation',record:{
+     eventId:activeOrganizerHandoff.eventId,personId:registered.id
+    }});
+    activeOrganizerHandoff=extendSearchHandoff(window.localStorage,registered);
+  }
+  const p={first:pieces[0],last:pieces.slice(1).join(' '),
+    departure:registered.departure,organizerPersonId:registered.id,
+    reductionCards:registered.reductionCards||'',
+    preferences:registered.preferences||'',outwardDate:'',returnDate:'',notes:''};
+  const outcome=includeParticipants([p]);
+  if(outcome.added){
+   $('directory-person-find').value='';
+   msg($('directory-message'),registered.name+
+    ' ajouté(e) avec sa gare et ses préférences. Vous pouvez personnaliser ce voyage sans modifier sa fiche.');
+  }
+ }catch(error){msg($('directory-message'),error.message,true);}
+});
+
 const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
@@ -330,6 +396,7 @@ async function init(){
     $(id).addEventListener('change',()=>{invalidate();scheduleDraft();});
     $(id).addEventListener('input',scheduleDraft);
   }
+  await loadRegisteredPeople();
   if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
   else if(new URLSearchParams(location.search).get('from_organizer')!=='1')loadSavedDraft();
   if(new URLSearchParams(location.search).get('from_organizer')==='1'){
@@ -351,6 +418,11 @@ async function init(){
       restoredDraft=true;
       renderPeople();storeDraft();
       $('org-search-warning').hidden=false;
+      if(embeddedMode){
+       // In the unified workspace, new travelers must be linked to an
+       // existing person. Freeform travelers would be silently orphaned.
+       $('manual-person').hidden=true;
+      }
     }
   }
   updateTravelOptions();
@@ -701,7 +773,11 @@ $('send-to-organizer').addEventListener('click',()=>{
     throw Error('Cet événement a changé. Reprenez sa fiche dans Organisation pour éviter de mélanger les dossiers.');
   const result=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
   writeSearchResults(window.localStorage,result);
-  location.assign('./organisation.html?import_search=1');
+  if(embeddedMode){
+   window.parent.postMessage({type:'transbora:routes-ready',
+    eventId:activeOrganizerHandoff.eventId},location.origin);
+   window.parent.postMessage({type:'transbora:open-tab',tab:'travels'},location.origin);
+  }else location.assign('./organisation.html?import_search=1');
  }catch(error){status(error.message,true);}
 });
 $('cancel-search').addEventListener('click',()=>{
@@ -749,6 +825,14 @@ $('search-everyone').addEventListener('click',async()=>{
       ' trajet(s) sans option dans les horaires consultés. Vérifiez avant de réserver.')+sncfLabel,
       Boolean(result.partial||gaps));
     updateButtons();
+    if(embeddedMode&&activeOrganizerHandoff){
+      try{
+        const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+        writeSearchResults(window.localStorage,routes);
+        window.parent.postMessage({type:'transbora:routes-ready',
+          eventId:activeOrganizerHandoff.eventId},location.origin);
+      }catch(error){status('Recherche terminée, mais liaison au tableau impossible : '+error.message,true);}
+    }
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(error){
     if(error.message==='Recherche arrêtée. Votre événement et vos voyageurs sont conservés.')
@@ -791,7 +875,11 @@ function renderPublished(record,mode){
         participants,plans,choicePeople,routes
       });
       writeSearchResults(window.localStorage,routes);
-      returnToOrganizer.href='./organisation.html?import_search=1';
+      returnToOrganizer.href=embeddedMode?'#':'./organisation.html?import_search=1';
+      if(embeddedMode)returnToOrganizer.addEventListener('click',e=>{
+       e.preventDefault();
+       window.parent.postMessage({type:'transbora:open-tab',tab:'travels'},location.origin);
+      },{once:true});
       returnToOrganizer.hidden=false;
     }catch(error){
       bridgeError=' ⚠ Liaison au tableau impossible : '+error.message+
