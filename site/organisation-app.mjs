@@ -200,6 +200,8 @@ async function connect(){
  $('export-backup').hidden=state.user.role!=='manager';
  $('reset-demo').hidden=!state.demo;
  $('logout').hidden=state.demo;
+ $('refresh-workspace').hidden=state.demo;
+ $('shared-workspace-access').hidden=!state.demo;
  $('team-secret-hint').hidden=true;
  $('demo-backup-import').hidden=!state.demo;
  if(state.demo)$('user-identity').textContent='';
@@ -251,6 +253,20 @@ $('nav-toggle').addEventListener('click',()=>{
 });
 $('nav-backdrop').addEventListener('click',closeMobileNav);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileNav();});
+$('refresh-workspace').addEventListener('click',async()=>{
+ const button=$('refresh-workspace');button.disabled=true;
+ try{
+  const month=$('month-filter').value,person=$('month-person').value;
+  await reload();
+  $('month-filter').value=month;
+  $('budget-month-filter').value=month;
+  $('month-person').value=person;
+  renderMonthly();
+  await renderBudget();
+  feedback('✅ Données de l’équipe actualisées.');
+ }catch(error){feedback('Actualisation impossible : '+error.message,true);}
+ finally{button.disabled=false;}
+});
 $('tabs').addEventListener('click',e=>{
  const btn=e.target.closest('[data-tab]');if(btn)showTab(btn.dataset.tab);
 });
@@ -364,6 +380,7 @@ function renderEverything(){
     for(const field of ['name','departure','email','phone','preferences'])
       form.elements[field].value=p[field]||'';
     setCardsFromSaved(p.reductionCards);
+    form.dataset.expectedUpdatedAt=p.updatedAt??'';
     form.querySelector('button').textContent='Enregistrer les modifications';
     form.scrollIntoView?.({behavior:'smooth',block:'start'});
   });
@@ -384,6 +401,7 @@ function renderEverything(){
     for(const field of ['title','startDate','destination','theater'])
       form.elements[field].value=event[field]||'';
     form.elements.budgetEuros.value=event.budgetCents===null?'':String(event.budgetCents/100);
+    form.dataset.expectedUpdatedAt=event.updatedAt??'';
     form.querySelector('button').textContent='Enregistrer les modifications';
     form.scrollIntoView?.({behavior:'smooth',block:'start'});
   });
@@ -671,10 +689,20 @@ function bindForm(id,create){
   try{
    if(id==='person-form')applyCardsToForm();
    const fd=new FormData(form),{type,record}=create(fd);
-   if(form.dataset.recordId)record.id=form.dataset.recordId;
+   if(form.dataset.recordId){
+    record.id=form.dataset.recordId;
+    if(form.dataset.expectedUpdatedAt!=='')
+     record.expectedUpdatedAt=Number(form.dataset.expectedUpdatedAt);
+   }
+   if(type==='choice'){
+    record.expectedUpdatedAt=items('choice').find(x=>
+     x.participationId===record.participationId&&x.direction===record.direction)?.updatedAt??null;
+   }else if(type==='booking'){
+    record.expectedUpdatedAt=items('booking').find(x=>x.optionId===record.optionId)?.updatedAt??null;
+   }
    await api('save',{type,record});
    form.reset();if(id==='person-form')setCardsFromSaved('');
-   delete form.dataset.recordId;
+   delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
    if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
      id==='event-form'?'Enregistrer l’événement':button.textContent;
    await reload();feedback('✅ Enregistré.');
