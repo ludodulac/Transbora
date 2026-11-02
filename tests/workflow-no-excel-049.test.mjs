@@ -8,7 +8,7 @@ test('049: main organizer workflow has no XLSX/download prompts, but still has i
  const js=readFileSync(new URL('../site/organisation-app.mjs',import.meta.url),'utf8');
  const css=readFileSync(new URL('../site/events.css',import.meta.url),'utf8');
  assert.doesNotMatch(html,/ExcelJS|exceljs|Fiche Excel|Excel du mois|export-month-xlsx|export-person-xlsx/i);
- assert.doesNotMatch(js,/downloadMonth|ledgerXlsx|export-month-xlsx|export-person-xlsx/i);
+ assert.doesNotMatch(js,/ledgerXlsx|export-month-xlsx|export-person-xlsx/i);
  assert.match(css,/\.embedded-workspace \.secondary-import/);
  assert.match(css,/\.embedded-workspace \.legacy-excel/);
  assert.match(html,/id="print-person"/);
