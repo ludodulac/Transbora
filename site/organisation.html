@@ -5,6 +5,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Espace organisation — TRANSBORA</title>
 <link rel="stylesheet" href="./organisation.css">
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="./organisation-app.mjs" type="module"></script>
 </head><body>
 <header class="head"><a href="./organisation.html" class="brand">🚆 TRANSBORA</a></header>
@@ -50,11 +51,27 @@
  <div id="demo-warning" hidden></div>
  <p id="global-feedback" class="feedback" role="status" hidden></p>
  <section id="panel-overview" class="tab-panel">
-  <h2>Ce mois-ci</h2><div class="row">
-  <label>Mois<input type="month" id="month-filter"></label>
-  <label>Personne<select id="month-person"></select></label>
-  <button class="secondary" id="view-person-month" type="button">Afficher tous ses trains</button></div>
-  <div id="month-output" class="cards"></div>
+  <h2>Déplacements du mois</h2>
+  <div class="month-toolbar">
+   <label>Mois<input type="month" id="month-filter"></label>
+   <label>Personne<select id="month-person"></select></label>
+   <button class="secondary" id="view-person-month" type="button">Voir la fiche</button>
+   <button class="outline" id="export-month-xlsx" type="button">⬇ Excel du mois</button>
+   <button class="outline" id="print-month" type="button">🖨 PDF du mois</button>
+  </div>
+  <div id="month-summary" class="month-summary" role="status"></div>
+  <div class="month-table-wrap" role="region" aria-label="Tableau mensuel" tabindex="0">
+   <table id="month-register" class="month-table">
+    <thead><tr><th>Date</th><th>Événement</th><th>Artiste</th><th>Sens</th><th>Départ</th><th>Arrivée</th><th>Chx</th><th>R</th><th>E</th><th>Prix payé</th><th>Action</th></tr></thead>
+    <tbody id="month-register-body"></tbody>
+   </table>
+  </div>
+  <div class="person-sheet-actions" id="person-sheet-actions" hidden>
+   <strong id="person-sheet-title"></strong>
+   <button class="secondary" id="export-person-xlsx" type="button">⬇ Fiche Excel</button>
+   <button class="outline" id="print-person" type="button">🖨 Fiche PDF</button>
+  </div>
+  <div id="month-output" class="cards" hidden></div>
   <h3>Budgets</h3><div id="budget-output" class="cards"></div>
  </section>
  <section id="panel-people" class="tab-panel" hidden>
