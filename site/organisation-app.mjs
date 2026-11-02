@@ -5,7 +5,7 @@ import {nativeLinkFor} from './organizer-replies-bridge.mjs';
 import {readHistory} from './event-history.mjs';
 import {api as nativeChoicesApi} from './native-choices.mjs';
 const $=id=>document.getElementById(id);
-const state={user:null,data:{},mode:'login',tab:'overview',demo:false};
+const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null};
 let rehearsal=null;
 const kinds=['person','event','participation','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
@@ -106,6 +106,18 @@ function fillSelects(){
    events=items('event').map(e=>[e.id,e.title+' · '+fmtDate(e.startDate)]);
  const participants=items('participation').map(p=>[p.id,displayParticipation(p.id)]);
  options($('month-person'),persons,'Choisir une personne');
+ options($('search-event-select'),events,'Sélectionner un événement');
+ const matches=$('registered-person-names');matches.replaceChildren();
+ for(const person of items('person')){
+   const item=node('option');item.value=person.name;item.label=person.departure||'';
+   matches.append(item);
+ }
+ const hint=$('participation-person-find');
+ if(hint?.dataset.personId){
+   const person=byId('person',hint.dataset.personId);
+   if(person)hint.value=person.name;
+ }
+
  for(const sel of document.querySelectorAll('#participation-form select[name="personId"]'))options(sel,persons);
  for(const sel of document.querySelectorAll('#participation-form select[name="eventId"]'))options(sel,events);
  for(const sel of document.querySelectorAll('#option-form select[name="participationId"],#choice-form select[name="participationId"]'))options(sel,participants);
@@ -151,7 +163,13 @@ async function connect(){
  $('team-secret-hint').hidden=!state.demo;
  $('user-identity').textContent=state.demo?'Essai sur cet appareil (non partagé)':$('user-identity').textContent;
  $('month-filter').value=new Date().toISOString().slice(0,7);
+ $('budget-month-filter').value=$('month-filter').value;
  await reload();showTab('overview');
+}
+function closeMobileNav(){
+ $('tabs').classList.remove('open');
+ $('nav-backdrop').hidden=true;
+ $('nav-toggle').setAttribute('aria-expanded','false');
 }
 function showTab(tab){
  state.tab=tab;
@@ -163,9 +181,90 @@ function showTab(tab){
  for(const section of document.querySelectorAll('.tab-panel'))
   section.hidden=section.id!=='panel-'+tab;
  $('global-feedback').hidden=true;
+ closeMobileNav();
+ if(tab==='search'){
+  $('search-select-area').hidden=!state.demo;
+  if(!state.demo)$('search-context').textContent=
+    'La recherche intégrée est disponible dans la démonstration locale. Aucune donnée privée de votre organisation connectée ne sera transférée vers cette démonstration.';
+  else if(!state.activeSearchEventId)
+    $('search-context').textContent='Choisissez un événement pour utiliser les personnes déjà enregistrées.';
+ }
 }
+$('nav-toggle').addEventListener('click',()=>{
+ const opened=$('tabs').classList.toggle('open');
+ $('nav-toggle').setAttribute('aria-expanded',String(opened));
+ $('nav-backdrop').hidden=!opened;
+});
+$('nav-backdrop').addEventListener('click',closeMobileNav);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileNav();});
 $('tabs').addEventListener('click',e=>{
  const btn=e.target.closest('[data-tab]');if(btn)showTab(btn.dataset.tab);
+});
+function openIntegratedSearch(eventId){
+ if(!state.demo){
+  feedback('La recherche intégrée ne doit pas utiliser les fiches du compte sécurisé dans le mode démo.',true);
+  return;
+ }
+ const event=byId('event',eventId);
+ if(!event)throw Error('Événement inconnu.');
+ createSearchHandoff(window.localStorage,{
+  event,people:items('person'),participations:items('participation')
+ });
+ state.activeSearchEventId=eventId;
+ $('search-event-select').value=eventId;
+ $('search-context').textContent=event.title+' · '+fmtDate(event.startDate)+
+   ' · '+items('participation').filter(p=>p.eventId===eventId).length+
+   ' personne(s). Leurs gares seront préremplies.';
+ const frame=$('search-frame');
+ // Reload only when the organizer explicitly chooses an event; changing
+ // sidebar tabs never destroys the ongoing timetable search.
+ frame.src='./events.html?from_organizer=1&embedded=1';
+ $('search-frame-area').hidden=false;
+ showTab('search');
+}
+$('search-open').addEventListener('click',()=>{
+ try{openIntegratedSearch($('search-event-select').value)}
+ catch(error){feedback(error.message,true);}
+});
+$('participation-person-find').addEventListener('input',e=>{
+ const name=e.currentTarget.value.trim().toLocaleLowerCase('fr-FR');
+ const match=items('person').find(p=>p.name.trim().toLocaleLowerCase('fr-FR')===name);
+ if(match){
+  $('participation-form').elements.personId.value=match.id;
+  e.currentTarget.dataset.personId=match.id;
+ }else delete e.currentTarget.dataset.personId;
+});
+$('person-filter').addEventListener('input',e=>{
+ const term=e.currentTarget.value.trim().toLocaleLowerCase('fr-FR');
+ for(const card of $('people-output').children){
+  card.hidden=Boolean(term)&&!card.textContent.toLocaleLowerCase('fr-FR').includes(term);
+ }
+});
+$('open-booking-form').addEventListener('click',()=>{
+ showTab('travels');$('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+});
+$('budget-month-filter').addEventListener('change',()=>{
+ $('month-filter').value=$('budget-month-filter').value;
+ renderBudget().catch(e=>feedback(e.message,true));
+});
+// Messages are only accepted from the loaded same-origin timetable iframe.
+// Never consume owner capabilities, personal contacts, or arbitrary cross-origin data.
+window.addEventListener('message',async event=>{
+ if(!state.demo||event.origin!==location.origin||
+   event.source!==$('search-frame').contentWindow||
+   event.data?.type!=='transbora:routes-ready'||
+   event.data.eventId!==state.activeSearchEventId)return;
+ const rows=readSearchResults(window.localStorage);
+ if(!rows||rows.eventId!==state.activeSearchEventId)return;
+ try{
+  const result=await api('import_search_results',{eventId:rows.eventId,rows:rows.rows});
+  window.localStorage.removeItem(RESULTS_KEY);
+  await reload();
+  $('search-context').textContent='✅ '+result.imported+
+    ' trajet(s) enregistrés dans cet événement, '+result.alreadyPresent+
+    ' déjà présent(s). Les réponses seront visibles dans « Réponses ».';
+  // Do not leave the search iframe: the organizer may still be sending links.
+ }catch(error){$('search-context').textContent='⚠ Import impossible : '+error.message;}
 });
 function card(title,lines=[]){
  const item=node('article','card');item.append(node('h3',null,title));
@@ -189,6 +288,7 @@ function renderEverything(){
   c.append(edit);people.append(c);
  }
  if(!items('person').length)people.append(node('p','muted','Aucune personne. Commencez par une fiche.'));
+ $('person-filter').dispatchEvent(new Event('input'));
  const events=$('events-output');events.replaceChildren();
  for(const event of items('event').sort((a,b)=>a.startDate.localeCompare(b.startDate))){
   const n=items('participation').filter(p=>p.eventId===event.id).length;
@@ -213,7 +313,7 @@ function renderEverything(){
      createSearchHandoff(window.localStorage,{
       event,people:items('person'),participations:items('participation')
      });
-     location.assign('./events.html?from_organizer=1');
+     openIntegratedSearch(event.id);
     }catch(error){feedback(error.message,true);}
    });
    c.append(search);
@@ -275,6 +375,40 @@ function renderEverything(){
   journeys.append(c);
  }
  if(!items('option').length)journeys.append(node('p','muted','Ajoutez un trajet après avoir inscrit un participant.'));
+ const answers=$('answers-output');answers.replaceChildren();
+ for(const participation of items('participation')){
+  const event=byId('event',participation.eventId);
+  if(!event)continue;
+  const records=items('choice').filter(x=>x.participationId===participation.id);
+  const lines=['Événement : '+event.title];
+  for(const dir of ['A','R']){
+   const row=records.find(x=>x.direction===dir);
+   const title=dir==='A'?'Aller':'Retour';
+   if(!row){lines.push(title+' : en attente de réponse');continue;}
+   const first=items('option').find(x=>x.id===row.firstOptionId);
+   const backup=items('option').find(x=>x.id===row.backupOptionId);
+   lines.push(title+' : '+(row.firstOptionId==='NONE'?'aucun horaire souhaité':
+    first?(fmtDate(first.travelDate)+' '+(first.legs[0]?.departure||'')+' → '+
+        (first.legs.at(-1)?.to||'')):'choix sans horaire reconnu'));
+   if(backup)lines.push('Solution de secours : '+fmtDate(backup.travelDate)+' '+backup.legs[0]?.departure);
+  }
+  const row=card(displayPerson(participation.personId),lines);
+  const go=node('button','item-action','Ouvrir l’événement et actualiser ses réponses');
+  go.type='button';go.addEventListener('click',()=>showTab('events'));row.append(go);
+  answers.append(row);
+ }
+ if(!items('participation').length)answers.append(node('p','muted','Aucune inscription.'));
+ const tickets=$('bookings-output');tickets.replaceChildren();
+ for(const booking of items('booking')){
+  const option=items('option').find(o=>o.id===booking.optionId);
+  if(!option)continue;
+  tickets.append(card(displayParticipation(option.participationId),[
+    (option.direction==='A'?'Aller':'Retour')+' · '+fmtDate(option.travelDate),
+    booking.filedAt?'Billet classé':booking.paidAt?'Billet acheté':booking.inCartAt?'Dans le panier':'À acheter',
+    'Montant payé : '+fmtEuro(booking.paidAt?booking.paidCents:null)
+  ]));
+ }
+ if(!items('booking').length)tickets.append(node('p','muted','Aucun billet enregistré comme acheté.'));
  const notes=$('notes-output');notes.replaceChildren();
  for(const n of items('note').sort((a,b)=>Number(b.updatedAt)-Number(a.updatedAt))){
   const label=n.targetType==='person'?displayPerson(n.targetId):displayEvent(n.targetId);
@@ -286,8 +420,12 @@ function renderEverything(){
 async function renderBudget(){
  const month=$('month-filter').value||new Date().toISOString().slice(0,7),
   events=items('event').filter(e=>e.startDate.startsWith(month));
- const host=$('budget-output');host.replaceChildren();
- if(!events.length){host.append(node('p','muted','Aucun événement pour ce mois.'));return;}
+ const host=$('budget-output'),standalone=$('budget-standalone');
+ host.replaceChildren();standalone.replaceChildren();
+ if(!events.length){
+  for(const target of [host,standalone])target.append(node('p','muted','Aucun événement pour ce mois.'));
+  return;
+ }
  // Stop at 12 events in the first pilot to avoid unbounded requests.
  for(const e of events.slice(0,12)){
   const b=await api('event_budget',{eventId:e.id});
@@ -298,6 +436,7 @@ async function renderBudget(){
    'Total prévisionnel : '+fmtEuro(b.forecastCents)]);
   if(!b.forecastComplete)c.append(node('p','tiny','⚠ Au moins un tarif manque : total incomplet.'));
   host.append(c);
+  standalone.append(c.cloneNode(true));
  }
 }
 $('month-filter').addEventListener('change',()=>renderBudget().catch(e=>feedback(e.message,true)));
