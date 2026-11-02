@@ -560,21 +560,45 @@ function renderMonthly(){
    if(index===9&&row.paid&&row.paidCents==null)td.title='Montant payé non renseigné';
    tr.append(td);
   });
-  const cell=node('td');
-  const button=node('button','item-action',row.pending?'Dossier':'Ouvrir');
-  button.type='button';
-  button.title=row.pending?'Ouvrir le dossier de cet événement':'Ouvrir le suivi de ce trajet';
-  button.addEventListener('click',()=>{
-   if(row.optionId){
-    $('booking-form').elements.optionId.value=row.optionId;
-    showTab('travels');
-    $('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
-   }else{
+  const cell=node('td','month-actions');
+  if(row.pending){
+   const button=node('button','item-action','Dossier');
+   button.type='button';
+   button.addEventListener('click',()=>{
     showTab('events');
     $('events-output').scrollIntoView?.({behavior:'smooth',block:'start'});
-   }
-  });
-  cell.append(button);tr.append(cell);host.append(tr);
+   });
+   cell.append(button);
+  }else{
+   const choose=node('button','item-action','Choix');
+   choose.type='button';choose.title='Choisir cet horaire';
+   choose.addEventListener('click',()=>{
+    const form=$('choice-form').elements;
+    form.participationId.value=row.participationId;
+    form.direction.value=row.direction==='Aller'?'A':'R';
+    refreshChoiceSelects();
+    const original=items('choice').find(x=>x.participationId===row.participationId&&x.direction===form.direction.value);
+    form.firstOptionId.value=row.optionId;
+    if(original?.backupOptionId&&original.backupOptionId!==row.optionId)
+     form.backupOptionId.value=original.backupOptionId;
+    showTab('travels');
+    $('choice-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+   });
+   const ticket=node('button','item-action','Billet');
+   ticket.type='button';ticket.title='Mettre à jour le panier ou l’achat';
+   ticket.addEventListener('click',()=>{
+    const form=$('booking-form').elements;
+    form.optionId.value=row.optionId;
+    const booking=items('booking').find(x=>x.optionId===row.optionId);
+    form.stage.value=booking?.filedAt?'FILED':booking?.paidAt?'PAID':booking?.inCartAt?'IN_CART':'PROPOSED';
+    form.paidEuros.value=booking?.paidCents==null?'':String(booking.paidCents/100);
+    form.receiptReference.value=booking?.receiptReference||'';
+    showTab('travels');
+    $('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+   });
+   cell.append(choose,ticket);
+  }
+  tr.append(cell);host.append(tr);
  }
  if(!result.rows.length){
   const tr=node('tr'),td=node('td','month-empty','Aucun trajet ce mois-ci.');
