@@ -457,3 +457,9 @@ border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b460
 .directory-quick-select .small{margin:2px 0 0;color:#375a5c;line-height:1.5}
 .directory-quick-select[hidden]{display:none!important}
 @media(max-width:770px){.embedded-workspace .event-main{padding:7px 8px 16px}}
+
+/* 049 — Excel is not part of the unified organizer's day-to-day workflow.
+   Preserve legacy standalone wizard compatibility without showing its
+   imports, templates or XLSX exports inside the embedded workbench. */
+.embedded-workspace .secondary-import,
+.embedded-workspace .legacy-excel{display:none!important}
