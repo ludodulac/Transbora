@@ -202,6 +202,7 @@ async function connect(){
  $('logout').hidden=state.demo;
  $('refresh-workspace').hidden=state.demo;
  $('shared-workspace-access').hidden=!state.demo;
+ $('shared-replies-hint').hidden=state.demo;
  $('team-secret-hint').hidden=true;
  $('demo-backup-import').hidden=!state.demo;
  $('workspace-legal').textContent=state.demo?
