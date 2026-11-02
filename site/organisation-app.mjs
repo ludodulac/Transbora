@@ -283,6 +283,28 @@ window.addEventListener('message',async event=>{
   // Do not leave the search iframe: the organizer may still be sending links.
  }catch(error){$('search-context').textContent='⚠ Import impossible : '+error.message;}
 });
+async function syncOneNativeEvent(eventId){
+ if(!state.demo)throw Error('Synchronisation native réservée à la démonstration locale.');
+ const mapping=nativeLinkFor(window.localStorage,eventId);
+ if(!mapping)throw Error('Aucun dossier de choix lié à cet événement.');
+ const owner=readHistory(window.localStorage).find(row=>row.eventId===mapping.nativeEventId);
+ if(!owner)throw Error('Lien privé du suivi introuvable sur cet appareil. Ouvrez « Mes événements » ou réimportez son lien.');
+ const report=await nativeChoicesApi('status',{
+   eventId:mapping.nativeEventId,ownerKey:owner.ownerKey
+ });
+ // Owner capability and native report are transient. No ticket status, paid
+ // amount or external personal data is copied into the local workbench.
+ const result=await api('sync_native_answers',{mapping,report});
+ await reload();
+ return result;
+}
+function nativeSyncSummary(result){
+ const incidents=result.conflicts.length?' ⚠ À contrôler : '+
+   result.conflicts.slice(0,3).join(' / '):'';
+ return '✅ Réponses : '+result.synced+' choix mis à jour, '+
+   result.unchanged+' inchangé(s), '+result.pending+' en attente. '+
+   'Aucun prix ou achat importé.'+incidents;
+}
 function card(title,lines=[]){
  const item=node('article','card');item.append(node('h3',null,title));
  for(const line of lines)item.append(node('p',null,line));
@@ -342,21 +364,9 @@ function renderEverything(){
     sync.addEventListener('click',async()=>{
       sync.disabled=true;
       try{
-       const owner=readHistory(window.localStorage).find(row=>row.eventId===mapping.nativeEventId);
-       if(!owner)throw Error('Lien privé du suivi introuvable sur cet appareil. Ouvrez d’abord « Mes événements » ou importez votre lien de suivi.');
-       const report=await nativeChoicesApi('status',{
-         eventId:mapping.nativeEventId,ownerKey:owner.ownerKey
-       });
-       // The capability and the report are transient: neither is persisted
-       // into the demonstration, and the real booking status is not copied.
-       const result=await api('sync_native_answers',{mapping,report});
-       await reload();showTab('events');
-       const incidents=result.conflicts.length?
-         ' ⚠ À contrôler : '+result.conflicts.slice(0,3).join(' / '):'';
-       feedback('✅ Réponses : '+result.synced+' choix mis à jour, '+
-         result.unchanged+' inchangé(s), '+result.pending+' en attente. '+
-         'Aucun prix ou achat importé.'+incidents,
-         Boolean(result.conflicts.length));
+       const result=await syncOneNativeEvent(event.id);
+       showTab('events');
+       feedback(nativeSyncSummary(result),Boolean(result.conflicts.length));
       }catch(error){feedback('Synchronisation impossible : '+error.message,true);}
       finally{sync.disabled=false;}
     });
@@ -410,8 +420,24 @@ function renderEverything(){
    if(backup)lines.push('Solution de secours : '+fmtDate(backup.travelDate)+' '+backup.legs[0]?.departure);
   }
   const row=card(displayPerson(participation.personId),lines);
-  const go=node('button','item-action','Ouvrir l’événement et actualiser ses réponses');
-  go.type='button';go.addEventListener('click',()=>showTab('events'));row.append(go);
+  if(state.demo&&nativeLinkFor(window.localStorage,event.id)){
+   const refresh=node('button','item-action','🔄 Actualiser les réponses de cet événement');
+   refresh.type='button';
+   refresh.addEventListener('click',async()=>{
+    refresh.disabled=true;
+    try{
+     const result=await syncOneNativeEvent(event.id);
+     showTab('answers');
+     feedback(nativeSyncSummary(result),Boolean(result.conflicts.length));
+    }catch(error){feedback('Synchronisation impossible : '+error.message,true);}
+    finally{refresh.disabled=false;}
+   });
+   row.append(refresh);
+  }else{
+   const go=node('button','item-action','Ouvrir l’événement pour envoyer les liens');
+   go.type='button';go.addEventListener('click',()=>showTab('events'));
+   row.append(go);
+  }
   answers.append(row);
  }
  if(!items('participation').length)answers.append(node('p','muted','Aucune inscription.'));
