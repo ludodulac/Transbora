@@ -4,6 +4,8 @@
 
 > **Version 045 — Réponses des artistes :** après création des liens depuis cette recherche liée, retour au tableau organisateur et bouton « Récupérer les réponses des artistes » (actualisation manuelle sur le même appareil). Les choix nº1/nº2 peuvent être repris sans modifier les dépenses ou les billets. [Fonctionnement et limites](docs/liaison-reponses-045.md).
 
+> **Version 046 — Un seul espace de travail :** le [tableau organisateur](https://transbora-ludo.netlify.app/organisation.html) possède désormais un menu latéral sur ordinateur et un hamburger sur téléphone. Le moteur de recherche existant s'ouvre dans l'onglet Recherche, reprend les personnes déjà enregistrées et réintègre automatiquement les trajets à l'événement sans ressaisie. Les versions Deploy Preview utilisent un stockage navigateur distinct : sauvegarde/import JSON dans Paramètres. [Parcours, limites et réglage des logos Netlify](docs/interface-unifiee-046.md).
+
 Application indépendante pour gagner du temps lors de la préparation d'horaires à proposer : rechercher des trajets directs en train ou en autocar, en cocher plusieurs, **copier une proposition**.
 
 ## Compagnies prévues et état
