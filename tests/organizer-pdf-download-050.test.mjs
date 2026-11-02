@@ -76,7 +76,8 @@ test('050: large month automatically paginates, repeats table headings and enume
  const r=monthLedger(many,'2026-11');
  const {pdf,pageCount}=validatePdf(monthlyTravelPdf(r));
  assert.ok(pageCount>=4);
- assert.equal((pdf.match(/Chx/g)||[]).length,pageCount);
+ assert.equal((pdf.match(/Chx/g)||[]).length,2*pageCount,
+  'each page has both the legend and table heading');
  assert.match(pdf,/Page 1 \/ [0-9]+/);
  assert.match(pdf,new RegExp('Page '+pageCount+' \\/ '+pageCount));
 });
