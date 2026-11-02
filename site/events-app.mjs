@@ -55,10 +55,15 @@ $('add-directory-person').addEventListener('click',async()=>{
   return;
  }
  const registered=found[0];
+ const pieces=registered.name.trim().split(/\s+/);
+ if(participants.some(p=>p.first.toLocaleLowerCase('fr-FR')===pieces[0].toLocaleLowerCase('fr-FR')&&
+    p.last.toLocaleLowerCase('fr-FR')===pieces.slice(1).join(' ').toLocaleLowerCase('fr-FR')&&
+    p.departure.toLocaleLowerCase('fr-FR')===registered.departure.toLocaleLowerCase('fr-FR'))){
+  msg($('directory-message'),'Une personne avec le même nom et la même gare figure déjà dans ce dossier. Vérifiez sa fiche.',true);return;
+ }
  if(participants.some(p=>p.organizerPersonId===registered.id)){
   msg($('directory-message'),'Cette personne est déjà dans le dossier.',true);return;
  }
- const pieces=registered.name.trim().split(/\s+/);
  if(pieces.length<2){
   msg($('directory-message'),
     'Complétez le prénom et le nom dans la fiche Personnes pour pouvoir créer son lien individuel.',true);
@@ -423,6 +428,10 @@ async function init(){
        // existing person. Freeform travelers would be silently orphaned.
        $('manual-person').hidden=true;
       }
+      // The event identity belongs to the organizer's single event record:
+      // do not let changing a title/date here split the same dossier.
+      for(const id of ['event-title','event-destination','event-start-date'])
+        $(id).readOnly=true;
     }
   }
   updateTravelOptions();
