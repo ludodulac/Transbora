@@ -68,7 +68,8 @@ test('048: Xlsx preserves columns, purchased amounts and explicit unknown fare',
  const lilleRow=Array.from({length:sheet.rowCount},(_,i)=>sheet.getRow(i+1))
   .find(x=>x.getCell(2).value==='Festival Lille');
  assert.equal(lilleRow?.getCell(13).value,'?');
- assert.equal(sheet.getCell('M'+(sheet.rowCount-1)).value,135);
+ assert.equal(sheet.getCell('M'+(sheet.rowCount-1)).value.result,135);
+ assert.match(sheet.getCell('M'+(sheet.rowCount-1)).value.formula,/SUM\(M4:M/);
  assert.match(fileName('FICHE','2026-11','Sophie Test'),/Sophie_Test.xlsx/);
 });
 test('048: printable PDF markup escapes user content without leaking HTML/script',()=>{
