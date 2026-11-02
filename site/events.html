@@ -75,6 +75,14 @@
 
   <section class="panel event-panel wizard-screen" id="etape-2" data-step="2" aria-labelledby="step-two-heading" hidden>
    <div class="screen-heading"><span class="screen-icon">02</span><h1 id="step-two-heading" tabindex="-1">Voyageurs</h1><span id="participants-total" class="count-bubble">0</span></div>
+   <div id="directory-select" class="directory-quick-select">
+     <label>👥 Personne déjà enregistrée dans TRANSBORA
+       <input id="directory-person-find" type="search" list="directory-person-names" placeholder="Commencez à taper un prénom ou un nom…" autocomplete="off">
+       <datalist id="directory-person-names"></datalist>
+     </label>
+     <button id="add-directory-person" type="button" class="secondary">＋ Ajouter cette personne</button>
+     <p id="directory-message" class="small" aria-live="polite">Les gares et cartes enregistrées sont reprises automatiquement. Le changement de gare pour cet événement ne modifie pas la fiche permanente.</p>
+   </div>
    <form id="manual-person" class="wizard-manual">
     <div class="two-inline"><label>Prénom<input id="add-first" placeholder="Sophie" maxlength="90" required></label><label>Nom<input id="add-last" placeholder="Martin" maxlength="90" required></label></div>
     <label>Départ<input id="add-from" list="event-stations" placeholder="Brest" maxlength="140" required></label>
