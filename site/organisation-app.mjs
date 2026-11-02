@@ -384,7 +384,7 @@ function renderEverything(){
   });
   c.append(edit);
   if(state.demo){
-   const search=node('button','item-action','🔎 Rechercher les trajets de cet événement');
+   const search=node('button','item-action','🔎 Rechercher les trajets');
    search.type='button';
    search.addEventListener('click',()=>{
     try{
@@ -397,8 +397,7 @@ function renderEverything(){
    c.append(search);
    const mapping=nativeLinkFor(window.localStorage,event.id);
    if(mapping){
-    c.append(node('p','tiny','🔗 Dossier artistes associé. Actualisez les réponses ici, à la demande.'));
-    const sync=node('button','item-action','🔄 Récupérer les réponses des artistes');
+    const sync=node('button','item-action','🔄 Récupérer les réponses');
     sync.type='button';
     sync.addEventListener('click',async()=>{
       sync.disabled=true;
@@ -460,7 +459,7 @@ function renderEverything(){
   }
   const row=card(displayPerson(participation.personId),lines);
   if(state.demo&&nativeLinkFor(window.localStorage,event.id)){
-   const refresh=node('button','item-action','🔄 Actualiser les réponses de cet événement');
+   const refresh=node('button','item-action','🔄 Actualiser');
    refresh.type='button';
    refresh.addEventListener('click',async()=>{
     refresh.disabled=true;
@@ -473,7 +472,7 @@ function renderEverything(){
    });
    row.append(refresh);
   }else{
-   const go=node('button','item-action','Ouvrir l’événement pour envoyer les liens');
+   const go=node('button','item-action','Ouvrir l’événement');
    go.type='button';go.addEventListener('click',()=>showTab('events'));
    row.append(go);
   }
@@ -561,7 +560,7 @@ function bindForm(id,create){
    delete form.dataset.recordId;
    if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
      id==='event-form'?'Enregistrer l’événement':button.textContent;
-   await reload();feedback('✅ Enregistré. Les tableaux utilisent maintenant cette information.');
+   await reload();feedback('✅ Enregistré.');
   }catch(e){feedback(e.message,true)}
   finally{if(button)button.disabled=false;}
  });
