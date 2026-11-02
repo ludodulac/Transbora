@@ -6,7 +6,7 @@ import {readHistory} from './event-history.mjs';
 import {api as nativeChoicesApi} from './native-choices.mjs';
 import {FRENCH_RAIL_CARDS,unpackRailCards,packRailCards} from './reduction-cards.mjs';
 import {monthLedger,personMonthLedger} from './organizer-monthly.mjs';
-import {ledgerXlsx,ledgerPrintHtml,fileName} from './organizer-monthly-export.mjs';
+import {ledgerPrintHtml} from './organizer-monthly-export.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null,sharedHandoff:null};
 let rehearsal=null;
@@ -627,19 +627,6 @@ $('month-person').addEventListener('change',()=>{
  renderMonthly();
  $('month-output').hidden=true;
 });
-async function downloadMonth(person=false){
- const register=person?
-  personMonthLedger(registerData(),$('month-filter').value,$('month-person').value):
-  monthLedger(registerData(),$('month-filter').value);
- const personName=person?register.personName:'';
- const buffer=await ledgerXlsx(register,{label:personName||'Déplacements du mois'});
- const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
- const url=URL.createObjectURL(blob),a=node('a');
- a.href=url;a.download=fileName(person?'FICHE':'MOIS',register.month,personName);
- document.body.append(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(url),8000);
- feedback('✅ Excel téléchargé.');
-}
 function printMonth(person=false){
  const register=person?
   personMonthLedger(registerData(),$('month-filter').value,$('month-person').value):
@@ -651,14 +638,6 @@ function printMonth(person=false){
  win.document.open();win.document.write(ledgerPrintHtml(register,{label:title}));
  win.document.close();
  win.addEventListener('load',()=>{win.focus();win.print();},{once:true});
-}
-for(const [id,person] of [['export-month-xlsx',false],['export-person-xlsx',true]]){
- $(id).addEventListener('click',async()=>{
-  $(id).disabled=true;
-  try{await downloadMonth(person);}
-  catch(error){feedback(error.message,true);}
-  finally{$(id).disabled=false;}
- });
 }
 for(const [id,person] of [['print-month',false],['print-person',true]]){
  $(id).addEventListener('click',()=>{
