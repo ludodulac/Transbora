@@ -218,7 +218,7 @@ function openIntegratedSearch(eventId){
  const frame=$('search-frame');
  // Reload only when the organizer explicitly chooses an event; changing
  // sidebar tabs never destroys the ongoing timetable search.
- frame.src='./events.html?from_organizer=1&embedded=1';
+ frame.src='./events.html?from_organizer=1&embedded=1&ntl-drawer-state=hidden';
  $('search-frame-area').hidden=false;
  showTab('search');
 }
@@ -251,8 +251,13 @@ $('budget-month-filter').addEventListener('change',()=>{
 // Never consume owner capabilities, personal contacts, or arbitrary cross-origin data.
 window.addEventListener('message',async event=>{
  if(!state.demo||event.origin!==location.origin||
-   event.source!==$('search-frame').contentWindow||
-   event.data?.type!=='transbora:routes-ready'||
+   event.source!==$('search-frame').contentWindow)return;
+ if(event.data?.type==='transbora:open-tab'){
+   if(['travels','events','answers','bookings'].includes(event.data.tab))
+     showTab(event.data.tab);
+   return;
+ }
+ if(event.data?.type!=='transbora:routes-ready'||
    event.data.eventId!==state.activeSearchEventId)return;
  const rows=readSearchResults(window.localStorage);
  if(!rows||rows.eventId!==state.activeSearchEventId)return;
@@ -288,7 +293,7 @@ function renderEverything(){
   c.append(edit);people.append(c);
  }
  if(!items('person').length)people.append(node('p','muted','Aucune personne. Commencez par une fiche.'));
- $('person-filter').dispatchEvent(new Event('input'));
+ $('person-filter').dispatchEvent(new window.Event('input'));
  const events=$('events-output');events.replaceChildren();
  for(const event of items('event').sort((a,b)=>a.startDate.localeCompare(b.startDate))){
   const n=items('participation').filter(p=>p.eventId===event.id).length;
