@@ -106,8 +106,8 @@ function pagePainter(){
  }
  function line(x,y,x2,y2,hex='dce7e9',thickness=0.6){
   stream+=colorRGB(hex)+' RG '+fmtNum(thickness)+' w '+
-   [x,HEIGHT-y,x2,HEIGHT-y2].map(fmtNum).join(' ')+' m ';
-  stream+='S\n'; // start a fresh path for each boundary
+   [x,HEIGHT-y].map(fmtNum).join(' ')+' m '+
+   [x2,HEIGHT-y2].map(fmtNum).join(' ')+' l S\n';
  }
  return {rectangle,text,line,source:()=>stream};
 }
