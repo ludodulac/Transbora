@@ -3,7 +3,7 @@
  * PDF option intentionally uses the browser print dialog / Save as PDF.
  */
 const safeName=v=>String(v??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
- .replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,60)||'voyageur';
+ .replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'voyageur';
 const money=v=>v==null?'Inconnu':(v/100).toFixed(2);
 const fmtDate=v=>/^\d{4}-\d\d-\d\d$/.test(v||'')?
  v.slice(8)+'/'+v.slice(5,7)+'/'+v.slice(0,4):String(v||'');
