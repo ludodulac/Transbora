@@ -49,6 +49,27 @@ export function createSearchHandoff(storage,{event,people,participations},now=Da
   storage.removeItem(RESULTS_KEY);
   return handoff;
 }
+/**
+ * New registered people added while planning an event are attached to the
+ * SAME local organizer event before searching. Do not silently create a
+ * traveler who cannot be linked to the event's options and choices.
+ */
+export function extendSearchHandoff(storage,person,now=Date.now()){
+ const existing=readSearchHandoff(storage,now);
+ if(!existing)throw Error('Liaison à l’événement expirée. Ouvrez-le depuis Organisation.');
+ if(!person?.id||!person.name||!person.departure)
+   throw Error('Complétez la fiche de la personne dans Organisation.');
+ if(existing.travelers.some(x=>x.personId===person.id))return existing;
+ if(existing.travelers.length>=100)throw Error('Maximum 100 participants.');
+ const next={...existing,travelers:[...existing.travelers,{
+  personId:person.id,name:shorten(person.name,120),
+  departure:shorten(person.departure,140),
+  reductionCards:shorten(person.reductionCards,160),
+  preferences:shorten(person.preferences,240)
+ }]};
+ storage.setItem(HANDOFF_KEY,JSON.stringify(next));
+ return next;
+}
 export function readSearchHandoff(storage,now=Date.now()){
   const data=read(storage,HANDOFF_KEY,now);
   if(!data||!data.eventId||!ISO.test(data.startDate||'')||
