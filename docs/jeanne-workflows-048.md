@@ -12,7 +12,9 @@ Actions sur une ligne : ouvrir son choix, préparer un panier / un achat / un cl
 ## 2. Fiche individuelle mensuelle : réalisé
 Sélectionner une personne : la vue mensuelle affiche ses voyages dans **tous** les événements concernés, **directement dans TRANSBORA**, sans fichier Excel à télécharger, renseigner ou réimporter.
 
-L'impression du mois ou de la fiche reste facultative : « Imprimer » ouvre la boîte de dialogue du navigateur, où l'utilisateur peut éventuellement choisir « Enregistrer en PDF ». Aucun export n'est nécessaire pour gérer les trajets et les billets.
+Deux types de document sont disponibles **à la demande**, sans modifier les données de TRANSBORA : **« Télécharger le mois (PDF) »** rassemble les trajets de tous les artistes pour le mois sélectionné ; **« Télécharger la fiche (PDF) »** rassemble les trajets d'une personne sélectionnée, y compris ses différents événements. Ces PDF sont de véritables fichiers directement téléchargés, sans ouverture de la boîte d'impression et sans Excel.
+
+À côté de chacun de ces téléchargements, **« Imprimer le mois »** et **« Imprimer la fiche »** permettent d'imprimer sur papier si nécessaire. Rien de tout cela n'est obligatoire pour organiser les trajets.
 
 Les données du tableau et de la fiche proviennent du même moteur `monthLedger`. La seule sauvegarde des fiches proposée dans la démonstration se trouve dans **Paramètres** (copie JSON destinée à restaurer une autre prévisualisation), jamais dans le parcours quotidien. Les anciennes fonctions techniques d'export XLSX restent hors de l'interface pour compatibilité, mais ne doivent plus être présentées comme une étape normale.
 
