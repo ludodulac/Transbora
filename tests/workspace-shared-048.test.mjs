@@ -63,4 +63,24 @@ test('048: two invited organizers see the same records, and stale editing refuse
  }});
  assert.equal(joined.status,200);
  assert.equal((await jeanne.call('list',{type:'participation'})).body.items.length,1);
+ const option={personId:row.id,direction:'A',travelDate:'2026-11-19',
+  sourceKey:'sncf-test-048-service',estimatedCents:null,
+  legs:[{from:'Lorient',to:'Nantes',departure:'08:05',arrival:'10:12',
+   departureDate:'2026-11-19',arrivalDate:'2026-11-19',mode:'rail',operator:'SNCF'}]};
+ const imported=await alice.call('import_search_results',{eventId:event.id,rows:[option]});
+ assert.equal(imported.status,200,JSON.stringify(imported.body));
+ assert.equal(imported.body.imported,1);
+ const second=await jeanne.call('import_search_results',{eventId:event.id,rows:[option]});
+ assert.equal(second.status,200);
+ assert.equal(second.body.imported,0,'same source must not duplicate');
+ const savedRoute=(await jeanne.call('list',{type:'option'})).body.items[0];
+ assert.equal(savedRoute.participationId,joined.body.item.id);
+ assert.equal(savedRoute.estimatedCents,null);
+ assert.equal(savedRoute.legs[0].from,'Lorient');
+ const wrongPerson=await alice.call('import_search_results',{eventId:event.id,rows:[{
+  ...option,personId:'a-foreign-person-id',sourceKey:'different'
+ }]});
+ assert.equal(wrongPerson.status,400);
+ const budgets=(await jeanne.call('event_budget',{eventId:event.id})).body;
+ assert.equal(budgets.forecastCents,0,'no artist choice yet means no invented spending');
 });
