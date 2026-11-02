@@ -1,6 +1,6 @@
 /** TRANSBORA — organizer workbench. All user content uses textContent. */
 import {createRehearsalApi} from './organizer-rehearsal.mjs';
-import {createSearchHandoff,readSearchResults,RESULTS_KEY} from './organizer-bridge.mjs';
+import {createSearchHandoff,buildSearchHandoff,readSearchResults,RESULTS_KEY} from './organizer-bridge.mjs';
 import {nativeLinkFor} from './organizer-replies-bridge.mjs';
 import {readHistory} from './event-history.mjs';
 import {api as nativeChoicesApi} from './native-choices.mjs';
@@ -8,7 +8,7 @@ import {FRENCH_RAIL_CARDS,unpackRailCards,packRailCards} from './reduction-cards
 import {monthLedger,personMonthLedger} from './organizer-monthly.mjs';
 import {ledgerXlsx,ledgerPrintHtml,fileName} from './organizer-monthly-export.mjs';
 const $=id=>document.getElementById(id);
-const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null};
+const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null,sharedHandoff:null};
 let rehearsal=null;
 const kinds=['person','event','participation','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
@@ -238,13 +238,8 @@ function showTab(tab){
   section.hidden=section.id!=='panel-'+tab;
  $('global-feedback').hidden=true;
  closeMobileNav();
- if(tab==='search'){
-  $('search-select-area').hidden=!state.demo;
-  if(!state.demo)$('search-context').textContent=
-    'La recherche intégrée est disponible dans la démonstration locale. Aucune donnée privée de votre organisation connectée ne sera transférée vers cette démonstration.';
-  else if(!state.activeSearchEventId)
-    $('search-context').textContent='';
- }
+ if(tab==='search'&&!state.activeSearchEventId)
+  $('search-context').textContent='';
 }
 $('nav-toggle').addEventListener('click',()=>{
  const opened=$('tabs').classList.toggle('open');
@@ -271,15 +266,11 @@ $('tabs').addEventListener('click',e=>{
  const btn=e.target.closest('[data-tab]');if(btn)showTab(btn.dataset.tab);
 });
 function openIntegratedSearch(eventId){
- if(!state.demo){
-  feedback('La recherche intégrée ne doit pas utiliser les fiches du compte sécurisé dans le mode démo.',true);
-  return;
- }
  const event=byId('event',eventId);
  if(!event)throw Error('Événement inconnu.');
- createSearchHandoff(window.localStorage,{
-  event,people:items('person'),participations:items('participation')
- });
+ const roster={event,people:items('person'),participations:items('participation')};
+ state.sharedHandoff=state.demo?null:buildSearchHandoff(roster);
+ if(state.demo)createSearchHandoff(window.localStorage,roster);
  state.activeSearchEventId=eventId;
  $('search-event-select').value=eventId;
  $('search-context').textContent=event.title+' · '+
@@ -287,7 +278,8 @@ function openIntegratedSearch(eventId){
  const frame=$('search-frame');
  // Reload only when the organizer explicitly chooses an event; changing
  // sidebar tabs never destroys the ongoing timetable search.
- frame.src='./events.html?from_organizer=1&embedded=1&ntl-drawer-state=hidden';
+ frame.src=state.demo?'./events.html?from_organizer=1&embedded=1&ntl-drawer-state=hidden':
+   './events.html?from_shared=1&embedded=1&ntl-drawer-state=hidden';
  $('search-frame-area').hidden=false;
  showTab('search');
 }
@@ -320,14 +312,37 @@ $('budget-month-filter').addEventListener('change',()=>{
 // Messages are only accepted from the loaded same-origin timetable iframe.
 // Never consume owner capabilities, personal contacts, or arbitrary cross-origin data.
 window.addEventListener('message',async event=>{
- if(!state.demo||event.origin!==location.origin||
+ if(event.origin!==location.origin||
    event.source!==$('search-frame').contentWindow)return;
+ if(!state.demo&&event.data?.type==='transbora:shared-ready'){
+  if(state.sharedHandoff&&state.sharedHandoff.eventId===state.activeSearchEventId)
+   event.source.postMessage({type:'transbora:shared-handoff',
+    handoff:state.sharedHandoff},location.origin);
+  return;
+ }
+ if(!state.demo&&event.data?.type==='transbora:shared-routes-ready'){
+  if(event.data.eventId!==state.activeSearchEventId||
+     !Array.isArray(event.data.rows)||event.data.rows.length>1000)return;
+  try{
+   let imported=0,alreadyPresent=0;
+   for(let i=0;i<event.data.rows.length;i+=3){
+    const r=await api('import_search_results',{
+     eventId:event.data.eventId,rows:event.data.rows.slice(i,i+3)
+    });
+    imported+=r.imported;alreadyPresent+=r.alreadyPresent;
+   }
+   await reload();
+   $('search-context').textContent='✅ '+imported+' trajet(s) ajoutés, '+alreadyPresent+
+    ' déjà présents. Prix et places à vérifier.';
+  }catch(error){$('search-context').textContent='⚠ Import partagé impossible : '+error.message;}
+  return;
+ }
  if(event.data?.type==='transbora:open-tab'){
    if(['travels','events','answers','bookings'].includes(event.data.tab))
      showTab(event.data.tab);
    return;
  }
- if(event.data?.type!=='transbora:routes-ready'||
+ if(!state.demo||event.data?.type!=='transbora:routes-ready'||
    event.data.eventId!==state.activeSearchEventId)return;
  const rows=readSearchResults(window.localStorage);
  if(!rows||rows.eventId!==state.activeSearchEventId)return;
@@ -406,18 +421,14 @@ function renderEverything(){
     form.scrollIntoView?.({behavior:'smooth',block:'start'});
   });
   c.append(edit);
+  const search=node('button','item-action','🔎 Rechercher les trajets');
+  search.type='button';
+  search.addEventListener('click',()=>{
+   try{openIntegratedSearch(event.id);}
+   catch(error){feedback(error.message,true);}
+  });
+  c.append(search);
   if(state.demo){
-   const search=node('button','item-action','🔎 Rechercher les trajets');
-   search.type='button';
-   search.addEventListener('click',()=>{
-    try{
-     createSearchHandoff(window.localStorage,{
-      event,people:items('person'),participations:items('participation')
-     });
-     openIntegratedSearch(event.id);
-    }catch(error){feedback(error.message,true);}
-   });
-   c.append(search);
    const mapping=nativeLinkFor(window.localStorage,event.id);
    if(mapping){
     const sync=node('button','item-action','🔄 Récupérer les réponses');
