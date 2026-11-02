@@ -5,6 +5,8 @@ import {nativeLinkFor} from './organizer-replies-bridge.mjs';
 import {readHistory} from './event-history.mjs';
 import {api as nativeChoicesApi} from './native-choices.mjs';
 import {FRENCH_RAIL_CARDS,unpackRailCards,packRailCards} from './reduction-cards.mjs';
+import {monthLedger,personMonthLedger} from './organizer-monthly.mjs';
+import {ledgerXlsx,ledgerPrintHtml,fileName} from './organizer-monthly-export.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null};
 let rehearsal=null;
@@ -213,6 +215,7 @@ async function connect(){
    $('month-filter').value=recent.startDate.slice(0,7);
    $('budget-month-filter').value=$('month-filter').value;
    await renderBudget();
+   renderMonthly();
   }
  }
  showTab('overview');
@@ -295,6 +298,7 @@ $('open-booking-form').addEventListener('click',()=>{
 });
 $('budget-month-filter').addEventListener('change',()=>{
  $('month-filter').value=$('budget-month-filter').value;
+ renderMonthly();
  renderBudget().catch(e=>feedback(e.message,true));
 });
 // Messages are only accepted from the loaded same-origin timetable iframe.
@@ -367,6 +371,7 @@ function renderEverything(){
  }
  if(!items('person').length)people.append(node('p','muted','Aucune personne. Commencez par une fiche.'));
  $('person-filter').dispatchEvent(new window.Event('input'));
+ renderMonthly();
  const events=$('events-output');events.replaceChildren();
  for(const event of items('event').sort((a,b)=>a.startDate.localeCompare(b.startDate))){
   const n=items('participation').filter(p=>p.eventId===event.id).length;
@@ -498,6 +503,112 @@ function renderEverything(){
  if(!items('note').length)notes.append(node('p','muted','Aucune note privée.'));
  renderBudget().catch(error=>feedback(error.message,true));
 }
+
+function registerData(){
+ return {people:items('person'),events:items('event'),
+  participations:items('participation'),options:items('option'),
+  choices:items('choice'),bookings:items('booking')};
+}
+function currentRegister(){
+ return monthLedger(registerData(),$('month-filter').value,$('month-person').value);
+}
+function moneyShort(cents){
+ return cents==null?'—':fmtEuro(cents);
+}
+function renderMonthly(){
+ const host=$('month-register-body');host.replaceChildren();
+ const month=$('month-filter').value;
+ if(!month)return;
+ let result;
+ try{result=currentRegister();}
+ catch(error){$('month-summary').textContent=error.message;return;}
+ const s=result.summary;
+ $('month-summary').textContent=s.travels+' proposition(s) · '+
+  s.selected+' retenue(s) · '+s.inCart+' panier(s) · '+s.paid+' billet(s) acheté(s) · '+
+  moneyShort(s.paidKnownCents)+' payés'+
+  (s.paidUnknown?' (dont '+s.paidUnknown+' achat(s) sans prix)':'')+
+  (s.pending?' · '+s.pending+' à rechercher':'');
+ for(const row of result.rows){
+  const tr=node('tr');if(row.pending)tr.className='pending-month-row';
+  else if(row.paid)tr.className='paid-month-row';
+  const cells=[fmtDate(row.date),row.event,row.person,row.direction,
+   (row.departure?row.departure+' ':'')+row.from,
+   (row.arrival?row.arrival+' ':'')+row.to,
+   row.choiceRank?'nº '+row.choiceRank:'—',
+   row.cart?'✓':'',row.paid?'✓':'',
+   row.paid?row.paidCents===null?'?':moneyShort(row.paidCents):'—'];
+  cells.forEach((value,index)=>{
+   const td=node('td',index===6?'choice-column':index>=7?'status-column':'',value);
+   if(index===9&&row.paid&&row.paidCents==null)td.title='Montant payé non renseigné';
+   tr.append(td);
+  });
+  const cell=node('td');
+  const button=node('button','item-action',row.pending?'Dossier':'Ouvrir');
+  button.type='button';
+  button.title=row.pending?'Ouvrir le dossier de cet événement':'Ouvrir le suivi de ce trajet';
+  button.addEventListener('click',()=>{
+   if(row.optionId){
+    $('booking-form').elements.optionId.value=row.optionId;
+    showTab('travels');
+    $('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+   }else{
+    showTab('events');
+    $('events-output').scrollIntoView?.({behavior:'smooth',block:'start'});
+   }
+  });
+  cell.append(button);tr.append(cell);host.append(tr);
+ }
+ if(!result.rows.length){
+  const tr=node('tr'),td=node('td','month-empty','Aucun trajet ce mois-ci.');
+  td.colSpan=11;tr.append(td);host.append(tr);
+ }
+ const personId=$('month-person').value;
+ $('person-sheet-actions').hidden=!personId;
+ $('person-sheet-title').textContent=personId?displayPerson(personId)+' · '+month:'';
+}
+$('month-person').addEventListener('change',()=>{
+ renderMonthly();
+ $('month-output').hidden=true;
+});
+async function downloadMonth(person=false){
+ const register=person?
+  personMonthLedger(registerData(),$('month-filter').value,$('month-person').value):
+  monthLedger(registerData(),$('month-filter').value);
+ const personName=person?register.personName:'';
+ const buffer=await ledgerXlsx(register,{label:personName||'Déplacements du mois'});
+ const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+ const url=URL.createObjectURL(blob),a=node('a');
+ a.href=url;a.download=fileName(person?'FICHE':'MOIS',register.month,personName);
+ document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),8000);
+ feedback('✅ Excel téléchargé.');
+}
+function printMonth(person=false){
+ const register=person?
+  personMonthLedger(registerData(),$('month-filter').value,$('month-person').value):
+  monthLedger(registerData(),$('month-filter').value);
+ const title=person?register.personName:'Déplacements du mois';
+ const win=window.open('','_blank');
+ if(!win)throw Error('Autorisez la fenêtre d’impression pour enregistrer en PDF.');
+ win.opener=null;
+ win.document.open();win.document.write(ledgerPrintHtml(register,{label:title}));
+ win.document.close();
+ win.addEventListener('load',()=>{win.focus();win.print();},{once:true});
+}
+for(const [id,person] of [['export-month-xlsx',false],['export-person-xlsx',true]]){
+ $(id).addEventListener('click',async()=>{
+  $(id).disabled=true;
+  try{await downloadMonth(person);}
+  catch(error){feedback(error.message,true);}
+  finally{$(id).disabled=false;}
+ });
+}
+for(const [id,person] of [['print-month',false],['print-person',true]]){
+ $(id).addEventListener('click',()=>{
+  try{printMonth(person);}catch(error){feedback(error.message,true);}
+ });
+}
+
 async function renderBudget(){
  const month=$('month-filter').value||new Date().toISOString().slice(0,7),
   events=items('event').filter(e=>e.startDate.startsWith(month));
@@ -520,11 +631,17 @@ async function renderBudget(){
   standalone.append(c.cloneNode(true));
  }
 }
-$('month-filter').addEventListener('change',()=>renderBudget().catch(e=>feedback(e.message,true)));
+$('month-filter').addEventListener('change',()=>{
+ renderMonthly();
+ $('budget-month-filter').value=$('month-filter').value;
+ $('month-output').hidden=true;
+ renderBudget().catch(e=>feedback(e.message,true));
+});
 $('view-person-month').addEventListener('click',async()=>{
  const id=$('month-person').value,month=$('month-filter').value;
  if(!id){feedback('Sélectionnez une personne.',true);return;}
- const host=$('month-output');host.replaceChildren();
+ const host=$('month-output');host.replaceChildren();host.hidden=false;
+ renderMonthly();
  try{
   const result=await api('person_month',{personId:id,month});
   if(!result.events.length){host.append(node('p','muted','Aucun déplacement pour ce mois.'));return;}
