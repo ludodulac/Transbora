@@ -7,6 +7,7 @@ import {api as nativeChoicesApi} from './native-choices.mjs';
 import {FRENCH_RAIL_CARDS,unpackRailCards,packRailCards} from './reduction-cards.mjs';
 import {monthLedger,personMonthLedger} from './organizer-monthly.mjs';
 import {ledgerPrintHtml} from './organizer-monthly-export.mjs';
+import {monthlyTravelPdf,travelPdfName} from './organizer-monthly-pdf.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null,sharedHandoff:null};
 let rehearsal=null;
@@ -627,6 +628,32 @@ $('month-person').addEventListener('change',()=>{
  renderMonthly();
  $('month-output').hidden=true;
 });
+function downloadMonthPdf(person=false){
+ const register=person?
+  personMonthLedger(registerData(),$('month-filter').value,$('month-person').value):
+  monthLedger(registerData(),$('month-filter').value);
+ const personName=person?register.personName:'';
+ const contents=monthlyTravelPdf(register,{personName});
+ const blob=new Blob([contents],{type:'application/pdf'});
+ const url=URL.createObjectURL(blob),link=node('a');
+ link.href=url;
+ link.download=travelPdfName(register,{personName});
+ document.body.append(link);
+ try{link.click();}
+ finally{
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),8000);
+ }
+ feedback('✅ PDF téléchargé.');
+}
+for(const [id,person] of [['download-month-pdf',false],['download-person-pdf',true]]){
+ $(id).addEventListener('click',()=>{
+  const button=$(id);button.disabled=true;
+  try{downloadMonthPdf(person);}
+  catch(error){feedback('Téléchargement impossible : '+error.message,true);}
+  finally{button.disabled=false;}
+ });
+}
 function printMonth(person=false){
  const register=person?
   personMonthLedger(registerData(),$('month-filter').value,$('month-person').value):
