@@ -21,6 +21,7 @@ import {
 
 const $=id=>document.getElementById(id);
 const embeddedMode=new URLSearchParams(location.search).get('embedded')==='1';
+const sharedMode=new URLSearchParams(location.search).get('from_shared')==='1'&&embeddedMode;
 if(embeddedMode)document.body.classList.add('embedded-workspace');
 let savedDirectory=[];
 function personLabel(p){return p.name+' · '+(p.departure||'Départ non précisé');}
@@ -166,7 +167,7 @@ function updateButtons(){
     $(id).disabled=isBusy||!havePlans;
   }
   for(const id of ['export-organizer','export-personal-zip','prepare-native-group','prepare-native-individual']){
-    $(id).hidden=!havePlans;
+    $(id).hidden=!havePlans||(sharedMode&&id.startsWith('prepare-native'));
   }
   $('individual-details').hidden=!havePlans;
   $('copy-invitation').hidden=!havePlans;
@@ -176,7 +177,7 @@ function updateButtons(){
   const next=$('wizard-next'),search=$('search-everyone');
   if(currentView==='wizard'){
     const isThird=activeStep===3;
-    next.hidden=activeStep===4 || (isThird&&!havePlans);
+    next.hidden=activeStep===4 || (isThird&&!havePlans)||(sharedMode&&isThird);
     search.hidden=!isThird || havePlans;
     next.disabled=isBusy;
     $('wizard-back').hidden=activeStep===1;
@@ -194,7 +195,7 @@ function invalidate(){
   updateButtons();
 }
 function storeDraft(){
-  if(!globalThis.localStorage)return;
+  if(sharedMode||!globalThis.localStorage)return;
   const fields=Object.fromEntries(draftFields.map(id=>{
     const field=$(id);
     return [id,!field?'':field.type==='checkbox'?field.checked:field.value];
@@ -202,11 +203,12 @@ function storeDraft(){
   saveDraft(localStorage,{fields,participants,step:activeStep});
 }
 function scheduleDraft(){
+  if(sharedMode)return;
   clearTimeout(draftSaving);
   draftSaving=setTimeout(storeDraft,150);
 }
 function loadSavedDraft(){
-  if(!globalThis.localStorage)return false;
+  if(sharedMode||!globalThis.localStorage)return false;
   const data=restoreDraft(localStorage);
   if(!data)return false;
   for(const id of draftFields){
@@ -404,9 +406,42 @@ async function init(){
     $(id).addEventListener('change',()=>{invalidate();scheduleDraft();});
     $(id).addEventListener('input',scheduleDraft);
   }
-  await loadRegisteredPeople();
-  if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
-  else if(new URLSearchParams(location.search).get('from_organizer')!=='1')loadSavedDraft();
+  if(!sharedMode)await loadRegisteredPeople();
+  else{
+   $('directory-select').hidden=true;
+   $('manual-person').hidden=true;
+  }
+  if(!sharedMode){
+   if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
+   else if(new URLSearchParams(location.search).get('from_organizer')!=='1')loadSavedDraft();
+  }
+  if(sharedMode){
+    window.addEventListener('message',event=>{
+      if(event.origin!==location.origin||event.source!==window.parent||
+        event.data?.type!=='transbora:shared-handoff')return;
+      const handoff=event.data.handoff;
+      if(handoff?.version!==1||!handoff.eventId||!handoff.title||
+       !handoff.destination||!/^\\d{4}-\\d{2}-\\d{2}$/.test(handoff.startDate||'')||
+       !Array.isArray(handoff.travelers)||handoff.travelers.length<1||
+       handoff.travelers.length>100||
+       handoff.travelers.some(x=>!x.personId||!x.name||!x.departure))return;
+      activeOrganizerHandoff=handoff;
+      $('event-title').value=handoff.title;
+      $('event-destination').value=handoff.destination;
+      $('event-start-date').value=handoff.startDate;
+      $('event-end-date').value=handoff.startDate;
+      $('event-start-time').value='';
+      $('event-end-time').value='';
+      for(const id of ['event-title','event-destination','event-start-date'])
+        $(id).readOnly=true;
+      participants=wizardPeople(handoff);
+      nextId=participants.length+1;
+      renderPeople();updateButtons();
+      $('org-search-warning').hidden=false;
+      status('Événement et voyageurs chargés. Indiquez les heures de présence.');
+    });
+    window.parent.postMessage({type:'transbora:shared-ready'},location.origin);
+  }
   if(new URLSearchParams(location.search).get('from_organizer')==='1'){
     const handoff=readSearchHandoff(localStorage);
     if(!handoff){
@@ -784,7 +819,11 @@ $('send-to-organizer').addEventListener('click',()=>{
      event.startDate!==activeOrganizerHandoff.startDate)
     throw Error('Cet événement a changé. Reprenez sa fiche dans Organisation pour éviter de mélanger les dossiers.');
   const result=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
-  writeSearchResults(window.localStorage,result);
+  if(sharedMode)window.parent.postMessage({
+    type:'transbora:shared-routes-ready',eventId:activeOrganizerHandoff.eventId,
+    rows:result.rows
+  },location.origin);
+  else writeSearchResults(window.localStorage,result);
   if(embeddedMode){
    window.parent.postMessage({type:'transbora:routes-ready',
     eventId:activeOrganizerHandoff.eventId},location.origin);
@@ -840,9 +879,15 @@ $('search-everyone').addEventListener('click',async()=>{
     if(embeddedMode&&activeOrganizerHandoff){
       try{
         const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
-        writeSearchResults(window.localStorage,routes);
-        window.parent.postMessage({type:'transbora:routes-ready',
-          eventId:activeOrganizerHandoff.eventId},location.origin);
+        if(sharedMode)window.parent.postMessage({
+          type:'transbora:shared-routes-ready',eventId:activeOrganizerHandoff.eventId,
+          rows:routes.rows
+        },location.origin);
+        else{
+         writeSearchResults(window.localStorage,routes);
+         window.parent.postMessage({type:'transbora:routes-ready',
+           eventId:activeOrganizerHandoff.eventId},location.origin);
+        }
       }catch(error){status('Recherche terminée, mais liaison au tableau impossible : '+error.message,true);}
     }
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
