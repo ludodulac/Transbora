@@ -550,14 +550,14 @@ function moneyShort(cents){
  return cents==null?'—':fmtEuro(cents);
 }
 function monthTitle(month){
- if(!/^\\d{4}-(?:0[1-9]|1[0-2])$/.test(month||''))return 'Choisir un mois';
+ if(!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month||''))return 'Choisir un mois';
  const [year,number]=month.split('-').map(Number);
  const title=new Intl.DateTimeFormat('fr-FR',{month:'long',year:'numeric',timeZone:'UTC'})
   .format(new Date(Date.UTC(year,number-1,1)));
  return title.charAt(0).toUpperCase()+title.slice(1);
 }
 function moveMonth(month,step){
- if(!/^\\d{4}-(?:0[1-9]|1[0-2])$/.test(month||''))return month;
+ if(!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month||''))return month;
  const [year,number]=month.split('-').map(Number);
  const date=new Date(Date.UTC(year,number-1+step,1));
  return date.getUTCFullYear()+'-'+String(date.getUTCMonth()+1).padStart(2,'0');
@@ -864,7 +864,7 @@ async function renderBudget(){
 for(const [id,step] of [['month-prev',-1],['month-next',1]]){
  $(id).addEventListener('click',()=>{
   $('month-filter').value=moveMonth($('month-filter').value,step);
-  $('month-filter').dispatchEvent(new Event('change'));
+  $('month-filter').dispatchEvent(new window.Event('change'));
  });
 }
 $('month-filter').addEventListener('change',()=>{
