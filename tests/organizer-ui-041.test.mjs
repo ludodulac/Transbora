@@ -51,10 +51,8 @@ test('M2 organizer UI is private, displays month and personal notes with no html
  assert.equal(window.document.getElementById('private-panel').hidden,false);
  assert.equal(window.document.getElementById('login-panel').hidden,true);
  assert.match(window.document.body.textContent,/Compagnie Bora-Bora/);
- assert.equal(window.document.querySelectorAll('script').length,1,
-   'the only script must be the organizer entrypoint; no Excel library in the workbench');
- assert.equal(window.document.querySelector('script').getAttribute('src'),
-   './organisation-app.mjs');
+ assert.deepEqual([...window.document.querySelectorAll('script')].map(x=>x.getAttribute('src')),
+   ['./organisation-app.mjs','./context-help.mjs']);
  assert.match(window.document.getElementById('people-output').textContent,/<script>alert/);
  assert.match(window.document.getElementById('notes-output').textContent,/Contenu privé/);
  assert.ok(requests.includes('event_budget'));
