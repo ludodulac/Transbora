@@ -30,7 +30,7 @@ test('051: help appears next to relevant headings, fields and each core tab',()=
  assert.ok(mounted.count>=45,'the organizer has contextual help in its main areas');
  for(const id of ['panel-overview','panel-people','panel-events','panel-search',
   'panel-travels','panel-answers','panel-bookings','panel-budget','panel-notes','panel-team']){
-  assert.ok(document.querySelector('#'+id+' > h2 .tb-help-trigger'),'missing '+id);
+  assert.ok(document.querySelector(id==='panel-overview'?'#panel-overview .month-intro > h2 .tb-help-trigger':'#'+id+' > h2 .tb-help-trigger'),'missing '+id);
  }
  const input=document.querySelector('#person-form [name="departure"]');
  const label=input.closest('label');
@@ -48,7 +48,7 @@ test('051: help appears next to relevant headings, fields and each core tab',()=
  assert.equal(overlay.hidden,true);
  assert.equal(label.querySelector('.tb-help-trigger').getAttribute('aria-expanded'),'false');
  assert.equal(document.activeElement,label.querySelector('.tb-help-trigger'));
- const headingHelp=document.querySelector('#panel-overview > h2 .tb-help-trigger');
+ const headingHelp=document.querySelector('#panel-overview .month-intro > h2 .tb-help-trigger');
  headingHelp.click();
  assert.match(document.getElementById('tb-help-text').textContent,/trajets proposés/);
  overlay.dispatchEvent(new MouseEvent('click',{bubbles:true}));
