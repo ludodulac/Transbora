@@ -145,7 +145,7 @@ function fillSelects(){
  const persons=items('person').map(p=>[p.id,p.name]),
    events=items('event').map(e=>[e.id,e.title+' · '+fmtDate(e.startDate)]);
  const participants=items('participation').map(p=>[p.id,displayParticipation(p.id)]);
- options($('month-person'),persons,'Choisir une personne');
+ options($('month-person'),persons,'Tous les artistes');
  options($('search-event-select'),events,'Choisir…');
  const matches=$('registered-person-names');matches.replaceChildren();
  for(const person of items('person')){
@@ -211,7 +211,7 @@ async function connect(){
   'Horaires indicatifs. Prix et places à vérifier · Espace partagé : actualisez pour voir les changements.';
  if(state.demo)$('user-identity').textContent='';
  $('user-identity').hidden=state.demo;
- $('month-filter').value=new Date().toISOString().slice(0,7);
+ $('month-filter').value=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
  $('budget-month-filter').value=$('month-filter').value;
  await reload();
  // On an empty current month, display the most recent recorded event rather
@@ -789,6 +789,7 @@ function renderMonthly(){
  }
  const personId=$('month-person').value;
  $('person-sheet-actions').hidden=!personId;
+ $('view-person-month').disabled=!personId;
  $('person-sheet-title').textContent=personId?displayPerson(personId)+' · '+month:'';
 }
 $('month-person').addEventListener('change',()=>{
@@ -840,7 +841,8 @@ for(const [id,person] of [['print-month',false],['print-person',true]]){
 }
 
 async function renderBudget(){
- const month=$('month-filter').value||new Date().toISOString().slice(0,7),
+ const now=new Date();
+ const month=$('month-filter').value||(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')),
   events=items('event').filter(e=>e.startDate.startsWith(month));
  const host=$('budget-output'),standalone=$('budget-standalone');
  host.replaceChildren();standalone.replaceChildren();
