@@ -4,10 +4,10 @@
  */
 export const ORGANIZER_HELP_MAIN=[
 ['#auth-title','Connexion organisateur','L’espace privé permet aux membres invités de partager les mêmes fiches. La démonstration, elle, conserve les données seulement sur cet appareil.'],
-['#panel-overview > h2','Déplacements du mois','Ce tableau réunit les trajets proposés pour tous les événements du mois. Une proposition n’est pas forcément un billet acheté.'],
+['#panel-overview .month-intro > h2','Déplacements du mois','Ce tableau réunit les trajets proposés pour tous les événements du mois. Une proposition n’est pas forcément un billet acheté.'],
 ['#month-filter','Mois affiché','Choisissez le mois des voyages. Un train peut être la veille du spectacle ou le lendemain de son événement.'],
 ['#month-person','Personne','Filtrez les déplacements sur un artiste. Laissez le champ sans sélection pour afficher tous les voyageurs.'],
-['#month-register','Colonnes Chx, R et E','Chx = premier ou deuxième choix. R = dans le panier. E = billet acheté. Ces statuts sont renseignés par l’organisatrice, pas vérifiés chez le vendeur.'],
+['#month-register','Suivi des déplacements','Le statut indique si le trajet est proposé, choisi, mis dans le panier, acheté ou classé. Les montants sont ceux saisis par l’organisatrice, pas vérifiés chez le vendeur.'],
 ['#month-summary','Bilan des voyages','Les dépenses payées additionnent les montants connus des achats confirmés. Les achats sans prix sont signalés à part.'],
 ['#person-sheet-title','Fiche d’un artiste','Cette fiche réunit tous les déplacements du mois de la personne sélectionnée, même s’ils concernent plusieurs événements. Téléchargement PDF et impression sont facultatifs.'],
 ['#panel-overview > h3','Budgets du mois','Pour chaque spectacle, comparez l’enveloppe, les achats réels et les prévisions. Si un tarif manque, le total est incomplet.'],
