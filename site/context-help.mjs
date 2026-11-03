@@ -67,6 +67,10 @@ export function mountContextHelp(doc=globalThis.document,{enabled=HELP_ENABLED,p
   if(input&&anchor.tagName==='LABEL'){
    anchor.classList.add('tb-help-field');
    anchor.append(button); // after its input, preserving normal label behavior
+  }else if(selector==='#auth-title'||selector==='#person-sheet-title'){
+   // These are rewritten with textContent at runtime; keep help separate.
+   anchor.insertAdjacentElement('afterend',button);
+   button.classList.add('tb-help-inline');
   }else if(anchor.matches('h1,h2,h3,strong,summary')){
    anchor.append(button);
   }else{
