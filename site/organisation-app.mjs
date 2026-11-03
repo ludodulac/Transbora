@@ -549,76 +549,243 @@ function currentRegister(){
 function moneyShort(cents){
  return cents==null?'—':fmtEuro(cents);
 }
+function monthTitle(month){
+ if(!/^\\d{4}-(?:0[1-9]|1[0-2])$/.test(month||''))return 'Choisir un mois';
+ const [year,number]=month.split('-').map(Number);
+ const title=new Intl.DateTimeFormat('fr-FR',{month:'long',year:'numeric',timeZone:'UTC'})
+  .format(new Date(Date.UTC(year,number-1,1)));
+ return title.charAt(0).toUpperCase()+title.slice(1);
+}
+function moveMonth(month,step){
+ if(!/^\\d{4}-(?:0[1-9]|1[0-2])$/.test(month||''))return month;
+ const [year,number]=month.split('-').map(Number);
+ const date=new Date(Date.UTC(year,number-1+step,1));
+ return date.getUTCFullYear()+'-'+String(date.getUTCMonth()+1).padStart(2,'0');
+}
+function monthStage(row){
+ if(row.pending)return {label:'À rechercher',tone:'urgent'};
+ if(row.filed)return {label:'Billet classé',tone:'done'};
+ if(row.paid)return {label:'Billet acheté',tone:'done'};
+ if(row.cart)return {label:'Dans le panier',tone:'action'};
+ if(row.choiceRank)return {label:'Choix nº '+row.choiceRank,tone:'action'};
+ return {label:'Proposé',tone:'neutral'};
+}
+const monthDetailState={row:null,restoreFocus:null};
+function closeMonthDetail({restoreFocus=true}={}){
+ const active=$('month-detail');
+ if(active.hidden)return;
+ active.hidden=true;
+ $('month-stage').classList.remove('detail-open');
+ $('month-detail-backdrop').hidden=true;
+ document.body.classList.remove('month-dialog-open');
+ if(restoreFocus&&monthDetailState.restoreFocus?.isConnected)
+  monthDetailState.restoreFocus.focus?.({preventScroll:true});
+ monthDetailState.row=null;
+ monthDetailState.restoreFocus=null;
+}
+function detailField(host,label,value){
+ const group=node('div','month-detail-field');
+ group.append(node('dt',null,label),node('dd',null,value));
+ host.append(group);
+}
+function openMonthDetail(row,origin=null){
+ closeMonthDetail({restoreFocus:false});
+ monthDetailState.row=row;
+ monthDetailState.restoreFocus=origin;
+ $('month-detail-date').textContent=fmtDate(row.date)+' · '+row.direction;
+ $('month-detail-title').textContent=row.person;
+ const content=$('month-detail-body');content.replaceChildren();
+ const status=monthStage(row);
+ const pill=node('span','month-badge month-badge--'+status.tone,status.label);
+ content.append(pill);
+ const details=node('dl','month-detail-fields');
+ detailField(details,'Événement',row.event);
+ detailField(details,'Départ',row.from+(row.departure?' · '+row.departure:''));
+ detailField(details,'Arrivée',row.to+(row.arrival?' · '+row.arrival:''));
+ detailField(details,'Choix',row.choiceRank?'Option nº '+row.choiceRank:'Non retenu');
+ detailField(details,'Panier',row.cart?'Oui':'Non');
+ detailField(details,'Billet payé',row.paid?'Oui':'Non');
+ if(row.paid)detailField(details,'Prix réellement payé',
+  row.paidCents==null?'Montant non renseigné':fmtEuro(row.paidCents));
+ else if(row.estimateCents!=null)
+  detailField(details,'Prix estimé',fmtEuro(row.estimateCents));
+ if(row.filed)detailField(details,'Billet classé','Oui');
+ if(row.receiptReference)detailField(details,'Référence',row.receiptReference);
+ content.append(details);
+ if(row.legs?.length>1){
+  content.append(node('h4','month-connections-title','Correspondances'));
+  const list=node('ol','month-connection-list');
+  for(const leg of row.legs)list.append(node('li',null,
+   (leg.departure||'')+' '+leg.from+' → '+(leg.arrival||'')+' '+leg.to));
+  content.append(list);
+ }
+ $('month-detail-choice').hidden=row.pending;
+ $('month-detail-booking').hidden=row.pending;
+ $('month-detail-event').hidden=!row.pending;
+ $('month-detail').hidden=false;
+ $('month-stage').classList.add('detail-open');
+ $('month-detail-backdrop').hidden=false;
+ document.body.classList.add('month-dialog-open');
+ $('month-detail-close').focus?.({preventScroll:true});
+}
+$('month-detail-close').addEventListener('click',()=>closeMonthDetail());
+$('month-detail-backdrop').addEventListener('click',()=>closeMonthDetail());
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!$('month-detail').hidden){
+  event.preventDefault();closeMonthDetail();
+ }
+});
+function goToMonthChoice(row){
+ const form=$('choice-form').elements;
+ form.participationId.value=row.participationId;
+ form.direction.value=row.direction==='Aller'?'A':'R';
+ refreshChoiceSelects();
+ const original=items('choice').find(x=>x.participationId===row.participationId&&x.direction===form.direction.value);
+ form.firstOptionId.value=row.optionId;
+ if(original?.backupOptionId&&original.backupOptionId!==row.optionId)
+  form.backupOptionId.value=original.backupOptionId;
+ closeMonthDetail({restoreFocus:false});
+ showTab('travels');
+ $('choice-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+}
+function goToMonthTicket(row){
+ const form=$('booking-form').elements;
+ form.optionId.value=row.optionId;
+ const booking=items('booking').find(x=>x.optionId===row.optionId);
+ form.stage.value=booking?.filedAt?'FILED':booking?.paidAt?'PAID':booking?.inCartAt?'IN_CART':'PROPOSED';
+ form.paidEuros.value=booking?.paidCents==null?'':String(booking.paidCents/100);
+ form.receiptReference.value=booking?.receiptReference||'';
+ closeMonthDetail({restoreFocus:false});
+ showTab('travels');
+ $('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+}
+function goToMonthEvent(){
+ closeMonthDetail({restoreFocus:false});
+ showTab('events');
+ $('events-output').scrollIntoView?.({behavior:'smooth',block:'start'});
+}
+$('month-detail-choice').addEventListener('click',()=>{
+ if(monthDetailState.row&&!monthDetailState.row.pending)goToMonthChoice(monthDetailState.row);
+});
+$('month-detail-booking').addEventListener('click',()=>{
+ if(monthDetailState.row&&!monthDetailState.row.pending)goToMonthTicket(monthDetailState.row);
+});
+$('month-detail-event').addEventListener('click',goToMonthEvent);
+function monthlyMobileCard(row){
+ const article=node('article','month-mobile-card');
+ const status=monthStage(row);
+ article.classList.add('month-mobile-card--'+status.tone);
+ const head=node('div','month-mobile-card-head');
+ head.append(node('span','month-card-date',fmtDate(row.date)),
+  node('span','month-badge month-badge--'+status.tone,status.label));
+ article.append(head);
+ article.append(node('h3','month-card-person',row.person));
+ article.append(node('p','month-card-event',row.event+' · '+row.direction));
+ article.append(node('p','month-card-route',row.from+' → '+row.to));
+ if(row.departure||row.arrival)article.append(node('p','month-card-time',
+  (row.departure||'—')+' → '+(row.arrival||'—')));
+ const bottom=node('div','month-card-bottom');
+ if(row.choiceRank)bottom.append(node('span','month-card-rank','Choix nº '+row.choiceRank));
+ if(row.paid)bottom.append(node('span','month-card-money',
+  row.paidCents==null?'Prix payé ?':fmtEuro(row.paidCents)));
+ article.append(bottom);
+ const actions=node('div','month-mobile-actions');
+ const detail=node('button','outline','Détails');
+ detail.type='button';detail.addEventListener('click',()=>openMonthDetail(row,detail));
+ actions.append(detail);
+ if(row.pending){
+  const event=node('button','secondary','Événement');
+  event.type='button';event.addEventListener('click',goToMonthEvent);actions.append(event);
+ }else{
+  const choice=node('button','secondary','Choix');
+  choice.type='button';choice.addEventListener('click',()=>goToMonthChoice(row));
+  const ticket=node('button','secondary','Billet');
+  ticket.type='button';ticket.addEventListener('click',()=>goToMonthTicket(row));
+  actions.append(choice,ticket);
+ }
+ article.append(actions);
+ return article;
+}
 function renderMonthly(){
- const host=$('month-register-body');host.replaceChildren();
+ const host=$('month-register-body'),mobile=$('month-mobile-cards');
+ host.replaceChildren();mobile.replaceChildren();
+ closeMonthDetail({restoreFocus:false});
  const month=$('month-filter').value;
+ $('month-display').textContent=monthTitle(month);
  if(!month)return;
  let result;
  try{result=currentRegister();}
  catch(error){$('month-summary').textContent=error.message;return;}
- const s=result.summary;
- $('month-summary').textContent=s.travels+' proposition(s) · '+
-  s.selected+' retenue(s) · '+s.inCart+' panier(s) · '+s.paid+' billet(s) acheté(s) · '+
-  moneyShort(s.paidKnownCents)+' payés'+
-  (s.paidUnknown?' (dont '+s.paidUnknown+' achat(s) sans prix)':'')+
-  (s.pending?' · '+s.pending+' à rechercher':'');
+ const s=result.summary,summary=$('month-summary');
+ summary.replaceChildren();
+ const metrics=[
+  [s.travels+' proposition(s)','all'],
+  [s.selected+' retenue(s)','all'],
+  [s.inCart+' panier(s)','action'],
+  [s.paid+' billet(s) acheté(s)','done'],
+  [moneyShort(s.paidKnownCents)+' payés','total']
+ ];
+ if(s.paidUnknown)metrics.push([s.paidUnknown+' achat(s) sans prix','urgent']);
+ if(s.pending)metrics.push([s.pending+' à rechercher','urgent']);
+ for(const [value,tone] of metrics)
+  summary.append(node('span','month-metric month-metric--'+tone,value));
  for(const row of result.rows){
-  const tr=node('tr');if(row.pending)tr.className='pending-month-row';
-  else if(row.paid)tr.className='paid-month-row';
-  const cells=[fmtDate(row.date),row.event,row.person,row.direction,
-   (row.departure?row.departure+' ':'')+row.from,
-   (row.arrival?row.arrival+' ':'')+row.to,
-   row.choiceRank?'nº '+row.choiceRank:'—',
-   row.cart?'✓':'',row.paid?'✓':'',
-   row.paid?row.paidCents===null?'?':moneyShort(row.paidCents):'—'];
-  cells.forEach((value,index)=>{
-   const td=node('td',index===6?'choice-column':index>=7?'status-column':'',value);
-   if(index===9&&row.paid&&row.paidCents==null)td.title='Montant payé non renseigné';
-   tr.append(td);
-  });
+  const tr=node('tr','month-table-row');
+  if(row.pending)tr.classList.add('pending-month-row');
+  else if(row.paid)tr.classList.add('paid-month-row');
+  const stage=monthStage(row);
+  const times=[row.departure||'',row.arrival||''].filter(Boolean).join(' → ');
+  const route=row.from+' → '+row.to;
+  tr.append(node('td','month-date-cell',fmtDate(row.date)),
+   node('td','month-person-cell',row.person),
+   node('td','month-event-cell',row.event));
+  const routeCell=node('td','month-route-cell');
+  routeCell.append(node('strong',null,route));
+  if(times)routeCell.append(node('small',null,times));
+  tr.append(routeCell);
+  const statusCell=node('td','month-status-cell');
+  statusCell.append(node('span','month-badge month-badge--'+stage.tone,stage.label));
+  if(row.choiceRank&&row.paid)statusCell.append(node('small',null,'Choix nº '+row.choiceRank));
+  tr.append(statusCell);
+  const price=row.paid?
+   row.paidCents===null?'?':moneyShort(row.paidCents):'—';
+  const amount=node('td','month-price-cell',price);
+  if(row.paid&&row.paidCents==null)amount.title='Montant payé non renseigné';
+  tr.append(amount);
   const cell=node('td','month-actions');
   if(row.pending){
    const button=node('button','item-action','Dossier');
-   button.type='button';
-   button.addEventListener('click',()=>{
-    showTab('events');
-    $('events-output').scrollIntoView?.({behavior:'smooth',block:'start'});
-   });
+   button.type='button';button.addEventListener('click',goToMonthEvent);
    cell.append(button);
   }else{
    const choose=node('button','item-action','Choix');
    choose.type='button';choose.title='Choisir cet horaire';
-   choose.addEventListener('click',()=>{
-    const form=$('choice-form').elements;
-    form.participationId.value=row.participationId;
-    form.direction.value=row.direction==='Aller'?'A':'R';
-    refreshChoiceSelects();
-    const original=items('choice').find(x=>x.participationId===row.participationId&&x.direction===form.direction.value);
-    form.firstOptionId.value=row.optionId;
-    if(original?.backupOptionId&&original.backupOptionId!==row.optionId)
-     form.backupOptionId.value=original.backupOptionId;
-    showTab('travels');
-    $('choice-form').scrollIntoView?.({behavior:'smooth',block:'start'});
-   });
+   choose.addEventListener('click',()=>goToMonthChoice(row));
    const ticket=node('button','item-action','Billet');
    ticket.type='button';ticket.title='Mettre à jour le panier ou l’achat';
-   ticket.addEventListener('click',()=>{
-    const form=$('booking-form').elements;
-    form.optionId.value=row.optionId;
-    const booking=items('booking').find(x=>x.optionId===row.optionId);
-    form.stage.value=booking?.filedAt?'FILED':booking?.paidAt?'PAID':booking?.inCartAt?'IN_CART':'PROPOSED';
-    form.paidEuros.value=booking?.paidCents==null?'':String(booking.paidCents/100);
-    form.receiptReference.value=booking?.receiptReference||'';
-    showTab('travels');
-    $('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
-   });
+   ticket.addEventListener('click',()=>goToMonthTicket(row));
    cell.append(choose,ticket);
   }
-  tr.append(cell);host.append(tr);
+  tr.append(cell);
+  tr.tabIndex=0;
+  tr.title='Afficher le détail de '+row.person+' · '+row.event;
+  tr.setAttribute('aria-label',tr.title);
+  tr.addEventListener('click',event=>{
+   if(event.target.closest('button'))return;
+   openMonthDetail(row,tr);
+  });
+  tr.addEventListener('keydown',event=>{
+   if(event.target===tr&&(event.key==='Enter'||event.key===' ')){
+    event.preventDefault();openMonthDetail(row,tr);
+   }
+  });
+  host.append(tr);
+  mobile.append(monthlyMobileCard(row));
  }
  if(!result.rows.length){
-  const tr=node('tr'),td=node('td','month-empty','Aucun trajet ce mois-ci.');
-  td.colSpan=11;tr.append(td);host.append(tr);
+  const tr=node('tr'),td=node('td','month-empty','Aucun déplacement ce mois-ci.');
+  td.colSpan=7;tr.append(td);host.append(tr);
+  mobile.append(node('p','month-mobile-empty','Aucun déplacement pour ce mois.'));
  }
  const personId=$('month-person').value;
  $('person-sheet-actions').hidden=!personId;
@@ -693,6 +860,12 @@ async function renderBudget(){
   host.append(c);
   standalone.append(c.cloneNode(true));
  }
+}
+for(const [id,step] of [['month-prev',-1],['month-next',1]]){
+ $(id).addEventListener('click',()=>{
+  $('month-filter').value=moveMonth($('month-filter').value,step);
+  $('month-filter').dispatchEvent(new Event('change'));
+ });
 }
 $('month-filter').addEventListener('change',()=>{
  renderMonthly();
