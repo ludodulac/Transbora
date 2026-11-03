@@ -789,7 +789,6 @@ function renderMonthly(){
  }
  const personId=$('month-person').value;
  $('person-sheet-actions').hidden=!personId;
- $('view-person-month').disabled=!personId;
  $('person-sheet-title').textContent=personId?displayPerson(personId)+' · '+month:'';
 }
 $('month-person').addEventListener('change',()=>{
