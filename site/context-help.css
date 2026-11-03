@@ -40,3 +40,11 @@
  .tb-help-field>.tb-help-trigger{top:-5px}
  .tb-help-card{padding:17px}
 }
+
+/* Specificity guard: month action-button rules must not enlarge help icons. */
+.month-toolbar button.tb-help-trigger,
+.person-sheet-actions button.tb-help-trigger,
+.event-main button.tb-help-trigger{
+ width:30px;height:30px;min-width:30px;min-height:30px;
+ padding:0;font-size:17px;line-height:1;border-radius:50%
+}
