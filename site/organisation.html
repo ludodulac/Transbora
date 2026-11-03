@@ -50,22 +50,58 @@
  <div class="workspace-content">
  <div id="demo-warning" hidden></div>
  <p id="global-feedback" class="feedback" role="status" hidden></p>
- <section id="panel-overview" class="tab-panel">
-  <h2>Déplacements du mois</h2>
-  <div class="month-toolbar">
-   <label>Mois<input type="month" id="month-filter"></label>
-   <label>Personne<select id="month-person"></select></label>
-   <button class="secondary" id="view-person-month" type="button">Voir la fiche</button>
-   <button class="primary" id="download-month-pdf" type="button">⬇ Télécharger le mois (PDF)</button>
-   <button class="outline" id="print-month" type="button">🖨 Imprimer le mois</button>
+ <section id="panel-overview" class="tab-panel overview-panel">
+  <div class="month-heading">
+   <div class="month-intro">
+    <p class="month-eyebrow">TABLEAU DE BORD</p>
+    <h2>Les déplacements</h2>
+    <p class="month-hint">Tout votre mois, au même endroit. Touchez une ligne pour voir ses détails.</p>
+   </div>
+   <div class="month-switcher" role="group" aria-label="Navigation entre les mois">
+    <button class="month-arrow" id="month-prev" type="button" aria-label="Mois précédent">‹</button>
+    <strong id="month-display" class="month-display" aria-live="polite"></strong>
+    <button class="month-arrow" id="month-next" type="button" aria-label="Mois suivant">›</button>
+   </div>
+  </div>
+  <div class="month-controls">
+   <div class="month-toolbar">
+    <label>Mois<input type="month" id="month-filter" aria-label="Choisir un mois"></label>
+    <label>Artiste<select id="month-person" aria-label="Filtrer les déplacements par artiste"></select></label>
+    <button class="secondary" id="view-person-month" type="button">Voir la fiche</button>
+   </div>
+   <div class="month-export-actions">
+    <button class="outline" id="download-month-pdf" type="button">⬇ Télécharger le mois (PDF)</button>
+    <button class="outline" id="print-month" type="button">🖨 Imprimer le mois</button>
+   </div>
   </div>
   <div id="month-summary" class="month-summary" role="status"></div>
-  <div class="month-table-wrap" role="region" aria-label="Tableau mensuel" tabindex="0">
-   <table id="month-register" class="month-table">
-    <thead><tr><th>Date</th><th>Événement</th><th>Artiste</th><th>Sens</th><th>Départ</th><th>Arrivée</th><th>Chx</th><th>R</th><th>E</th><th>Prix payé</th><th>Action</th></tr></thead>
-    <tbody id="month-register-body"></tbody>
-   </table>
+  <div class="month-stage" id="month-stage">
+   <div class="month-main">
+    <div class="month-table-wrap" role="region" aria-label="Tableau mensuel" tabindex="0">
+     <table id="month-register" class="month-table">
+      <thead><tr><th>Date</th><th>Artiste</th><th>Événement</th><th>Trajet</th><th>Suivi</th><th>Prix payé</th><th>Actions</th></tr></thead>
+      <tbody id="month-register-body"></tbody>
+     </table>
+    </div>
+    <div id="month-mobile-cards" class="month-mobile-cards" aria-label="Déplacements du mois sur téléphone"></div>
+   </div>
+   <aside id="month-detail" class="month-detail" aria-labelledby="month-detail-title" hidden>
+    <div class="month-detail-head">
+     <div>
+      <p id="month-detail-date" class="month-detail-eyebrow"></p>
+      <h3 id="month-detail-title" tabindex="-1">Détail du trajet</h3>
+     </div>
+     <button id="month-detail-close" type="button" class="month-detail-close" aria-label="Fermer le détail et revenir au mois">✕</button>
+    </div>
+    <div id="month-detail-body" class="month-detail-body"></div>
+    <div class="month-detail-actions">
+     <button id="month-detail-choice" class="secondary" type="button">Modifier le choix</button>
+     <button id="month-detail-booking" class="primary" type="button">Suivre le billet</button>
+     <button id="month-detail-event" class="outline" type="button" hidden>Voir l'événement</button>
+    </div>
+   </aside>
   </div>
+  <div id="month-detail-backdrop" class="month-detail-backdrop" hidden></div>
   <div class="person-sheet-actions" id="person-sheet-actions" hidden>
    <strong id="person-sheet-title"></strong>
    <button class="primary" id="download-person-pdf" type="button">⬇ Télécharger la fiche (PDF)</button>
