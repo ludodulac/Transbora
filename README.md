@@ -8,6 +8,8 @@
 
 > **Version 048–049 — Tableau mensuel Jeanne + fiches intégrées :** l’onglet Accueil présente la grille mensuelle Chx/R/E, avec accès direct à la mise à jour des choix et billets. Les fiches individuelles et les tableaux restent consultables et modifiables **dans TRANSBORA, sans export Excel ni fichier à réimporter**. Deux téléchargements PDF facultatifs sont proposés : l'ensemble du mois (tous les artistes) ou la fiche d'un seul artiste. L'impression est possible séparément. Le même module fonctionne sur les données locales et les données de l’espace partagé privé. La recherche sécurisée est reliée aux enregistrements de l’organisation sans données privées écrites dans le stockage local. **Prévisualisation : démonstration locale uniquement ; accès réel partagé sur production après validation.** [Détails de la mission 048](docs/jeanne-workflows-048.md).
 
+> **Version 052 — Interface mensuelle (phase 1) :** accueil centré sur un mois avec flèches précédent/suivant, suivi compact de tous les artistes et événements, panneau de détails à droite sur grand écran, et cartes tactiles avec détails plein écran sur téléphone. Le tableau conserve l'accès aux choix, achats, budgets et PDF sans modifier le stockage des données. **Seule la prévisualisation est modifiée.** [Fonctions et limites de cette phase](docs/interface-mensuelle-phase1-052.md).
+
 Application indépendante pour gagner du temps lors de la préparation d'horaires à proposer : rechercher des trajets directs en train ou en autocar, en cocher plusieurs, **copier une proposition**.
 
 ## Compagnies prévues et état
