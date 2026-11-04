@@ -443,3 +443,23 @@ border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b460
   border:1px solid #b3d7bf;background:#eaf7ed;color:#235f37;font-size:.84rem;font-weight:760}
 
 .history-created{font-size:.82rem;color:#617980;line-height:1.5;margin:0 0 14px}
+
+/* 046 — existing journey wizard lives in the organizer workspace, not a second app. */
+.embedded-workspace .event-header,.embedded-workspace .event-footer,
+.embedded-workspace .drawer-backdrop,.embedded-workspace #help-drawer{display:none!important}
+.embedded-workspace .event-main{max-width:none;width:100%;margin:0 auto;padding:10px 14px 24px}
+.embedded-workspace #help-open{display:none}
+.embedded-workspace .event-panel{box-shadow:none}
+.directory-quick-select{background:#eef9f7;border:1px solid #aedcda;border-radius:15px;padding:15px;margin:12px 0 18px;display:grid;gap:9px}
+.directory-quick-select label{display:grid;gap:8px}
+.directory-quick-select input{width:100%;max-width:520px;min-height:45px}
+.directory-quick-select .secondary{justify-self:start}
+.directory-quick-select .small{margin:2px 0 0;color:#375a5c;line-height:1.5}
+.directory-quick-select[hidden]{display:none!important}
+@media(max-width:770px){.embedded-workspace .event-main{padding:7px 8px 16px}}
+
+/* 049 — Excel is not part of the unified organizer's day-to-day workflow.
+   Preserve legacy standalone wizard compatibility without showing its
+   imports, templates or XLSX exports inside the embedded workbench. */
+.embedded-workspace .secondary-import,
+.embedded-workspace .legacy-excel{display:none!important}

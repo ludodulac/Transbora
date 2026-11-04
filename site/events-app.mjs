@@ -11,18 +11,95 @@ import {draftFields,saveDraft,restoreDraft,eraseDraft} from './event-draft.mjs';
 import {registerHistory,parseOwnerLink} from './event-history.mjs';
 import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {curateJourneys} from './journey-quality.mjs';
+import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults,extendSearchHandoff} from './organizer-bridge.mjs';
+import {createRehearsalApi,KEY as ORGANIZER_STORE_KEY} from './organizer-rehearsal.mjs';
+import {registerNativeLink} from './organizer-replies-bridge.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
 } from './excel-exports.mjs';
 
 const $=id=>document.getElementById(id);
+const embeddedMode=new URLSearchParams(location.search).get('embedded')==='1';
+const sharedMode=new URLSearchParams(location.search).get('from_shared')==='1'&&embeddedMode;
+if(embeddedMode)document.body.classList.add('embedded-workspace');
+let savedDirectory=[];
+function personLabel(p){return p.name+' · '+(p.departure||'Départ non précisé');}
+async function loadRegisteredPeople(){
+ try{
+  const rehearsal=createRehearsalApi(window.localStorage);
+  const {items}=await rehearsal('list',{type:'person'});
+  savedDirectory=items.filter(p=>p.id&&p.name&&p.departure);
+  const choices=$('directory-person-names');
+  choices.replaceChildren();
+  for(const p of savedDirectory){
+   const option=document.createElement('option');
+   option.value=personLabel(p);choices.append(option);
+  }
+  $('directory-select').hidden=!savedDirectory.length;
+  if(!savedDirectory.length){
+   $('directory-message').textContent=
+    'Ajoutez une personne dans Organisation pour retrouver automatiquement ses informations.';
+  }
+ }catch{
+  savedDirectory=[];
+  $('directory-select').hidden=true;
+ }
+}
+window.addEventListener('storage',e=>{
+ if(e.key===ORGANIZER_STORE_KEY)loadRegisteredPeople();
+});
+$('add-directory-person').addEventListener('click',async()=>{
+ const label=$('directory-person-find').value.trim();
+ const found=savedDirectory.filter(p=>personLabel(p)===label);
+ if(found.length!==1){
+  msg($('directory-message'),
+   found.length>1?'Deux fiches identiques existent : renommez-les pour éviter une confusion.':
+     'Choisissez une personne dans la liste des fiches enregistrées.',true);
+  return;
+ }
+ const registered=found[0];
+ const pieces=registered.name.trim().split(/\s+/);
+ if(participants.some(p=>p.first.toLocaleLowerCase('fr-FR')===pieces[0].toLocaleLowerCase('fr-FR')&&
+    p.last.toLocaleLowerCase('fr-FR')===pieces.slice(1).join(' ').toLocaleLowerCase('fr-FR')&&
+    p.departure.toLocaleLowerCase('fr-FR')===registered.departure.toLocaleLowerCase('fr-FR'))){
+  msg($('directory-message'),'Une personne avec le même nom et la même gare figure déjà dans ce dossier. Vérifiez sa fiche.',true);return;
+ }
+ if(participants.some(p=>p.organizerPersonId===registered.id)){
+  msg($('directory-message'),'Cette personne est déjà dans le dossier.',true);return;
+ }
+ if(pieces.length<2){
+  msg($('directory-message'),
+    'Complétez le prénom et le nom dans la fiche Personnes pour pouvoir créer son lien individuel.',true);
+  return;
+ }
+ try{
+  if(activeOrganizerHandoff){
+    const rehearsal=createRehearsalApi(window.localStorage);
+    await rehearsal('save',{type:'participation',record:{
+     eventId:activeOrganizerHandoff.eventId,personId:registered.id
+    }});
+    activeOrganizerHandoff=extendSearchHandoff(window.localStorage,registered);
+  }
+  const p={first:pieces[0],last:pieces.slice(1).join(' '),
+    departure:registered.departure,organizerPersonId:registered.id,
+    reductionCards:registered.reductionCards||'',
+    preferences:registered.preferences||'',outwardDate:'',returnDate:'',notes:''};
+  const outcome=includeParticipants([p]);
+  if(outcome.added){
+   $('directory-person-find').value='';
+   msg($('directory-message'),registered.name+
+    ' ajouté(e) avec sa gare et ses préférences. Vous pouvez personnaliser ce voyage sans modifier sa fiche.');
+  }
+ }catch(error){msg($('directory-message'),error.message,true);}
+});
+
 const SITE_FILE_SIZE=5*1024*1024;
 let manifest=null,participants=[],plans=new Map(),choices={},prepared=null,officialRules=new Map();
 let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
-let draftSaving=null,restoredDraft=false;
+let draftSaving=null,restoredDraft=false,activeOrganizerHandoff=null;
 let stationNames=[];
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
@@ -90,15 +167,17 @@ function updateButtons(){
     $(id).disabled=isBusy||!havePlans;
   }
   for(const id of ['export-organizer','export-personal-zip','prepare-native-group','prepare-native-individual']){
-    $(id).hidden=!havePlans;
+    $(id).hidden=!havePlans||(sharedMode&&id.startsWith('prepare-native'));
   }
   $('individual-details').hidden=!havePlans;
   $('copy-invitation').hidden=!havePlans;
   $('download-template').disabled=isBusy;
+  $('send-to-organizer').hidden=!(activeOrganizerHandoff&&havePlans);
+  $('send-to-organizer').disabled=isBusy;
   const next=$('wizard-next'),search=$('search-everyone');
   if(currentView==='wizard'){
     const isThird=activeStep===3;
-    next.hidden=activeStep===4 || (isThird&&!havePlans);
+    next.hidden=activeStep===4 || (isThird&&!havePlans)||(sharedMode&&isThird);
     search.hidden=!isThird || havePlans;
     next.disabled=isBusy;
     $('wizard-back').hidden=activeStep===1;
@@ -116,7 +195,7 @@ function invalidate(){
   updateButtons();
 }
 function storeDraft(){
-  if(!globalThis.localStorage)return;
+  if(sharedMode||!globalThis.localStorage)return;
   const fields=Object.fromEntries(draftFields.map(id=>{
     const field=$(id);
     return [id,!field?'':field.type==='checkbox'?field.checked:field.value];
@@ -124,11 +203,12 @@ function storeDraft(){
   saveDraft(localStorage,{fields,participants,step:activeStep});
 }
 function scheduleDraft(){
+  if(sharedMode)return;
   clearTimeout(draftSaving);
   draftSaving=setTimeout(storeDraft,150);
 }
 function loadSavedDraft(){
-  if(!globalThis.localStorage)return false;
+  if(sharedMode||!globalThis.localStorage)return false;
   const data=restoreDraft(localStorage);
   if(!data)return false;
   for(const id of draftFields){
@@ -260,6 +340,9 @@ function renderPeople(){
     });
     const personalized=personOptionalFields.some(([key])=>p[key]);
     if(personalized)content.append(node('span','person-custom-badge','Horaires ou lieux personnalisés'));
+    if(p.reductionCards)content.append(node('span','person-custom-badge',
+      'Carte déclarée : '+p.reductionCards+' · aucun tarif calculé'));
+    if(p.preferences)content.append(node('span','person-custom-badge','Préférences : '+p.preferences));
     item.append(content,remove,settings);frag.append(item);
   });
   holder.append(frag);
@@ -323,8 +406,72 @@ async function init(){
     $(id).addEventListener('change',()=>{invalidate();scheduleDraft();});
     $(id).addEventListener('input',scheduleDraft);
   }
-  if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
-  else loadSavedDraft();
+  if(!sharedMode)await loadRegisteredPeople();
+  else{
+   $('directory-select').hidden=true;
+   $('manual-person').hidden=true;
+  }
+  if(!sharedMode){
+   if(new URLSearchParams(location.search).get('new')==='1')eraseDraft(localStorage);
+   else if(new URLSearchParams(location.search).get('from_organizer')!=='1')loadSavedDraft();
+  }
+  if(sharedMode){
+    window.addEventListener('message',event=>{
+      if(event.origin!==location.origin||event.source!==window.parent||
+        event.data?.type!=='transbora:shared-handoff')return;
+      const handoff=event.data.handoff;
+      if(handoff?.version!==1||!handoff.eventId||!handoff.title||
+       !handoff.destination||!isoDate(handoff.startDate||'')||
+       !Array.isArray(handoff.travelers)||handoff.travelers.length<1||
+       handoff.travelers.length>100||
+       handoff.travelers.some(x=>!x.personId||!x.name||!x.departure))return;
+      activeOrganizerHandoff=handoff;
+      $('event-title').value=handoff.title;
+      $('event-destination').value=handoff.destination;
+      $('event-start-date').value=handoff.startDate;
+      $('event-end-date').value=handoff.startDate;
+      $('event-start-time').value='';
+      $('event-end-time').value='';
+      for(const id of ['event-title','event-destination','event-start-date'])
+        $(id).readOnly=true;
+      participants=wizardPeople(handoff);
+      nextId=participants.length+1;
+      renderPeople();updateButtons();
+      $('org-search-warning').hidden=false;
+      status('Événement et voyageurs chargés. Indiquez les heures de présence.');
+    });
+    window.parent.postMessage({type:'transbora:shared-ready'},location.origin);
+  }
+  if(new URLSearchParams(location.search).get('from_organizer')==='1'){
+    const handoff=readSearchHandoff(localStorage);
+    if(!handoff){
+      status('Aucun événement de démonstration récent à importer. Revenez dans Organisation.',true);
+    }else{
+      // The organizer card has a date but no presence-time fields. Never
+      // silently interpret the wizard's default 14:00 as an actual deadline.
+      activeOrganizerHandoff=handoff;
+      $('event-title').value=handoff.title;
+      $('event-destination').value=handoff.destination;
+      $('event-start-date').value=handoff.startDate;
+      $('event-end-date').value=handoff.startDate;
+      $('event-start-time').value='';
+      $('event-end-time').value='';
+      participants=wizardPeople(handoff);
+      nextId=participants.length+1;
+      restoredDraft=true;
+      renderPeople();storeDraft();
+      $('org-search-warning').hidden=false;
+      if(embeddedMode){
+       // In the unified workspace, new travelers must be linked to an
+       // existing person. Freeform travelers would be silently orphaned.
+       $('manual-person').hidden=true;
+      }
+      // The event identity belongs to the organizer's single event record:
+      // do not let changing a title/date here split the same dossier.
+      for(const id of ['event-title','event-destination','event-start-date'])
+        $(id).readOnly=true;
+    }
+  }
   updateTravelOptions();
   try{
     const response=await fetch('./data/manifest.json',{cache:'no-store'});
@@ -332,7 +479,8 @@ async function init(){
     manifest=await response.json();
     if(!manifest?.sources?.some(s=>s.status==='ok'))throw new Error('Aucune source GTFS active');
     status('Prêt : '+manifest.sources.filter(s=>s.status==='ok').length+
-      ' sources de transport disponibles. '+(restoredDraft?
+      ' sources de transport disponibles. '+(activeOrganizerHandoff?
+        'Événement et fiches repris depuis Organisation. Renseignez les heures réelles de présence.':restoredDraft?
         'Votre événement et vos voyageurs ont été retrouvés. Vous pouvez relancer la recherche.':
         'Créez un événement puis ajoutez les voyageurs.'));
     let stations;
@@ -661,6 +809,28 @@ async function compareWithSncf(event,settings){
   await Promise.all(Array.from({length:Math.min(3,tasks.length)},()=>run()));
   return {added,success,failed,outside};
 }
+$('send-to-organizer').addEventListener('click',()=>{
+ try{
+  if(!activeOrganizerHandoff||!hasSearched)
+    throw Error('Ouvrez la recherche depuis un événement de démonstration.');
+  const event=readEvent();
+  if(event.title!==activeOrganizerHandoff.title||
+     event.destination!==activeOrganizerHandoff.destination||
+     event.startDate!==activeOrganizerHandoff.startDate)
+    throw Error('Cet événement a changé. Reprenez sa fiche dans Organisation pour éviter de mélanger les dossiers.');
+  const result=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+  if(sharedMode)window.parent.postMessage({
+    type:'transbora:shared-routes-ready',eventId:activeOrganizerHandoff.eventId,
+    rows:result.rows
+  },location.origin);
+  else writeSearchResults(window.localStorage,result);
+  if(embeddedMode){
+   window.parent.postMessage({type:'transbora:routes-ready',
+    eventId:activeOrganizerHandoff.eventId},location.origin);
+   window.parent.postMessage({type:'transbora:open-tab',tab:'travels'},location.origin);
+  }else location.assign('./organisation.html?import_search=1');
+ }catch(error){status(error.message,true);}
+});
 $('cancel-search').addEventListener('click',()=>{
   stopRequested=true;
   if(cancelActiveSearch)cancelActiveSearch();
@@ -706,6 +876,20 @@ $('search-everyone').addEventListener('click',async()=>{
       ' trajet(s) sans option dans les horaires consultés. Vérifiez avant de réserver.')+sncfLabel,
       Boolean(result.partial||gaps));
     updateButtons();
+    if(embeddedMode&&activeOrganizerHandoff){
+      try{
+        const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+        if(sharedMode)window.parent.postMessage({
+          type:'transbora:shared-routes-ready',eventId:activeOrganizerHandoff.eventId,
+          rows:routes.rows
+        },location.origin);
+        else{
+         writeSearchResults(window.localStorage,routes);
+         window.parent.postMessage({type:'transbora:routes-ready',
+           eventId:activeOrganizerHandoff.eventId},location.origin);
+        }
+      }catch(error){status('Recherche terminée, mais liaison au tableau impossible : '+error.message,true);}
+    }
     $('journey-recap').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(error){
     if(error.message==='Recherche arrêtée. Votre événement et vos voyageurs sont conservés.')
@@ -736,6 +920,29 @@ function renderPublished(record,mode){
     eventId:record.eventId,ownerKey:record.ownerKey,
     event:readEvent(),peopleCount:participants.length
   });
+  let bridgeError='';
+  const returnToOrganizer=$('native-organizer-link');
+  returnToOrganizer.hidden=true;
+  if(activeOrganizerHandoff&&hasSearched){
+    try{
+      const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
+      const choicePeople=buildChoicePeople(readEvent(),participants,plans);
+      registerNativeLink(window.localStorage,{
+        organizerHandoff:activeOrganizerHandoff,nativeEventId:record.eventId,
+        participants,plans,choicePeople,routes
+      });
+      writeSearchResults(window.localStorage,routes);
+      returnToOrganizer.href=embeddedMode?'#':'./organisation.html?import_search=1';
+      if(embeddedMode)returnToOrganizer.addEventListener('click',e=>{
+       e.preventDefault();
+       window.parent.postMessage({type:'transbora:open-tab',tab:'travels'},location.origin);
+      },{once:true});
+      returnToOrganizer.hidden=false;
+    }catch(error){
+      bridgeError=' ⚠ Liaison au tableau impossible : '+error.message+
+        '. Le suivi des réponses reste disponible.';
+    }
+  }
   const host=$('native-share-links');host.replaceChildren();
   for(const link of record.links){
     const row=node('div','file-row');
@@ -751,7 +958,7 @@ function renderPublished(record,mode){
   $('native-ready').hidden=false;
   shareStatus(record.links.length+' lien(s) créés.'+
     (saved?' Dossier ajouté à « Mes événements ».':
-     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.'));
+     ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.')+bridgeError);
 }
 async function createNativeLinks(mode){
   try{

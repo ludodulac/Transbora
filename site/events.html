@@ -10,6 +10,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="module" src="./events-app.mjs"></script>
+<script type="module" src="./context-help.mjs"></script>
 </head>
 <body>
 <header class="event-header">
@@ -29,6 +30,7 @@
   <button type="button" id="menu-event" class="drawer-link">✏️ Brouillon en cours</button>
   <button type="button" id="clear-saved-draft" class="drawer-link">＋ Nouvel événement</button>
   <a href="./recherche.html" class="drawer-link">🚆 Recherche rapide</a>
+  <a href="./organisation.html" class="drawer-link">🗂️ Tableau organisateur</a>
   </nav>
   <details class="settings-fold"><summary>Comment ça marche ?</summary>
     <p>Créez un événement, ajoutez vos voyageurs, recherchez les horaires puis envoyez leurs liens. Vos dossiers déjà créés se retrouvent dans « Mes événements ».</p>
@@ -74,6 +76,14 @@
 
   <section class="panel event-panel wizard-screen" id="etape-2" data-step="2" aria-labelledby="step-two-heading" hidden>
    <div class="screen-heading"><span class="screen-icon">02</span><h1 id="step-two-heading" tabindex="-1">Voyageurs</h1><span id="participants-total" class="count-bubble">0</span></div>
+   <div id="directory-select" class="directory-quick-select">
+     <label>Personne enregistrée
+       <input id="directory-person-find" type="search" list="directory-person-names" placeholder="Nom du voyageur…" autocomplete="off">
+       <datalist id="directory-person-names"></datalist>
+     </label>
+     <button id="add-directory-person" type="button" class="secondary">＋ Ajouter cette personne</button>
+     <p id="directory-message" class="small" aria-live="polite"></p>
+   </div>
    <form id="manual-person" class="wizard-manual">
     <div class="two-inline"><label>Prénom<input id="add-first" placeholder="Sophie" maxlength="90" required></label><label>Nom<input id="add-last" placeholder="Martin" maxlength="90" required></label></div>
     <label>Départ<input id="add-from" list="event-stations" placeholder="Brest" maxlength="140" required></label>
@@ -119,30 +129,29 @@
       <div class="progress-label" id="progress-label">Recherche…</div>
       <progress id="progress" max="100" value="0"></progress>
       <p class="search-detail" id="search-detail" role="status">Recherche des meilleurs horaires…</p>
-      <p class="search-detail">Transbora continue jusqu'à trouver les trajets compatibles ou terminer les horaires disponibles. Vous pouvez l'arrêter vous-même.</p>
       <button id="cancel-search" type="button" class="text-button">Arrêter la recherche</button>
     </div>
    <div id="journey-recap" class="recap-list" aria-live="polite"></div>
+   <div id="org-search-warning" class="notice warning" hidden>Renseignez les heures de présence exactes. Tarifs et places à vérifier.</div>
+   <button type="button" id="send-to-organizer" class="secondary action-button" hidden>← Envoyer ces trajets au tableau organisateur</button>
   </section>
 
   <section class="panel event-panel wizard-screen" id="etape-4" data-step="4" aria-labelledby="step-four-heading" hidden>
    <div class="screen-heading"><span class="screen-icon">04</span><h1 id="step-four-heading" tabindex="-1">Choix des horaires</h1></div>
-   <p class="stage-brief">Vos voyageurs choisiront leurs horaires sur une page Transbora, sans inscription.</p>
    <div class="native-setup" id="native-links-area">
-     <p class="stage-brief"><strong>Mode essai : aucun code à saisir.</strong> Choisissez les liens à créer, puis copiez-les pour les envoyer aux voyageurs.</p>
-     <h2 class="share-heading">1. Créer les liens à envoyer</h2>
+     <h2 class="share-heading">Liens à envoyer</h2>
      <div id="share-mode-options">
      <div class="export-grid simplified-exports">
        <article class="export-card">
          <div class="export-icon" aria-hidden="true">👥</div>
          <h3>Un lien pour tout le groupe</h3>
-         <p class="small">Une seule page contenant les choix de tous les voyageurs, à transmettre uniquement à la personne responsable du groupe.</p>
+         <p class="small">À transmettre au responsable du groupe.</p>
          <button type="button" class="primary download-action" id="prepare-native-group" hidden disabled>Créer le lien du groupe</button>
        </article>
        <article class="export-card">
          <div class="export-icon" aria-hidden="true">👤</div>
          <h3>Un lien par voyageur</h3>
-         <p class="small">Chaque personne reçoit uniquement ses propres propositions et confirme ses trajets.</p>
+         <p class="small">Un lien personnel par voyageur.</p>
          <button type="button" class="primary download-action" id="prepare-native-individual" hidden disabled>Créer les liens personnels</button>
        </article>
      </div>
@@ -151,14 +160,13 @@
           <p id="native-status" class="inline-feedback" role="status" aria-live="polite"></p>
      <section id="native-ready" class="native-success" hidden tabindex="-1">
        <span class="step-kicker">Création terminée</span>
-       <h2>2. Envoyer les liens aux voyageurs</h2>
-       <p>Appuyez sur <strong>Copier</strong> puis collez le lien dans WhatsApp, un SMS ou un e-mail. Le voyageur n’a pas de code à saisir.</p>
+       <h2>Liens prêts</h2>
        <div id="native-share-links" class="individual-files"></div>
        <button type="button" class="secondary" id="native-copy-all">📋 Copier tous les liens</button>
        <button type="button" class="secondary switch-share-mode" id="switch-sharing-mode">↔ Changer le type de lien</button>
-       <p class="small">Vous pouvez corriger votre choix sans refaire la recherche. Les anciens liens seront désactivés, mais les réponses déjà reçues seront conservées.</p>
+       <p class="small">Changer de type de lien désactive les liens précédents.</p>
        <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir le suivi des réponses ↗</a></div>
-       <p class="small">Votre événement est enregistré. Retrouvez-le dans « Mes événements » depuis ce navigateur. Ne partagez pas le lien privé de suivi.</p>
+       <p class="native-admin-link"><a id="native-organizer-link" class="secondary" href="./organisation.html?import_search=1" hidden>🗂️ Retrouver les trajets et les réponses dans Organisation →</a></p>
         <div class="finished-actions"><a class="primary" href="./mes-evenements.html">📂 Mes événements</a><a class="secondary" href="./events.html?new=1">＋ Créer un autre événement</a></div>
      </section>
    </div>
@@ -208,7 +216,6 @@
  </section>
  <footer class="event-footer">
   <p>Horaires issus des données publiées par les transporteurs. Vérifiez les disponibilités avant réservation.</p>
-  <p>Brouillon local : 7 jours. Les événements créés se retrouvent dans « Mes événements » sur cet appareil. Tarifs non disponibles en direct.</p>
  </footer>
 </main>
 </body>

@@ -199,6 +199,58 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
         return deny('Catégorie invalide.',400);
       return json({items:await all(store,type,org)});
     }
+    if(action==='import_search_results'){
+      if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
+      const eventId=body.eventId,rows=body.rows;
+      await requireItem(store,'event',org,eventId);
+      if(!Array.isArray(rows)||rows.length>6)
+        return deny('Import limité à six propositions par envoi.',400);
+      const parts=(await all(store,'participation',org)).filter(x=>x.eventId===eventId);
+      const people=new Set((await all(store,'person',org)).map(x=>x.id));
+      const validated=[];
+      for(const item of rows){
+        if(!requireId(item?.personId)||!['A','R'].includes(item.direction)||
+          !formatDate(item.travelDate)||typeof item.sourceKey!=='string'||
+          item.sourceKey.length<1||item.sourceKey.length>6000||
+          !Array.isArray(item.legs)||!item.legs.length||item.legs.length>6)
+          return deny('Proposition de recherche invalide.',400);
+        if(!people.has(item.personId))return deny('Personne non autorisée.',400);
+        const part=parts.find(p=>p.personId===item.personId);
+        if(!part)return deny('Cette personne n’est pas inscrite à cet événement.',400);
+        const legs=item.legs.map((leg,index)=>({
+          order:index+1,from:safe(leg.from,150),to:safe(leg.to,150),
+          departure:safe(leg.departure,5),arrival:safe(leg.arrival,5),
+          departureDate:safe(leg.departureDate,10),
+          arrivalDate:safe(leg.arrivalDate,10),
+          mode:leg.mode==='bus'?'bus':'rail',operator:safe(leg.operator,100)
+        }));
+        if(legs.some(x=>!x.from||!x.to||!formatDate(x.departureDate)||
+          !formatDate(x.arrivalDate)||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(x.departure)||
+          !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(x.arrival))||
+          legs[0].departureDate!==item.travelDate)
+          return deny('Horaires ou correspondances invalides.',400);
+        validated.push({personId:item.personId,participationId:part.id,
+          direction:item.direction,travelDate:item.travelDate,legs,
+          sourceKeyHash:hash(eventId+'|'+item.sourceKey)});
+      }
+      const existing=(await all(store,'option',org)).filter(o=>parts.some(p=>p.id===o.participationId));
+      let imported=0,alreadyPresent=0;
+      const fingerprints=new Set(existing.map(x=>x.sourceKeyHash).filter(Boolean));
+      for(const row of validated){
+        if(fingerprints.has(row.sourceKeyHash)){alreadyPresent++;continue;}
+        fingerprints.add(row.sourceKeyHash);
+        const now=clock(),id=random();
+        await store.setJSON(key('option',org,id),{
+          id,organizationId:org,participationId:row.participationId,
+          direction:row.direction,travelDate:row.travelDate,
+          legs:row.legs,source:'Horaires publiés (tarifs et disponibilité inconnus)',
+          estimatedCents:null,sourceKeyHash:row.sourceKeyHash,
+          createdAt:now,updatedAt:now,updatedBy:session.email
+        },{onlyIfNew:true});
+        imported++;
+      }
+      return json({imported,alreadyPresent});
+    }
     if(action==='save'){
       if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
       const type=body.type,obj=body.record;
@@ -206,6 +258,11 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
       if(!['person','event','participation','option','choice','booking','note'].includes(type))
         return deny('Catégorie invalide.',400);
       const existing=obj.id?await requireItem(store,type,org,obj.id):null;
+      // Every connected editor works on the same organization records.
+      // A stale form must never silently overwrite a newer saved version.
+      const expects=Object.prototype.hasOwnProperty.call(obj,'expectedUpdatedAt');
+      if(existing&&expects&&(existing.updatedAt??null)!==(obj.expectedUpdatedAt??null))
+        return deny('Cette fiche a changé depuis votre ouverture. Actualisez les données.',409);
       let result;
       if(type==='person'||type==='event'){
         result=passFields(type,obj,existing,org);
@@ -258,6 +315,8 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
           const id='c-'+hash(p.id+':'+obj.direction).slice(0,42);
           if(obj.id&&obj.id!==id)return deny('Identifiant de choix incompatible.',409);
           const previousChoice=await store.get(key('choice',org,id),{type:'json'});
+          if(expects&&(previousChoice?.updatedAt??null)!==(obj.expectedUpdatedAt??null))
+            return deny('Un autre membre a modifié ce choix. Actualisez les données.',409);
           result={...common,id,createdAt:previousChoice?.createdAt||common.createdAt,
             participationId:p.id,direction:obj.direction,
             firstOptionId,backupOptionId,confirmedBy:session.email};
@@ -268,6 +327,8 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
           const id='b-'+hash(o.id).slice(0,42);
           if(obj.id&&obj.id!==id)return deny('Identifiant de billet incompatible.',409);
           const earlier=await store.get(key('booking',org,id),{type:'json'});
+          if(expects&&(earlier?.updatedAt??null)!==(obj.expectedUpdatedAt??null))
+            return deny('Un autre membre a modifié ce billet. Actualisez les données.',409);
           if(obj.stage==='FILED'&&!obj.receiptReference)
             return deny('Indiquez où le billet est classé.',400);
           if(earlier?.paidAt&&['PROPOSED','IN_CART'].includes(obj.stage))

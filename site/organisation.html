@@ -6,8 +6,17 @@
 <title>Espace organisation — TRANSBORA</title>
 <link rel="stylesheet" href="./organisation.css">
 <script src="./organisation-app.mjs" type="module"></script>
+<script type="module" src="./context-help.mjs"></script>
 </head><body>
-<header class="head"><a href="./events.html" class="brand">🚆 TRANSBORA</a><span>Organisation · aperçu</span></header>
+<header class="head">
+ <a href="./organisation.html" class="brand">🚆 TRANSBORA</a>
+ <div class="site-search" id="site-search" role="search">
+  <label class="sr-only" for="site-search-input">Rechercher dans TRANSBORA</label>
+  <span aria-hidden="true">⌕</span>
+  <input id="site-search-input" type="search" placeholder="Rechercher une personne, un spectacle, un trajet…" autocomplete="off" aria-controls="site-search-results" aria-expanded="false">
+  <div id="site-search-results" class="site-search-results" role="listbox" hidden></div>
+ </div>
+</header>
 <main class="shell">
 <section id="login-panel" class="panel auth" hidden>
  <p class="eyebrow">NOUVEL ESPACE ORGANISATEUR</p>
@@ -30,42 +39,123 @@
  <p class="small">Le code d'initialisation est nécessaire une seule fois et doit rester privé. Ne communiquez jamais ce code aux artistes.</p>
 </section>
 <section id="private-panel" hidden>
- <div class="masthead"><div><p class="eyebrow">TABLEAU DE BORD PRIVÉ</p><h1 id="company-name">Mon organisation</h1><p class="muted">Événements, personnes, billets et notes au même endroit.</p></div>
- <div><span id="user-identity" class="identity"></span><button id="logout" class="outline" type="button">Déconnexion</button></div></div>
- <div id="demo-warning" class="notice" hidden>🧪 <strong>Mode essai immédiat.</strong> Sophie et Michel sont des exemples fictifs. Les modifications restent sur ce navigateur et ne sont pas partagées. N’utilisez pas de données personnelles réelles.</div>
- <div class="notice">🧪 <strong>Version pilote indépendante</strong> : les événements déjà créés sur le site de recherche ne sont pas encore importés automatiquement. <a href="./mes-evenements.html">Accéder à mes anciens dossiers ↗</a></div>
+ <div class="masthead"><button id="nav-toggle" class="outline mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="tabs" aria-label="Ouvrir le menu">☰ Menu</button><span id="company-name" class="identity" hidden></span><span id="user-identity" class="identity" hidden></span><button id="refresh-workspace" class="outline" type="button" hidden>↻ Actualiser</button><button id="logout" class="outline" type="button">Déconnexion</button></div>
+ <div id="nav-backdrop" class="nav-backdrop" hidden></div>
+ <div class="app-workspace">
  <nav id="tabs" class="tabs" aria-label="Espaces de travail">
-  <button type="button" data-tab="overview" aria-current="page">📅 Le mois</button>
+  <p class="nav-title">🚆 TRANSBORA</p>
+  <button type="button" data-tab="overview" aria-current="page">🏠 Accueil</button>
   <button type="button" data-tab="people">👥 Personnes</button>
-  <button type="button" data-tab="events">🎭 Événements</button>
-  <button type="button" data-tab="travels">🚆 Déplacements</button>
+  <button type="button" data-tab="events">📅 Événements</button>
+  <button type="button" data-tab="search" hidden>🔎 Recherche de trajets</button>
+  <button type="button" data-tab="travels">🚆 Trajets</button>
+  <button type="button" data-tab="answers">✅ Réponses</button>
+  <button type="button" data-tab="bookings">🎫 Billets</button>
+  <button type="button" data-tab="budget">💶 Budgets</button>
   <button type="button" data-tab="notes">📝 Notes</button>
-  <button type="button" data-tab="team">🔒 Équipe</button>
+  <button type="button" data-tab="team">⚙️ Paramètres</button>
  </nav>
+ <div class="workspace-content">
+ <div id="demo-warning" hidden></div>
  <p id="global-feedback" class="feedback" role="status" hidden></p>
- <section id="panel-overview" class="tab-panel">
-  <h2>Vue mensuelle</h2><div class="row">
-  <label>Mois<input type="month" id="month-filter"></label>
-  <label>Personne<select id="month-person"></select></label>
-  <button class="secondary" id="view-person-month" type="button">Afficher tous ses trains</button></div>
-  <div id="month-output" class="cards"></div>
-  <h2>Événements et budgets</h2><div id="budget-output" class="cards"></div>
+ <section id="panel-overview" class="tab-panel overview-panel">
+  <div class="month-heading">
+   <div class="month-intro">
+    <p class="month-eyebrow">TABLEAU DE BORD</p>
+    <h2>Les déplacements</h2>
+    <p class="month-hint">Tout votre mois, au même endroit. Touchez une ligne pour voir ses détails.</p>
+   </div>
+   <div class="month-switcher" role="group" aria-label="Navigation entre les mois">
+    <button class="month-arrow" id="month-prev" type="button" aria-label="Mois précédent">‹</button>
+    <strong id="month-display" class="month-display" aria-live="polite"></strong>
+    <button class="month-arrow" id="month-next" type="button" aria-label="Mois suivant">›</button>
+   <button class="month-jump-toggle" id="month-jump-toggle" type="button" aria-label="Choisir un mois au calendrier" aria-expanded="false" aria-controls="month-picker-row">▦</button>
+   </div>
+  </div>
+  <div class="month-controls">
+   <div id="month-picker-row" class="month-picker-row" hidden>
+    <label>Mois<input type="month" id="month-filter" aria-label="Choisir un mois"></label>
+   </div>
+   <div class="month-toolbar">
+    <label>Artiste<select id="month-person" aria-label="Filtrer les déplacements par artiste"></select></label>
+    <button class="secondary" id="view-person-month" type="button">Voir la fiche</button>
+   </div>
+   <details class="docs-disclosure"><summary>⬇ Documents PDF</summary>
+    <div class="month-export-actions">
+     <button class="outline" id="download-month-pdf" type="button">⬇ Télécharger le mois (PDF)</button>
+     <button class="outline" id="print-month" type="button">🖨 Imprimer le mois</button>
+    </div>
+    <div class="person-sheet-actions" id="person-sheet-actions" hidden>
+     <strong id="person-sheet-title"></strong>
+     <button class="primary" id="download-person-pdf" type="button">⬇ Télécharger la fiche (PDF)</button>
+     <button class="outline" id="print-person" type="button">🖨 Imprimer la fiche</button>
+    </div>
+   </details>
+  </div>
+  <div id="month-summary" class="month-summary" role="status"></div>
+  <div class="month-stage" id="month-stage">
+   <div class="month-main">
+    <div class="month-table-wrap" role="region" aria-label="Tableau mensuel" tabindex="0">
+     <table id="month-register" class="month-table">
+      <thead><tr><th>Date</th><th>Artiste</th><th>Événement</th><th>Trajet</th><th>Suivi</th><th>Prix payé</th></tr></thead>
+      <tbody id="month-register-body"></tbody>
+     </table>
+    </div>
+    <div id="month-mobile-cards" class="month-mobile-cards" aria-label="Déplacements du mois sur téléphone"></div>
+   </div>
+   <aside id="month-detail" class="month-detail" aria-labelledby="month-detail-title" hidden>
+    <div class="month-detail-head">
+     <div>
+      <p id="month-detail-date" class="month-detail-eyebrow"></p>
+      <h3 id="month-detail-title" tabindex="-1">Détail du trajet</h3>
+     </div>
+     <button id="month-detail-close" type="button" class="month-detail-close" aria-label="Fermer le détail et revenir au mois">✕</button>
+    </div>
+    <div id="month-detail-body" class="month-detail-body"></div>
+    <div class="month-detail-actions">
+     <button id="month-detail-choice" class="secondary" type="button">Modifier le choix</button>
+     <button id="month-detail-booking" class="primary" type="button">Suivre le billet</button>
+     <button id="month-detail-event" class="outline" type="button" hidden>Voir l'événement</button>
+    </div>
+   </aside>
+  </div>
+  <div id="month-detail-backdrop" class="month-detail-backdrop" hidden></div>
+  <div id="month-output" class="cards" hidden></div>
+  <h3>Budgets</h3><div id="budget-output" class="cards"></div>
  </section>
- <section id="panel-people" class="tab-panel" hidden>
-  <h2>Répertoire des personnes</h2><p class="muted">Une fiche stable, des préférences et des notes conservées.</p>
+ <section id="panel-people" class="tab-panel list-tab" hidden>
+  <div class="list-tab-header">
+   <h2>Personnes</h2><button type="button" class="primary" id="add-person-btn">＋ Ajouter une personne</button>
+  </div>
+  <label class="directory-filter">🔎 Retrouver une personne<input id="person-filter" type="search" placeholder="Nom, gare, carte de réduction…" autocomplete="off"></label>
+  <div id="people-output" class="directory-list"></div>
+  <div id="person-editor-backdrop" class="editor-backdrop" hidden></div>
+  <aside id="person-editor" class="editor-drawer" hidden aria-label="Fiche d'une personne">
+   <div class="editor-heading"><h3 id="person-editor-title">Ajouter une personne</h3><button id="person-editor-close" type="button" class="outline" aria-label="Fermer la fiche">✕</button></div>
   <form id="person-form" class="form-grid panel nested">
    <label>Nom *<input name="name" required maxlength="100" placeholder="Sophie Test"></label>
    <label>Gare ou ville habituelle<input name="departure" maxlength="150" placeholder="Paris"></label>
    <label>E-mail<input name="email" type="email"></label>
    <label>Téléphone<input name="phone" maxlength="50"></label>
-   <label>Cartes de réduction<input name="reductionCards" maxlength="240" placeholder="Carte Avantage"></label>
+   <div class="full card-selector-wrap">
+    <input type="hidden" name="reductionCards" value="">
+    <details id="person-card-picker" class="card-selector">
+     <summary>Cartes et abonnements <span id="person-card-summary">Aucun</span></summary>
+     <div id="person-card-options" class="card-option-list"></div>
+     <label>Autre carte<input id="person-card-other" type="text" maxlength="120" placeholder="Préciser si absente de la liste"></label>
+    </details>
+   </div>
    <label>Préférences de voyage<input name="preferences" maxlength="600"></label>
    <button class="primary">Enregistrer la personne</button>
   </form>
-  <div id="people-output" class="cards"></div>
+  </aside>
  </section>
- <section id="panel-events" class="tab-panel" hidden>
-  <h2>Événements</h2>
+ <section id="panel-events" class="tab-panel list-tab" hidden>
+  <div class="list-tab-header"><h2>Événements</h2><button type="button" class="primary" id="add-event-btn">＋ Ajouter un événement</button></div>
+  <div id="events-output" class="directory-list"></div>
+  <div id="event-editor-backdrop" class="editor-backdrop" hidden></div>
+  <aside id="event-editor" class="editor-drawer" hidden aria-label="Dossier événement">
+   <div class="editor-heading"><h3 id="event-editor-title">Événement</h3><button type="button" id="event-editor-close" class="outline" aria-label="Fermer le dossier">✕</button></div>
   <form id="event-form" class="form-grid panel nested">
    <label>Titre *<input name="title" required maxlength="120"></label>
    <label>Date *<input name="startDate" type="date" required></label>
@@ -74,18 +164,61 @@
    <label>Enveloppe transport (€)<input name="budgetEuros" type="number" step=".01" min="0" placeholder="750"></label>
    <button class="primary">Enregistrer l'événement</button>
   </form>
-  <h3>Inscrire une personne à un événement</h3>
+  <div id="event-participation-region" hidden><h3>Participants</h3>
+  <label class="directory-filter">Rechercher une personne<input id="participation-person-find" type="search" list="registered-person-names" placeholder="Nom…" autocomplete="off"><datalist id="registered-person-names"></datalist></label>
   <form id="participation-form" class="row panel nested">
    <label>Événement<select name="eventId" required></select></label>
    <label>Personne<select name="personId" required></select></label>
    <button class="secondary">Ajouter</button>
   </form>
-  <div id="events-output" class="cards"></div>
+  </div>
+  </aside>
  </section>
- <section id="panel-travels" class="tab-panel" hidden>
-  <h2>Trajets et billets</h2>
-  <p class="muted">Saisie manuelle pilote. Notre moteur de recherche reste disponible via « Mes anciens dossiers » et sera relié dans une prochaine mission.</p>
-  <form id="option-form" class="form-grid panel nested">
+ <section id="panel-search" class="tab-panel" hidden>
+  <div class="list-tab-header"><h2>Recherche de trajets pour un événement</h2><button type="button" id="search-back-event" class="outline">← Événements</button></div>
+  <div id="search-select-area" class="search-select-area">
+   <label>Événement<select id="search-event-select"></select></label>
+   <button type="button" id="search-open" class="primary">🔎 Rechercher</button>
+  </div>
+  <p id="search-context" class="small" aria-live="polite"></p>
+  <div id="search-frame-area" hidden><iframe id="search-frame" title="Recherche de trains et autocars pour l'événement" loading="lazy"></iframe></div>
+ </section>
+ <section id="panel-answers" class="tab-panel" hidden>
+  <h2>Réponses</h2>
+  <p id="shared-replies-hint" class="small" hidden>Les réponses des liens voyageurs ne sont pas encore synchronisées avec l’espace partagé. Les choix peuvent être enregistrés dans « Trajets ».</p>
+  <div id="answers-output" class="cards"></div>
+ </section>
+ <section id="panel-budget" class="tab-panel" hidden>
+  <h2>Budgets</h2>
+  <label>Mois affiché<input id="budget-month-filter" type="month"></label>
+  <div id="budget-standalone" class="cards"></div>
+ </section>
+ <section id="panel-bookings" class="tab-panel" hidden>
+  <h2>Billets</h2>
+  <div id="bookings-output" class="cards"></div>
+  <button class="secondary" type="button" id="open-booking-form">🎫 Mettre à jour un achat</button>
+ </section>
+ <section id="panel-travels" class="tab-panel travels-tab" hidden>
+  <div class="list-tab-header"><h2>Trajets</h2><button id="add-travel-btn" type="button" class="primary">＋ Ajouter un trajet</button></div>
+  <div class="travels-layout">
+   <div class="travels-list-area">
+    <div class="travels-filters">
+     <label>Événement<select id="travel-event-filter"><option value="">Tous les événements</option></select></label>
+     <label>Artiste<select id="travel-person-filter"><option value="">Tous les artistes</option></select></label>
+    </div>
+    <div id="travel-count" class="muted travel-count"></div>
+    <div id="journeys-output" class="directory-list travel-list"></div>
+   </div>
+   <aside id="travel-work-panel" class="travel-work-panel" hidden aria-label="Détails et actions du trajet">
+    <div class="editor-heading"><h3 id="travel-panel-title">Trajet</h3><button type="button" id="travel-panel-close" class="outline" aria-label="Fermer le détail">✕</button></div>
+    <div id="travel-selected-summary" class="travel-selected-summary"></div>
+    <div class="travel-panel-actions">
+      <button id="travel-edit" type="button" class="secondary">Modifier</button>
+      <button id="travel-choose" type="button" class="secondary">Choix</button>
+      <button id="travel-book" type="button" class="secondary">Billet</button>
+    </div>
+    <div id="travel-form-wrap" hidden>
+    <form id="option-form" class="form-grid panel nested">
    <label>Voyageur / événement<select name="participationId" required></select></label>
    <label>Sens<select name="direction"><option value="A">Aller</option><option value="R">Retour</option></select></label>
    <label>Date du trajet<input type="date" name="travelDate" required></label>
@@ -95,18 +228,19 @@
    <label>Arrivée (heure)<input type="time" name="arrival" required></label>
    <label>Prix prévu (€), si connu<input name="estimatedEuros" type="number" min="0" step=".01"></label>
    <button class="primary">Ajouter cette option de voyage</button>
-  </form>
-  <p class="small">Pour un trajet à plusieurs tronçons, la future interface ajoutera des correspondances sans créer de nouvelles options. Le modèle de données sait déjà les représenter.</p>
-  <h3>Choix nº 1 et solution de secours</h3>
-  <form id="choice-form" class="form-grid panel nested">
+    </form></div>
+    <div id="travel-choice-wrap" hidden>
+    <h3>Choix des horaires</h3>
+    <form id="choice-form" class="form-grid panel nested">
    <label>Voyageur / événement<select name="participationId" required></select></label>
    <label>Sens<select name="direction"><option value="A">Aller</option><option value="R">Retour</option></select></label>
    <label>Choix nº 1<select name="firstOptionId"></select></label>
    <label>Choix nº 2, facultatif<select name="backupOptionId"></select></label>
-   <button class="secondary">Enregistrer les préférences (organisateur)</button>
-  </form>
-  <h3>Suivi de l'achat</h3>
-  <form id="booking-form" class="form-grid panel nested">
+   <button class="secondary">Enregistrer les préférences</button>
+    </form></div>
+    <div id="travel-book-wrap" hidden>
+    <h3>Suivi du billet</h3>
+    <form id="booking-form" class="form-grid panel nested">
    <label>Option<select name="optionId" required></select></label>
    <label>État<select name="stage">
      <option value="PROPOSED">Proposé</option><option value="IN_CART">Dans le panier</option>
@@ -115,12 +249,12 @@
    <label>Montant payé (€)<input name="paidEuros" type="number" step=".01" min="0"></label>
    <label>Référence du dossier (si classé)<input name="receiptReference" maxlength="400"></label>
    <button class="secondary">Actualiser le suivi</button>
-  </form>
-  <div id="journeys-output" class="cards"></div>
+    </form></div>
+   </aside>
+  </div>
  </section>
  <section id="panel-notes" class="tab-panel" hidden>
-  <h2>Notes privées</h2>
-  <p class="muted">Ces notes ne sont jamais visibles dans les liens envoyés aux artistes.</p>
+  <h2>Notes</h2>
   <form id="note-form" class="form-grid panel nested">
    <label>Type<select name="targetType"><option value="person">Personne</option><option value="event">Événement</option></select></label>
    <label>Personne ou événement<select name="targetId"></select></label>
@@ -130,19 +264,28 @@
   <div id="notes-output" class="cards"></div>
  </section>
  <section id="panel-team" class="tab-panel" hidden>
-  <h2>Mon équipe</h2>
-  <p class="muted">Télécharger les données de cet espace pour conserver une copie sur votre appareil.</p>
-  <p id="team-secret-hint" class="small" hidden>Cet aperçu fonctionne sur cet appareil uniquement. Vous pouvez réinitialiser les exemples à tout moment.</p>
+  <h2>Paramètres</h2>
+  <div id="shared-workspace-access" class="panel nested">
+   <a class="secondary shared-login-link" href="https://transbora-ludo.netlify.app/organisation.html?connexion">🔐 Ouvrir l’espace partagé</a>
+   <p class="small">L’espace partagé utilise des comptes individuels. Une organisatrice peut être invitée depuis son compte.</p>
+  </div>
+  <p id="team-secret-hint" class="small" hidden></p>
   <button id="reset-demo" class="outline" type="button" hidden>↻ Recommencer la démonstration</button>
-  <button id="export-backup" class="outline" type="button">⬇ Télécharger une sauvegarde privée</button>
-  <p class="muted">La direction peut inviter une collaboratrice par un lien valable 48 heures. Les artistes ne doivent pas utiliser ces liens.</p>
+  <button id="export-backup" class="outline" type="button">⬇ Sauvegarder</button>
+  <div id="demo-backup-import" class="panel nested">
+   <label>Restaurer une sauvegarde (.json)<input id="restore-demo-file" type="file" accept=".json,application/json"></label>
+   <p id="restore-demo-status" class="small" role="status"></p>
+  </div>
   <form id="invite-form" class="form-grid panel nested">
    <label>E-mail de la collaboratrice<input name="email" type="email" required></label>
    <label>Droit<select name="role"><option value="editor">Organisatrice</option><option value="manager">Direction</option></select></label>
-   <button class="secondary">Créer une invitation privée</button>
+   <button class="secondary">Inviter</button>
   </form>
   <div id="invitation-result" class="panel nested" hidden><p>Copiez ce lien et transmettez-le uniquement à la personne concernée :</p><input id="invitation-link" readonly aria-label="Lien d'invitation"><button id="copy-invite" class="secondary" type="button">Copier le lien</button></div>
  </section>
+ <p id="workspace-legal" class="workspace-legal">Horaires indicatifs · Tarifs, places et achats à vérifier auprès des transporteurs.</p>
+ </div>
+ </div>
 </section>
-</main><footer>TRANSBORA · Les horaires, tarifs, places et paniers externes restent à vérifier avant achat.</footer>
+</main><footer>TRANSBORA</footer>
 </body></html>

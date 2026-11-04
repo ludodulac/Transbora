@@ -1,5 +1,15 @@
 # 🚆 Transbora — recherche multimodale de propositions de transport
 
+> **Version 044 — Démonstration reliée :** depuis le [tableau organisateur](https://transbora-ludo.netlify.app/organisation.html), lancez une recherche sur un événement et renvoyez les horaires réellement trouvés dans son suivi. Cartes de réduction informatives ; prix et places inconnus. Le transfert reste local au navigateur et ne synchronise ni le registre privé ni les réponses natives des artistes. [Mode d'emploi et limites](docs/liaison-organisation-recherche-044.md).
+
+> **Version 045 — Réponses des artistes :** après création des liens depuis cette recherche liée, retour au tableau organisateur et bouton « Récupérer les réponses des artistes » (actualisation manuelle sur le même appareil). Les choix nº1/nº2 peuvent être repris sans modifier les dépenses ou les billets. [Fonctionnement et limites](docs/liaison-reponses-045.md).
+
+> **Version 046 — Un seul espace de travail :** le [tableau organisateur](https://transbora-ludo.netlify.app/organisation.html) possède désormais un menu latéral sur ordinateur et un hamburger sur téléphone. Le moteur de recherche existant s'ouvre dans l'onglet Recherche, reprend les personnes déjà enregistrées et réintègre automatiquement les trajets à l'événement sans ressaisie. Les versions Deploy Preview utilisent un stockage navigateur distinct : sauvegarde/import JSON dans Paramètres. [Parcours, limites et réglage des logos Netlify](docs/interface-unifiee-046.md).
+
+> **Version 048–049 — Tableau mensuel Jeanne + fiches intégrées :** l’onglet Accueil présente la grille mensuelle Chx/R/E, avec accès direct à la mise à jour des choix et billets. Les fiches individuelles et les tableaux restent consultables et modifiables **dans TRANSBORA, sans export Excel ni fichier à réimporter**. Deux téléchargements PDF facultatifs sont proposés : l'ensemble du mois (tous les artistes) ou la fiche d'un seul artiste. L'impression est possible séparément. Le même module fonctionne sur les données locales et les données de l’espace partagé privé. La recherche sécurisée est reliée aux enregistrements de l’organisation sans données privées écrites dans le stockage local. **Prévisualisation : démonstration locale uniquement ; accès réel partagé sur production après validation.** [Détails de la mission 048](docs/jeanne-workflows-048.md).
+
+> **Version 052 — Interface mensuelle (phase 1) :** accueil centré sur un mois avec flèches précédent/suivant, suivi compact de tous les artistes et événements, panneau de détails à droite sur grand écran, et cartes tactiles avec détails plein écran sur téléphone. Le tableau conserve l'accès aux choix, achats, budgets et PDF sans modifier le stockage des données. **Seule la prévisualisation est modifiée.** [Fonctions et limites de cette phase](docs/interface-mensuelle-phase1-052.md).
+
 Application indépendante pour gagner du temps lors de la préparation d'horaires à proposer : rechercher des trajets directs en train ou en autocar, en cocher plusieurs, **copier une proposition**.
 
 ## Compagnies prévues et état
