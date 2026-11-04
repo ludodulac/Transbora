@@ -902,12 +902,28 @@ $('search-everyone').addEventListener('click',async()=>{
 // Google Sheets is private and owned by the logged-in user. The public repo
 // never contains their Sheet identifier nor personal event data.
 const shareStatus=message=>msg($('native-status'),message,false);
+let sharedLinkRequest=null;
+function retrySharedNativeLink(){
+ if(!sharedMode||!embeddedMode||!sharedLinkRequest){
+  msg($('native-status'),'Aucune liaison de réponses à réessayer : repartez du dossier événement.',true);
+  return;
+ }
+ $('native-share-links').hidden=true;
+ $('native-copy-all').disabled=true;
+ $('native-retry-link').hidden=true;
+ shareStatus('Vérification de la liaison des réponses avec le tableau de Jeanne…');
+ window.parent.postMessage({type:'transbora:shared-native-link',...sharedLinkRequest},
+  location.origin);
+}
+$('native-retry-link').addEventListener('click',retrySharedNativeLink);
 async function copyLink(value){
   try{await navigator.clipboard.writeText(value);shareStatus('✓ Lien copié.');}
   catch{window.prompt('Copiez ce lien :',value);}
 }
 function renderPublished(record,mode){
   published={...record,mode};
+  sharedLinkRequest=null;
+  $('native-retry-link').hidden=true;
   $('share-mode-options').hidden=true;
   $('cancel-mode-switch').hidden=true;
   const dashboard=statusUrl(record.eventId,record.ownerKey);
@@ -934,10 +950,10 @@ function renderPublished(record,mode){
       if(sharedMode){
         const mapping=buildNativeLinkMapping(linkParams);
         if(!embeddedMode)throw Error('La liaison partagée exige le tableau organisateur.');
-        window.parent.postMessage({
-          type:'transbora:shared-native-link',
+        sharedLinkRequest={
           eventId:activeOrganizerHandoff.eventId,mapping,ownerKey:record.ownerKey
-        },location.origin);
+        };
+        retrySharedNativeLink();
       }else{
         registerNativeLink(window.localStorage,linkParams);
         writeSearchResults(window.localStorage,routes);
@@ -966,6 +982,13 @@ function renderPublished(record,mode){
     actions.append(visit,copy);row.append(actions);host.append(row);
   }
   $('native-ready').hidden=false;
+  $('native-share-links').hidden=sharedMode;
+  $('native-copy-all').disabled=sharedMode;
+  if(bridgeError&&sharedMode){
+   sharedLinkRequest=null;
+   msg($('native-status'),bridgeError,true);
+   return;
+  }
   shareStatus(record.links.length+' lien(s) créés.'+
     (sharedMode?' Synchronisation avec Jeanne en cours…':
      saved?' Dossier ajouté à « Mes événements ».':
@@ -977,9 +1000,18 @@ window.addEventListener('message',event=>{
     event.source!==window.parent||
     event.data?.type!=='transbora:shared-native-link-result'||
     event.data.eventId!==activeOrganizerHandoff?.eventId)return;
- if(event.data.ok)shareStatus('✅ Liens envoyables : choix nº 1 et nº 2 reliés automatiquement au tableau de Jeanne.');
- else msg($('native-status'),'⚠ Liens créés, mais NON reliés au tableau de Jeanne : '+
-  String(event.data.error||'réessayez depuis cet événement').slice(0,280),true);
+ if(event.data.ok){
+  $('native-share-links').hidden=false;
+  $('native-copy-all').disabled=false;
+  $('native-retry-link').hidden=true;
+  shareStatus('✅ Liens envoyables : choix nº 1 et nº 2 reliés automatiquement au tableau de Jeanne.');
+ }else{
+  $('native-share-links').hidden=true;
+  $('native-copy-all').disabled=true;
+  $('native-retry-link').hidden=false;
+  msg($('native-status'),'⚠ Liens créés, mais NON reliés au tableau de Jeanne : '+
+   String(event.data.error||'réessayez depuis cet événement').slice(0,280),true);
+ }
 });
 
 async function createNativeLinks(mode){
@@ -989,7 +1021,9 @@ async function createNativeLinks(mode){
       $('share-mode-options').hidden=true;
       $('cancel-mode-switch').hidden=true;
       $('native-ready').hidden=false;
-      shareStatus('Les liens actuels sont conservés.');
+      if(sharedMode&&sharedLinkRequest&&$('native-share-links').hidden)
+       retrySharedNativeLink();
+      else shareStatus('Les liens actuels sont conservés.');
       return;
     }
     if(published && published.mode!==mode){
