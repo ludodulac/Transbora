@@ -146,6 +146,8 @@ function fillSelects(){
    events=items('event').map(e=>[e.id,e.title+' · '+fmtDate(e.startDate)]);
  const participants=items('participation').map(p=>[p.id,displayParticipation(p.id)]);
  options($('month-person'),persons,'Tous les artistes');
+ options($('travel-person-filter'),persons,'Tous les artistes');
+ options($('travel-event-filter'),events,'Tous les événements');
  options($('search-event-select'),events,'Choisir…');
  const matches=$('registered-person-names');matches.replaceChildren();
  for(const person of items('person')){
@@ -854,33 +856,21 @@ document.addEventListener('keydown',event=>{
  }
 });
 function goToMonthChoice(row){
- const form=$('choice-form').elements;
- form.participationId.value=row.participationId;
- form.direction.value=row.direction==='Aller'?'A':'R';
- refreshChoiceSelects();
- const original=items('choice').find(x=>x.participationId===row.participationId&&x.direction===form.direction.value);
- form.firstOptionId.value=row.optionId;
- if(original?.backupOptionId&&original.backupOptionId!==row.optionId)
-  form.backupOptionId.value=original.backupOptionId;
  closeMonthDetail({restoreFocus:false});
  showTab('travels');
- $('choice-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+ showTravelPanel('choice',row.optionId);
+ $('choice-form').elements.firstOptionId.value=row.optionId;
 }
 function goToMonthTicket(row){
- const form=$('booking-form').elements;
- form.optionId.value=row.optionId;
- const booking=items('booking').find(x=>x.optionId===row.optionId);
- form.stage.value=booking?.filedAt?'FILED':booking?.paidAt?'PAID':booking?.inCartAt?'IN_CART':'PROPOSED';
- form.paidEuros.value=booking?.paidCents==null?'':String(booking.paidCents/100);
- form.receiptReference.value=booking?.receiptReference||'';
  closeMonthDetail({restoreFocus:false});
  showTab('travels');
- $('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+ showTravelPanel('booking',row.optionId);
 }
 function goToMonthEvent(){
+ const id=monthDetailState.row?.eventId;
  closeMonthDetail({restoreFocus:false});
  showTab('events');
- $('events-output').scrollIntoView?.({behavior:'smooth',block:'start'});
+ if(id&&byId('event',id))openEventEditor(byId('event',id));
 }
 $('month-detail-choice').addEventListener('click',()=>{
  if(monthDetailState.row&&!monthDetailState.row.pending)goToMonthChoice(monthDetailState.row);
@@ -1121,12 +1111,19 @@ function bindForm(id,create){
    }else if(type==='booking'){
     record.expectedUpdatedAt=items('booking').find(x=>x.optionId===record.optionId)?.updatedAt??null;
    }
-   await api('save',{type,record});
+   const saved=await api('save',{type,record});
    form.reset();if(id==='person-form')setCardsFromSaved('');
    delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
    if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
      id==='event-form'?'Enregistrer l’événement':button.textContent;
-   await reload();feedback('✅ Enregistré.');
+   await reload();
+   if(id==='person-form')closePersonEditor();
+   if(id==='event-form')openEventEditor(byId('event',saved.item.id));
+   if(id==='participation-form'&&record.eventId)openEventEditor(byId('event',record.eventId));
+   if(id==='option-form')showTravelPanel('detail',saved.item.id);
+   if((id==='choice-form'||id==='booking-form')&&state.travelOptionId)
+    showTravelPanel('detail',state.travelOptionId);
+   feedback('✅ Enregistré.');
   }catch(e){feedback(e.message,true)}
   finally{if(button)button.disabled=false;}
  });
@@ -1199,8 +1196,8 @@ $('restore-demo-file').addEventListener('change',async e=>{
  finally{e.currentTarget.value='';}
 });
 $('reset-demo').addEventListener('click',async()=>{
- if(!state.demo||!confirm('Remettre à zéro uniquement les données fictives de cet appareil ?'))return;
- try{await api('reset_demo');await reload();feedback('✅ Démonstration remise à zéro.');}
+ if(!state.demo||!confirm('Effacer toutes les données de cette démonstration sur cet appareil ? Cette action est irréversible sans sauvegarde.'))return;
+ try{await api('reset_demo');closeTravelPanel();closePersonEditor();closeEventEditor();await reload();feedback('✅ Données locales effacées.');}
  catch(e){feedback(e.message,true);}
 });
 $('copy-invite').addEventListener('click',async()=>{
