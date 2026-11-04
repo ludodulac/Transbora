@@ -46,7 +46,8 @@ export async function registerNativeWorkspaceLink({store,org,eventId,mapping,own
  const seenPeople=new Set(),seenNative=new Set();
  const safeTravelers=[];
  for(const t of mapping.travelers){
-  if(!idOk(t.organizerPersonId)||!idOk(t.nativePersonId)||
+  if(!idOk(t.organizerPersonId)||typeof t.nativePersonId!=='string'||
+     !/^[A-Za-z0-9_-]{1,80}$/.test(t.nativePersonId)||
      seenPeople.has(t.organizerPersonId)||seenNative.has(t.nativePersonId))
    error('Association des voyageurs invalide.');
   seenPeople.add(t.organizerPersonId);seenNative.add(t.nativePersonId);
