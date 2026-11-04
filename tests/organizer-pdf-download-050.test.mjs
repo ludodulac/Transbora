@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 import {monthLedger,personMonthLedger} from '../site/organizer-monthly.mjs';
 import {monthlyTravelPdf,travelPdfName} from '../site/organizer-monthly-pdf.mjs';
+import {createRehearsalApi} from '../site/organizer-rehearsal.mjs';
 
 const data={
  people:[{id:'s',name:'Sophie Dûpré'},{id:'m',name:'Michel'}],
@@ -97,6 +98,10 @@ test('050: users explicitly download PDF, optionally print, no Excel returned to
  let capturedBlob=null,downloadFilename='';
  URL.createObjectURL=blob=>{capturedBlob=blob;return 'blob:https://test.invalid/abc';};
  URL.revokeObjectURL=()=>{};
+ const api=createRehearsalApi(w.localStorage,{cleanExamples:true});
+ const person=(await api('save',{type:'person',record:{
+  name:'Sophie exemple',departure:'Paris'
+ }})).item;
  w.HTMLAnchorElement.prototype.click=function(){downloadFilename=this.download;};
  try{
   await import('../site/organisation-app.mjs');
@@ -108,7 +113,7 @@ test('050: users explicitly download PDF, optionally print, no Excel returned to
   assert.equal(downloadFilename,'TRANSBORA_MOIS_2026-10.pdf');
   assert.equal(capturedBlob.type,'application/pdf');
   validatePdf(new Uint8Array(await capturedBlob.arrayBuffer()));
-  $('month-person').value='sophie-demo';
+  $('month-person').value=person.id;
   $('month-person').dispatchEvent(new w.Event('change'));
   assert.equal($('person-sheet-actions').hidden,false);
   $('download-person-pdf').click();
