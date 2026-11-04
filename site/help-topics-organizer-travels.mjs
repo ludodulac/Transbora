@@ -1,6 +1,6 @@
 /** Mission 051 — aide du suivi des voyages. */
 export const ORGANIZER_HELP_TRAVELS=[
-['#panel-travels > h2','Trajets','Retrouvez les horaires proposés et ajoutez au besoin un trajet manuel. Aucune réservation n’est effectuée ici.'],
+['#panel-travels .list-tab-header > h2','Trajets','Retrouvez les horaires proposés et ajoutez au besoin un trajet manuel. Aucune réservation n’est effectuée ici.'],
 ['#option-form [name="participationId"]','Voyageur et spectacle','Choisissez la personne inscrite au spectacle concerné.'],
 ['#option-form [name="direction"]','Aller ou retour','L’aller mène au spectacle ; le retour est le trajet après l’événement.'],
 ['#option-form [name="travelDate"]','Date du voyage','Indiquez la date exacte du train, même si le spectacle a lieu un autre jour.'],
