@@ -230,6 +230,7 @@ async function connect(){
   }
  }
  showTab('overview');
+ refreshNativeChoices().catch(()=>{});
 }
 function closeMobileNav(){
  $('tabs').classList.remove('open');
@@ -252,6 +253,8 @@ function showTab(tab){
  if(tab!=='people')closePersonEditor();
  if(tab!=='events')closeEventEditor();
  closeGlobalSearch();
+ if(tab==='answers')refreshNativeChoices().catch(error=>
+   feedback('Actualisation des réponses : '+error.message,true));
 }
 $('nav-toggle').addEventListener('click',()=>{
  const opened=$('tabs').classList.toggle('open');
@@ -400,7 +403,7 @@ window.addEventListener('message',async event=>{
   // Do not leave the search iframe: the organizer may still be sending links.
  }catch(error){$('search-context').textContent='⚠ Import impossible : '+error.message;}
 });
-async function syncOneNativeEvent(eventId){
+async function syncOneNativeEvent(eventId,{refresh=true}={}){
  if(!state.demo)throw Error('Synchronisation native réservée à la démonstration locale.');
  const mapping=nativeLinkFor(window.localStorage,eventId);
  if(!mapping)throw Error('Aucun dossier de choix lié à cet événement.');
@@ -412,9 +415,44 @@ async function syncOneNativeEvent(eventId){
  // Owner capability and native report are transient. No ticket status, paid
  // amount or external personal data is copied into the local workbench.
  const result=await api('sync_native_answers',{mapping,report});
- await reload();
+ if(refresh)await reload();
  return result;
 }
+/* Production receives instant server-side artist submissions.
+ * Opening the organizer and periodic checks reconcile missed updates.
+ * The preview uses its existing local owner links without a private API. */
+async function refreshNativeChoices(){
+ if(!state.user||state.syncingChoices||document.visibilityState==='hidden')return;
+ state.syncingChoices=true;
+ try{
+  if(state.demo){
+   let changed=0;
+   for(const event of items('event')){
+    if(!nativeLinkFor(window.localStorage,event.id))continue;
+    try{
+     const r=await syncOneNativeEvent(event.id,{refresh:false});
+     changed+=r.synced;
+    }catch{ /* Continue with the other locally linked events. */ }
+   }
+   if(changed)await reload();
+  }else{
+   const r=await api('sync_native_choices');
+   const hint=$('shared-replies-hint');
+   hint.hidden=false;
+   hint.textContent=r.linked?
+    '✅ Réponses reliées : les choix nº 1 et nº 2 se mettent à jour automatiquement.':
+    'Aucun lien de choix associé pour le moment. Ouvrez un événement, recherchez ses trains, puis créez les liens des artistes.';
+   if(r.synced)await reload();
+   if(r.conflicts?.length)hint.textContent+=' ⚠ '+r.conflicts.slice(0,2).join(' / ');
+  }
+ }finally{state.syncingChoices=false;}
+}
+setInterval(()=>{if(state.user&&document.visibilityState!=='hidden')
+ refreshNativeChoices().catch(()=>{});},30000);
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='visible'&&state.user)
+  refreshNativeChoices().catch(()=>{});
+});
 function nativeSyncSummary(result){
  const incidents=result.conflicts.length?' ⚠ À contrôler : '+
    result.conflicts.slice(0,3).join(' / '):'';
