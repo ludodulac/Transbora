@@ -26,6 +26,19 @@ test('053: clearing built-in fictional records retains an independently created 
  assert.deepEqual((await emptyApi('list',{type:'option'})).items,[]);
  w.close();
 });
+test('053: a sample identity renamed into a real person is not irreversibly erased',async()=>{
+ const w=await load();
+ const api=createRehearsalApi(w.localStorage);
+ await api('save',{type:'person',record:{
+  id:'sophie-demo',name:'Jeanne Martin',departure:'Rennes'
+ }});
+ const clean=createRehearsalApi(w.localStorage,{cleanExamples:true});
+ const names=(await clean('list',{type:'person'})).items.map(p=>p.name);
+ assert.deepEqual(names,['Jeanne Martin']);
+ assert.deepEqual((await clean('list',{type:'event'})).items,[]);
+ w.close();
+});
+
 test('053: one-screen list-first flows, event search and permanent site search',async()=>{
  const w=await load();const api=createRehearsalApi(w.localStorage,{cleanExamples:true});
  const p=(await api('save',{type:'person',record:{name:'Camille Martin',departure:'Brest',
