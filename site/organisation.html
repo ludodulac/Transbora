@@ -164,13 +164,14 @@
    <label>Enveloppe transport (€)<input name="budgetEuros" type="number" step=".01" min="0" placeholder="750"></label>
    <button class="primary">Enregistrer l'événement</button>
   </form>
-  <h3>Participants</h3>
+  <div id="event-participation-region" hidden><h3>Participants</h3>
   <label class="directory-filter">Rechercher une personne<input id="participation-person-find" type="search" list="registered-person-names" placeholder="Nom…" autocomplete="off"><datalist id="registered-person-names"></datalist></label>
   <form id="participation-form" class="row panel nested">
    <label>Événement<select name="eventId" required></select></label>
    <label>Personne<select name="personId" required></select></label>
    <button class="secondary">Ajouter</button>
   </form>
+  </div>
   </aside>
  </section>
  <section id="panel-search" class="tab-panel" hidden>
