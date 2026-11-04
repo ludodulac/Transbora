@@ -30,28 +30,27 @@ const empty=()=>({version:1,person:[],event:[],participation:[],
 /* Only remove the known built-in fictional fixtures. Never delete unrelated
    user-created persons, events or records from an existing local browser. */
 export function stripFictionalExamples(data){
- const ids={
-  person:new Set(['sophie-demo','michel-demo']),
-  event:new Set(['festival-demo']),
-  participation:new Set(['ps-demo','pm-demo']),
-  option:new Set(['opt1-demo','opt2-demo','opt3-demo']),
-  choice:new Set(['choice-demo']),note:new Set(['note-demo'])
- };
- const clone={...data};
- const remove=(kind,predicate)=>{clone[kind]=clone[kind].filter(x=>!predicate(x));};
- remove('person',x=>ids.person.has(x.id));
- remove('event',x=>ids.event.has(x.id));
- remove('participation',x=>ids.participation.has(x.id)||
-  ids.person.has(x.personId)||ids.event.has(x.eventId));
- const removedParts=new Set(data.participation.filter(p=>!clone.participation.some(x=>x.id===p.id)).map(p=>p.id));
- remove('option',x=>ids.option.has(x.id)||removedParts.has(x.participationId));
- const removedOptions=new Set(data.option.filter(o=>!clone.option.some(x=>x.id===o.id)).map(o=>o.id));
- remove('choice',x=>ids.choice.has(x.id)||removedParts.has(x.participationId));
- remove('booking',x=>removedOptions.has(x.optionId));
- remove('note',x=>ids.note.has(x.id)||
-  (x.targetType==='person'&&ids.person.has(x.targetId))||
-  (x.targetType==='event'&&ids.event.has(x.targetId)));
- return clone;
+ const copy={...data};
+ const isFixturePerson=p=>(p.id==='sophie-demo'&&p.name==='Sophie (exemple)')||
+  (p.id==='michel-demo'&&p.name==='Michel (exemple)');
+ const isFixtureEvent=e=>e.id==='festival-demo'&&
+  e.title==='Festival exemple — données fictives';
+ copy.person=data.person.filter(p=>!isFixturePerson(p));
+ copy.event=data.event.filter(e=>!isFixtureEvent(e));
+ const removedPeople=new Set(data.person.filter(isFixturePerson).map(x=>x.id));
+ const removedEvents=new Set(data.event.filter(isFixtureEvent).map(x=>x.id));
+ copy.participation=data.participation.filter(p=>!removedPeople.has(p.personId)&&
+  !removedEvents.has(p.eventId));
+ const removedParts=new Set(data.participation.filter(p=>
+  !copy.participation.some(x=>x.id===p.id)).map(p=>p.id));
+ copy.option=data.option.filter(o=>!removedParts.has(o.participationId));
+ const removedOptions=new Set(data.option.filter(o=>
+  !copy.option.some(x=>x.id===o.id)).map(o=>o.id));
+ copy.choice=data.choice.filter(x=>!removedParts.has(x.participationId));
+ copy.booking=data.booking.filter(x=>!removedOptions.has(x.optionId));
+ copy.note=data.note.filter(x=>!(x.targetType==='person'&&removedPeople.has(x.targetId))&&
+  !(x.targetType==='event'&&removedEvents.has(x.targetId)));
+ return copy;
 }
 export function createRehearsalApi(store,{cleanExamples=false}={}){
  const write=data=>{try{store.setItem(KEY,JSON.stringify(data))}catch{die('Impossible de sauvegarder sur cet appareil.')}};
