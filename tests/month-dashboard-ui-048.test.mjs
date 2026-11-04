@@ -11,7 +11,9 @@ test('048: a full month of two events and multiple artists stays editable from o
  globalThis.window=w;globalThis.document=w.document;globalThis.location=w.location;
  globalThis.history=w.history;globalThis.FormData=w.FormData;
  globalThis.fetch=async()=>{throw Error('Local demo should not touch private server.');};
- const api=createRehearsalApi(w.localStorage);
+ const api=createRehearsalApi(w.localStorage,{cleanExamples:true});
+ const sophie=(await api('save',{type:'person',record:{name:'Sophie',departure:'Paris'}})).item;
+ const michel=(await api('save',{type:'person',record:{name:'Michel',departure:'Brest'}})).item;
  const e1=(await api('save',{type:'event',record:{
   title:'Spectacle Nantes',startDate:'2026-11-20',destination:'Nantes',
   budgetCents:50000
@@ -21,8 +23,8 @@ test('048: a full month of two events and multiple artists stays editable from o
   budgetCents:40000
  }})).item;
  const join=async(eventId,personId)=>(await api('save',{type:'participation',record:{eventId,personId}})).item;
- const a=await join(e1.id,'sophie-demo'),b=await join(e1.id,'michel-demo'),
-  c=await join(e2.id,'sophie-demo');
+ const a=await join(e1.id,sophie.id),b=await join(e1.id,michel.id),
+  c=await join(e2.id,sophie.id);
  const make=async(p,from,to,date)=>{
   const result=await api('save',{type:'option',record:{participationId:p.id,direction:'A',
     travelDate:date,estimatedCents:null,legs:[{from,to,departure:'08:20',arrival:'11:00'}]}});
@@ -43,12 +45,12 @@ test('048: a full month of two events and multiple artists stays editable from o
  $('month-filter').value='2026-11';
  $('month-filter').dispatchEvent(new w.Event('change'));
  assert.equal($('month-register-body').rows.length,3);
- assert.match($('month-summary').textContent,/3 proposition/);
+ assert.match($('month-summary').textContent,/3 trajet/);
  assert.match($('month-summary').textContent,/77,00/);
  assert.match($('month-register-body').textContent,/Spectacle Nantes/);
  assert.match($('month-register-body').textContent,/Spectacle Tours/);
  assert.match($('month-register-body').textContent,/Michel/);
- $('month-person').value='sophie-demo';
+ $('month-person').value=sophie.id;
  $('month-person').dispatchEvent(new w.Event('change'));
  assert.equal($('month-register-body').rows.length,2);
  assert.equal($('person-sheet-actions').hidden,false);
@@ -57,14 +59,15 @@ test('048: a full month of two events and multiple artists stays editable from o
  assert.match($('month-output').textContent,/Spectacle Nantes/);
  assert.match($('month-output').textContent,/Spectacle Tours/);
  const row=$('month-register-body').rows[0];
- const buttons=[...row.querySelectorAll('button')];
- assert.equal(buttons.length,2);
- buttons[0].click();
+ assert.equal(row.querySelectorAll('button').length,0);
+ row.cells[1].click();
+ $('month-detail-choice').click();
  assert.equal($('panel-travels').hidden,false);
  assert.equal($('choice-form').elements.participationId.value,a.id);
  assert.equal($('choice-form').elements.firstOptionId.value,o1.id);
  $('tabs').querySelector('[data-tab=overview]').click();
- buttons[1].click();
+ row.cells[1].click();
+ $('month-detail-booking').click();
  assert.equal($('booking-form').elements.optionId.value,o1.id);
  assert.equal($('booking-form').elements.stage.value,'FILED');
  assert.equal($('booking-form').elements.paidEuros.value,'77');
