@@ -88,7 +88,7 @@ async function issueLinks(store,eventId,mode,people,expiresAt){
   return results;
 }
 
-export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),openDemo=()=>false}){
+export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),openDemo=()=>false,onAnswerSaved=async()=>{}}){
   return async function handle(req){
     if(req.method==='GET')return json({status:'ok',service:'Transbora choix',version:1});
     if(req.method!=='POST')return failure('Méthode non autorisée',405);
@@ -183,6 +183,11 @@ export function createChoiceHandler({getStore,masterKey,clock=()=>Date.now(),ope
           await replies.setJSON(prefix('r',record.id+'/'+personId),
             {personId,...selected,updatedAt:clock()});
         }
+        // Trigger the already authenticated organizer linkage. Never fail
+        // the artist's successful response if that secondary update is offline;
+        // organizer reload also retries the same idempotent synchronization.
+        try{await onAnswerSaved(record.id);}
+        catch{ /* Private workspace will reconcile when opened. */ }
         return json({saved:true,count:chosen.size});
       }
       if(op==='status'||op==='remove'||op==='switch_mode'||op==='set_booking'){
