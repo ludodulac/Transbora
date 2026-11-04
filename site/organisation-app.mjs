@@ -431,6 +431,12 @@ function openEventEditor(event=null){
   $('participation-form').elements.eventId.value=event.id;
  }
  $('event-participation-region').hidden=!event;
+ const roster=$('event-participants-list');roster.replaceChildren();
+ if(event){
+  const people=items('participation').filter(p=>p.eventId===event.id);
+  for(const participant of people)roster.append(node('span',null,displayPerson(participant.personId)));
+  if(!people.length)roster.append(node('p','muted','Aucun artiste inscrit à cet événement.'));
+ }
  $('event-editor-title').textContent=event?event.title:'Ajouter un événement';
  form.querySelector('button[type="submit"],button:not([type])').textContent=
   event?'Enregistrer les modifications':'Enregistrer l’événement';
@@ -598,9 +604,12 @@ function closeGlobalSearch(){
 function runGlobalSearch(value){
  const q=normalizeSearch(value),host=$('site-search-results');
  host.replaceChildren();
+ const wantsUnbought=/billets?.*(?:non achet|a acheter|non pay)/.test(q);
  if(!q){closeGlobalSearch();return;}
  const found=[],add=(kind,id,title,subtitle,text)=>{
-  if(normalizeSearch([title,subtitle,text].join(' ')).includes(q))
+  const haystack=normalizeSearch([title,subtitle,text].join(' '));
+  const words=q.split(/\s+/).filter(Boolean);
+  if(words.every(word=>haystack.includes(word)))
    found.push({kind,id,title,subtitle});
  };
  for(const p of items('person'))add('person',p.id,'👤 '+p.name,
@@ -614,15 +623,22 @@ function runGlobalSearch(value){
   const status=booking?.paidAt?'acheté payé':
    booking?.inCartAt?'panier':'billet non acheté proposé';
   const first=o.legs?.[0],last=o.legs?.at(-1);
-  add('travel',o.id,'🚆 '+displayPerson(p.personId),
-   fmtDate(o.travelDate)+' · '+(first?.from||'')+' → '+(last?.to||''),
-   displayEvent(p.eventId)+' '+status+' '+(o.direction==='A'?'aller':'retour'));
+  if(wantsUnbought&&!booking?.paidAt){
+   found.push({kind:'travel',id:o.id,title:'🎫 '+displayPerson(p.personId),
+    subtitle:displayEvent(p.eventId)+' · '+fmtDate(o.travelDate)+' · billet non acheté'});
+  }else if(!wantsUnbought){
+   const dateLong=/^\d{4}-\d{2}-\d{2}$/.test(o.travelDate||'')?
+    new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})
+     .format(new Date(o.travelDate+'T12:00:00Z')):'';
+   add('travel',o.id,'🚆 '+displayPerson(p.personId),
+    fmtDate(o.travelDate)+' · '+dateLong+' · '+(first?.from||'')+' → '+(last?.to||''),
+    displayEvent(p.eventId)+' '+status+' '+(o.direction==='A'?'aller':'retour'));
+  }
  }
  for(const n of items('note'))add('note',n.id,'📝 '+(n.targetType==='person'?
   displayPerson(n.targetId):displayEvent(n.targetId)),n.content,'notes');
- if(q.includes('billet')&&(q.includes('non achet')||q.includes('a acheter'))){
-  // The existing status words are indexed above; no synthetic purchases.
- }
+ // A not-yet-purchased ticket is indexed by its actual recorded state,
+ // rather than assuming its availability or creating a booking.
  if(!found.length)host.append(node('p','site-search-empty','Aucun résultat dans TRANSBORA.'));
  for(const row of found.slice(0,24)){
   const button=node('button','site-search-result');
