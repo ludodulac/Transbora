@@ -30,7 +30,10 @@ test('051: help appears next to relevant headings, fields and each core tab',()=
  assert.ok(mounted.count>=45,'the organizer has contextual help in its main areas');
  for(const id of ['panel-overview','panel-people','panel-events','panel-search',
   'panel-travels','panel-answers','panel-bookings','panel-budget','panel-notes','panel-team']){
-  assert.ok(document.querySelector(id==='panel-overview'?'#panel-overview .month-intro > h2 .tb-help-trigger':'#'+id+' > h2 .tb-help-trigger'),'missing '+id);
+  const relocated=['panel-people','panel-events','panel-search','panel-travels'].includes(id);
+  const selector=id==='panel-overview'?'#panel-overview .month-intro > h2 .tb-help-trigger':
+   '#'+id+(relocated?' .list-tab-header > h2': ' > h2')+' .tb-help-trigger';
+  assert.ok(document.querySelector(selector),'missing '+id);
  }
  const input=document.querySelector('#person-form [name="departure"]');
  const label=input.closest('label');
