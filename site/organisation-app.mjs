@@ -237,7 +237,7 @@ function closeMobileNav(){
 function showTab(tab){
  state.tab=tab;
  for(const btn of $('tabs').querySelectorAll('[data-tab]')){
-  const selected=btn.dataset.tab===tab;
+  const selected=btn.dataset.tab===tab||(tab==='search'&&btn.dataset.tab==='events');
   if(selected)btn.setAttribute('aria-current','page');
   else btn.removeAttribute('aria-current');
  }
