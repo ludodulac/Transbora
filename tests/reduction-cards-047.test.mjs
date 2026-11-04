@@ -51,7 +51,7 @@ test('047: choose, save and re-edit card selections without losing legacy custom
  assert.equal($('person-card-summary').textContent,'Aucun','After save picker resets');
  const card=[...$('people-output').children].find(x=>x.textContent.includes('Camille Martin'));
  assert.ok(card);
- [...card.querySelectorAll('button')].find(x=>x.textContent==='Modifier la fiche').click();
+ card.click();
  assert.equal(boxes.find(x=>x.value==='Carte Liberté').checked,true);
  assert.equal(boxes.find(x=>x.value==='Abonnement TER BreizhGo mensuel').checked,true);
  assert.equal($('person-card-other').value,'Carte régionale personnelle');
@@ -63,6 +63,6 @@ test('047: interface avoids duplicated explanatory text before each work area',(
  assert.doesNotMatch(html,/Événements, personnes, billets et notes au même endroit/);
  assert.doesNotMatch(html,/Choisissez un événement : sa liste de personnes/);
  assert.doesNotMatch(html,/Démonstration locale.*vos données restent/);
- assert.match(html,/<h2>Recherche de trajets<\/h2>/);
+ assert.match(html,/<h2>Recherche de trajets pour un événement<\/h2>/);
  assert.match(html,/id="person-card-picker"/);
 });
