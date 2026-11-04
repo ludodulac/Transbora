@@ -14,7 +14,7 @@ const scrypt=promisify(scryptCallback);
 const COOKIE='__Host-transbora_staff';
 const SESSION_AGE=7*24*3600*1000;
 const INVITE_AGE=48*3600*1000;
-const MAX_BODY=35_000;
+const MAX_BODY=35_000,MAX_NATIVE_LINK_BODY=750_000;
 const STORE='transbora-organizer-private-v1';
 const random=()=>randomBytes(32).toString('base64url');
 const hash=value=>createHash('sha256').update(String(value)).digest('hex');
@@ -35,11 +35,16 @@ function originOk(req){
   return origin===new URL(req.url).origin&&(!mode||mode==='same-origin'||mode==='none');
 }
 async function bodyOf(req){
-  if(Number(req.headers.get('content-length')||0)>MAX_BODY)throw Error('Corps trop grand.');
+  // A complete group of 100 artists can produce a large, owner-authenticated
+  // option mapping; all other actions keep their strict original limit.
+  if(Number(req.headers.get('content-length')||0)>MAX_NATIVE_LINK_BODY)
+   throw Error('Corps trop grand.');
   const raw=await req.text();
-  if(raw.length>MAX_BODY)throw Error('Corps trop grand.');
+  if(raw.length>MAX_NATIVE_LINK_BODY)throw Error('Corps trop grand.');
   const parsed=JSON.parse(raw);
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error('JSON incorrect.');
+  const max=parsed.action==='link_native_choices'?MAX_NATIVE_LINK_BODY:MAX_BODY;
+  if(raw.length>max)throw Error('Corps trop grand.');
   return parsed;
 }
 async function passwordHash(password,salt){
