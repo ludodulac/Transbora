@@ -245,6 +245,9 @@ function showTab(tab){
  closeMobileNav();
  if(tab==='search'&&!state.activeSearchEventId)
   $('search-context').textContent='';
+ if(tab!=='people')closePersonEditor();
+ if(tab!=='events')closeEventEditor();
+ closeGlobalSearch();
 }
 $('nav-toggle').addEventListener('click',()=>{
  const opened=$('tabs').classList.toggle('open');
@@ -292,6 +295,7 @@ $('search-open').addEventListener('click',()=>{
  try{openIntegratedSearch($('search-event-select').value)}
  catch(error){feedback(error.message,true);}
 });
+$('search-back-event').addEventListener('click',()=>showTab('events'));
 $('participation-person-find').addEventListener('input',e=>{
  const name=e.currentTarget.value.trim().toLocaleLowerCase('fr-FR');
  const match=items('person').find(p=>p.name.trim().toLocaleLowerCase('fr-FR')===name);
@@ -307,7 +311,7 @@ $('person-filter').addEventListener('input',e=>{
  }
 });
 $('open-booking-form').addEventListener('click',()=>{
- showTab('travels');$('booking-form').scrollIntoView?.({behavior:'smooth',block:'start'});
+ showTab('travels');showTravelPanel('booking');
 });
 $('budget-month-filter').addEventListener('change',()=>{
  $('month-filter').value=$('budget-month-filter').value;
@@ -690,19 +694,9 @@ function monthlyMobileCard(row){
   row.paidCents==null?'Prix payé ?':fmtEuro(row.paidCents)));
  article.append(bottom);
  const actions=node('div','month-mobile-actions');
- const detail=node('button','outline','Détails');
+ const detail=node('button','outline','Ouvrir le trajet');
  detail.type='button';detail.addEventListener('click',()=>openMonthDetail(row,detail));
  actions.append(detail);
- if(row.pending){
-  const event=node('button','secondary','Événement');
-  event.type='button';event.addEventListener('click',goToMonthEvent);actions.append(event);
- }else{
-  const choice=node('button','secondary','Choix');
-  choice.type='button';choice.addEventListener('click',()=>goToMonthChoice(row));
-  const ticket=node('button','secondary','Billet');
-  ticket.type='button';ticket.addEventListener('click',()=>goToMonthTicket(row));
-  actions.append(choice,ticket);
- }
  article.append(actions);
  return article;
 }
@@ -719,9 +713,7 @@ function renderMonthly(){
  const s=result.summary,summary=$('month-summary');
  summary.replaceChildren();
  const metrics=[
-  [s.travels+' proposition(s)','all'],
-  [s.selected+' retenue(s)','all'],
-  [s.inCart+' panier(s)','action'],
+  [s.travels+' trajet(s)','all'],
   [s.paid+' billet(s) acheté(s)','done'],
   [moneyShort(s.paidKnownCents)+' payés','total']
  ];
@@ -752,22 +744,8 @@ function renderMonthly(){
   const amount=node('td','month-price-cell',price);
   if(row.paid&&row.paidCents==null)amount.title='Montant payé non renseigné';
   tr.append(amount);
-  const cell=node('td','month-actions');
-  if(row.pending){
-   const button=node('button','item-action','Dossier');
-   button.type='button';button.addEventListener('click',goToMonthEvent);
-   cell.append(button);
-  }else{
-   const choose=node('button','item-action','Choix');
-   choose.type='button';choose.title='Choisir cet horaire';
-   choose.addEventListener('click',()=>goToMonthChoice(row));
-   const ticket=node('button','item-action','Billet');
-   ticket.type='button';ticket.title='Mettre à jour le panier ou l’achat';
-   ticket.addEventListener('click',()=>goToMonthTicket(row));
-   cell.append(choose,ticket);
-  }
-  tr.append(cell);
-  tr.tabIndex=0;
+  // Click any row to see contextual actions without repeating buttons.
+ tr.tabIndex=0;
   tr.title='Afficher le détail de '+row.person+' · '+row.event;
   tr.setAttribute('aria-label',tr.title);
   tr.addEventListener('click',event=>{
@@ -784,13 +762,23 @@ function renderMonthly(){
  }
  if(!result.rows.length){
   const tr=node('tr'),td=node('td','month-empty','Aucun déplacement ce mois-ci.');
-  td.colSpan=7;tr.append(td);host.append(tr);
+  td.colSpan=6;tr.append(td);host.append(tr);
   mobile.append(node('p','month-mobile-empty','Aucun déplacement pour ce mois.'));
  }
  const personId=$('month-person').value;
  $('person-sheet-actions').hidden=!personId;
  $('person-sheet-title').textContent=personId?displayPerson(personId)+' · '+month:'';
 }
+$('month-jump-toggle').addEventListener('click',()=>{
+ const picker=$('month-picker-row'),open=picker.hidden;
+ picker.hidden=!open;
+ $('month-jump-toggle').setAttribute('aria-expanded',String(open));
+ if(open)$('month-filter').focus();
+});
+$('month-filter').addEventListener('change',()=>{
+ $('month-picker-row').hidden=true;
+ $('month-jump-toggle').setAttribute('aria-expanded','false');
+});
 $('month-person').addEventListener('change',()=>{
  renderMonthly();
  $('month-output').hidden=true;
@@ -1007,7 +995,7 @@ $('copy-invite').addEventListener('click',async()=>{
 });
 async function startDemo(){
  state.demo=true;
- rehearsal=createRehearsalApi(window.localStorage);
+ rehearsal=createRehearsalApi(window.localStorage,{cleanExamples:true});
  $('login-panel').hidden=true;
  $('private-panel').hidden=false;
  try{
