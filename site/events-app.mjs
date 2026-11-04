@@ -13,7 +13,7 @@ import {fetchOfficialJourneys,mergeOfficialJourneys} from './sncf-compare.mjs';
 import {curateJourneys} from './journey-quality.mjs';
 import {readSearchHandoff,wizardPeople,routesFromSearch,writeSearchResults,extendSearchHandoff} from './organizer-bridge.mjs';
 import {createRehearsalApi,KEY as ORGANIZER_STORE_KEY} from './organizer-rehearsal.mjs';
-import {registerNativeLink} from './organizer-replies-bridge.mjs';
+import {registerNativeLink,buildNativeLinkMapping} from './organizer-replies-bridge.mjs';
 import {
   buildTemplate,buildOrganizer,buildIndividual,bytes,saveBytes,fileName,
   importTemplate,readDecisions
@@ -167,7 +167,7 @@ function updateButtons(){
     $(id).disabled=isBusy||!havePlans;
   }
   for(const id of ['export-organizer','export-personal-zip','prepare-native-group','prepare-native-individual']){
-    $(id).hidden=!havePlans||(sharedMode&&id.startsWith('prepare-native'));
+    $(id).hidden=!havePlans;
   }
   $('individual-details').hidden=!havePlans;
   $('copy-invitation').hidden=!havePlans;
@@ -177,7 +177,7 @@ function updateButtons(){
   const next=$('wizard-next'),search=$('search-everyone');
   if(currentView==='wizard'){
     const isThird=activeStep===3;
-    next.hidden=activeStep===4 || (isThird&&!havePlans)||(sharedMode&&isThird);
+    next.hidden=activeStep===4 || (isThird&&!havePlans);
     search.hidden=!isThird || havePlans;
     next.disabled=isBusy;
     $('wizard-back').hidden=activeStep===1;
@@ -914,9 +914,9 @@ function renderPublished(record,mode){
   $('native-status-link').href=dashboard;
   $('open-replies-native').href=dashboard;
   updateRepliesUI();
-  try{sessionStorage.setItem('transbora_last_dashboard',dashboard);}
+  try{if(!sharedMode)sessionStorage.setItem('transbora_last_dashboard',dashboard);}
   catch{ /* Private mode: organizer must save the displayed link. */ }
-  const saved=registerHistory(globalThis.localStorage,{
+  const saved=sharedMode?false:registerHistory(globalThis.localStorage,{
     eventId:record.eventId,ownerKey:record.ownerKey,
     event:readEvent(),peopleCount:participants.length
   });
@@ -927,11 +927,21 @@ function renderPublished(record,mode){
     try{
       const routes=routesFromSearch(activeOrganizerHandoff,participants,plans,{parisDate,parisTime});
       const choicePeople=buildChoicePeople(readEvent(),participants,plans);
-      registerNativeLink(window.localStorage,{
+      const linkParams={
         organizerHandoff:activeOrganizerHandoff,nativeEventId:record.eventId,
         participants,plans,choicePeople,routes
-      });
-      writeSearchResults(window.localStorage,routes);
+      };
+      if(sharedMode){
+        const mapping=buildNativeLinkMapping(linkParams);
+        if(!embeddedMode)throw Error('La liaison partagée exige le tableau organisateur.');
+        window.parent.postMessage({
+          type:'transbora:shared-native-link',
+          eventId:activeOrganizerHandoff.eventId,mapping,ownerKey:record.ownerKey
+        },location.origin);
+      }else{
+        registerNativeLink(window.localStorage,linkParams);
+        writeSearchResults(window.localStorage,routes);
+      }
       returnToOrganizer.href=embeddedMode?'#':'./organisation.html?import_search=1';
       if(embeddedMode)returnToOrganizer.addEventListener('click',e=>{
        e.preventDefault();
@@ -957,9 +967,21 @@ function renderPublished(record,mode){
   }
   $('native-ready').hidden=false;
   shareStatus(record.links.length+' lien(s) créés.'+
-    (saved?' Dossier ajouté à « Mes événements ».':
+    (sharedMode?' Synchronisation avec Jeanne en cours…':
+     saved?' Dossier ajouté à « Mes événements ».':
      ' Attention : la liste locale est indisponible, conservez le lien privé de suivi.')+bridgeError);
 }
+// The parent never sends the organizer ownerKey back to the iframe.
+window.addEventListener('message',event=>{
+ if(!sharedMode||!embeddedMode||event.origin!==location.origin||
+    event.source!==window.parent||
+    event.data?.type!=='transbora:shared-native-link-result'||
+    event.data.eventId!==activeOrganizerHandoff?.eventId)return;
+ if(event.data.ok)shareStatus('✅ Liens envoyables : choix nº 1 et nº 2 reliés automatiquement au tableau de Jeanne.');
+ else msg($('native-status'),'⚠ Liens créés, mais NON reliés au tableau de Jeanne : '+
+  String(event.data.error||'réessayez depuis cet événement').slice(0,280),true);
+});
+
 async function createNativeLinks(mode){
   try{
     if(!hasSearched)throw new Error('Recherchez d’abord les trajets.');
