@@ -1,5 +1,6 @@
 import {getStore} from '@netlify/blobs';
 import {createWorkspaceHandler} from '../../backend/workspace-core.mjs';
+import {createChoiceHandler} from '../../backend/choice-core.mjs';
 
 /** New private organizer domain: deliberately separate from public demo. */
 export default async function organizerWorkspace(request){
@@ -15,9 +16,24 @@ export default async function organizerWorkspace(request){
       {status:403,headers:{'content-type':'application/json','cache-control':'no-store'}});
   const secret=globalThis.Netlify?.env?.get('TRANSBORA_WORKSPACE_SETUP_KEY')||
     process.env.TRANSBORA_WORKSPACE_SETUP_KEY||'';
+  // Access the native owner-only status entirely server-side.
+  // The owner capability is never returned to an organizer browser.
+  const native=createChoiceHandler({
+    getStore:name=>getStore({name,consistency:'strong'}),
+    masterKey:()=>'',openDemo:()=>false
+  });
+  const nativeStatus=async(eventId,ownerKey)=>{
+    const request=new Request('https://transbora-ludo.netlify.app/api/transbora',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({action:'status',eventId,ownerKey})
+    });
+    const response=await native(request);
+    if(!response.ok)throw Error('Réponses des voyageurs indisponibles.');
+    return response.json();
+  };
   const handle=createWorkspaceHandler({
     getStore:name=>getStore({name,region:'eu-central-1',consistency:'strong'}),
-    masterKey:()=>secret
+    masterKey:()=>secret,nativeStatus
   });
   return handle(request);
 }
