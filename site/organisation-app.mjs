@@ -392,6 +392,264 @@ function card(title,lines=[]){
  for(const line of lines)item.append(node('p',null,line));
  return item;
 }
+
+/* 053 — Editors appear only when an item is selected or created.
+   The lists themselves are the default landing views. */
+function closePersonEditor(){
+ $('person-editor').hidden=true;$('person-editor-backdrop').hidden=true;
+}
+function closeEventEditor(){
+ $('event-editor').hidden=true;$('event-editor-backdrop').hidden=true;
+}
+function openPersonEditor(person=null){
+ const form=$('person-form');form.reset();
+ delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
+ setCardsFromSaved(person?.reductionCards||'');
+ for(const field of ['name','departure','email','phone','preferences'])
+  form.elements[field].value=person?.[field]||'';
+ if(person){
+  form.dataset.recordId=person.id;
+  form.dataset.expectedUpdatedAt=person.updatedAt??'';
+ }
+ $('person-editor-title').textContent=person?'Fiche de '+person.name:'Ajouter une personne';
+ form.querySelector('button[type="submit"],button:not([type])').textContent=
+  person?'Enregistrer les modifications':'Enregistrer la personne';
+ $('person-editor').hidden=false;$('person-editor-backdrop').hidden=false;
+ form.elements.name.focus();
+}
+function openEventEditor(event=null){
+ const form=$('event-form');form.reset();
+ delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
+ for(const field of ['title','startDate','destination','theater'])
+  form.elements[field].value=event?.[field]||'';
+ form.elements.budgetEuros.value=event?.budgetCents==null?'':String(event.budgetCents/100);
+ if(event){
+  form.dataset.recordId=event.id;
+  form.dataset.expectedUpdatedAt=event.updatedAt??'';
+  $('participation-form').elements.eventId.value=event.id;
+ }
+ $('event-participation-region').hidden=!event;
+ $('event-editor-title').textContent=event?event.title:'Ajouter un événement';
+ form.querySelector('button[type="submit"],button:not([type])').textContent=
+  event?'Enregistrer les modifications':'Enregistrer l’événement';
+ $('event-editor').hidden=false;$('event-editor-backdrop').hidden=false;
+ if(!event)form.elements.title.focus();
+}
+$('add-person-btn').addEventListener('click',()=>openPersonEditor());
+$('person-editor-close').addEventListener('click',closePersonEditor);
+$('person-editor-backdrop').addEventListener('click',closePersonEditor);
+$('add-event-btn').addEventListener('click',()=>openEventEditor());
+$('event-editor-close').addEventListener('click',closeEventEditor);
+$('event-editor-backdrop').addEventListener('click',closeEventEditor);
+document.addEventListener('keydown',e=>{
+ if(e.key!=='Escape')return;
+ closePersonEditor();closeEventEditor();
+});
+function directoryEntry(title,subtitle,handler){
+ const entry=node('button','directory-entry');entry.type='button';
+ const info=node('span');
+ info.append(node('strong',null,title));
+ info.append(node('small',null,subtitle));
+ entry.append(info,node('span','entry-arrow','›'));
+ entry.addEventListener('click',handler);
+ return entry;
+}
+function listEmpty(host,message,buttonText,handler){
+ const box=node('div','list-empty');
+ box.append(node('p',null,message));
+ if(buttonText){
+  const btn=node('button','secondary',buttonText);
+  btn.type='button';btn.addEventListener('click',handler);box.append(btn);
+ }
+ host.append(box);
+}
+/* Only the selected record's fields can open: no three stacked forms. */
+function showTravelPanel(mode='detail',optionId){
+ if(optionId!==undefined)state.travelOptionId=optionId;
+ if(mode==='add')state.travelOptionId=null;
+ const o=byId('option',state.travelOptionId);
+ const panel=$('travel-work-panel'),layout=panel.closest('.travels-layout');
+ panel.hidden=false;layout.classList.add('is-open');
+ const form=$('option-form'),choice=$('choice-form').elements,ticket=$('booking-form').elements;
+ $('travel-panel-title').textContent=
+  mode==='add'?'Ajouter un trajet':o?displayParticipation(o.participationId):'Suivi du trajet';
+ const summary=$('travel-selected-summary');summary.replaceChildren();
+ if(o){
+  const legs=o.legs||[],last=legs.at(-1),first=legs[0];
+  summary.append(node('p',null,displayParticipation(o.participationId)));
+  summary.append(node('p',null,fmtDate(o.travelDate)+' · '+(o.direction==='A'?'Aller':'Retour')));
+  for(const l of legs)summary.append(node('p',null,
+   (l.departure||'')+' '+(l.from||'')+' → '+(l.arrival||'')+' '+(l.to||'')));
+  const booking=items('booking').find(b=>b.optionId===o.id);
+  summary.append(node('p',null,booking?.filedAt?'Billet classé':booking?.paidAt?'Billet payé':
+   booking?.inCartAt?'Dans le panier':'Pas encore acheté'));
+  summary.append(node('p',null,'Prix payé : '+(booking?.paidAt?fmtEuro(booking.paidCents):'—')));
+  if(legs.length>1)summary.append(node('p','tiny',
+   'Trajet avec correspondances : conserver les différentes étapes enregistrées.'));
+ }else summary.append(node('p','muted',mode==='add'?
+  'Renseignez uniquement les informations du nouveau trajet.':
+  'Choisissez un trajet dans la liste, ou ajoutez-en un.'));
+ const actionbar=panel.querySelector('.travel-panel-actions');
+ actionbar.hidden=mode==='add'||!o;
+ $('travel-edit').hidden=!o||o.legs?.length!==1;
+ $('travel-choose').hidden=!o;
+ $('travel-book').hidden=!o;
+ for(const [key,wrap] of [['edit','travel-form-wrap'],['add','travel-form-wrap'],
+  ['choice','travel-choice-wrap'],['booking','travel-book-wrap']])
+  if(mode===key)$(wrap).hidden=false;
+ for(const id of ['travel-form-wrap','travel-choice-wrap','travel-book-wrap']){
+  if(!((id==='travel-form-wrap'&&(mode==='edit'||mode==='add'))||
+   (id==='travel-choice-wrap'&&mode==='choice')||
+   (id==='travel-book-wrap'&&mode==='booking')))$(id).hidden=true;
+ }
+ for(const [id,m] of [['travel-edit','edit'],['travel-choose','choice'],['travel-book','booking']])
+  $(id).setAttribute('aria-pressed',String(mode===m));
+ if(mode==='add'||mode==='edit'){
+  form.reset();delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
+  form.querySelector('button[type="submit"],button:not([type])').textContent=
+   mode==='edit'?'Enregistrer les modifications':'Ajouter cette option de voyage';
+  if(mode==='edit'&&o&&o.legs?.length===1){
+   const l=o.legs[0];form.dataset.recordId=o.id;
+   form.dataset.expectedUpdatedAt=o.updatedAt??'';
+   form.elements.participationId.value=o.participationId;
+   form.elements.direction.value=o.direction;
+   form.elements.travelDate.value=o.travelDate;
+   form.elements.from.value=l.from||'';
+   form.elements.to.value=l.to||'';
+   form.elements.departure.value=l.departure||'';
+   form.elements.arrival.value=l.arrival||'';
+   form.elements.estimatedEuros.value=o.estimatedCents==null?'':String(o.estimatedCents/100);
+  }
+ }
+ if(mode==='choice'&&o){
+  choice.participationId.value=o.participationId;choice.direction.value=o.direction;
+  refreshChoiceSelects();
+  const existing=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction);
+  choice.firstOptionId.value=existing?.firstOptionId&&
+   items('option').some(x=>x.id===existing.firstOptionId)?existing.firstOptionId:o.id;
+  choice.backupOptionId.value=existing?.backupOptionId||'';
+ }
+ if(mode==='booking'){
+  if(o)ticket.optionId.value=o.id;
+  const existing=items('booking').find(b=>b.optionId===ticket.optionId.value);
+  ticket.stage.value=existing?.filedAt?'FILED':existing?.paidAt?'PAID':
+   existing?.inCartAt?'IN_CART':'PROPOSED';
+  ticket.paidEuros.value=existing?.paidCents==null?'':String(existing.paidCents/100);
+  ticket.receiptReference.value=existing?.receiptReference||'';
+ }
+}
+function closeTravelPanel(){
+ $('travel-work-panel').hidden=true;
+ $('travel-work-panel').closest('.travels-layout').classList.remove('is-open');
+ state.travelOptionId=null;
+}
+$('travel-panel-close').addEventListener('click',closeTravelPanel);
+$('add-travel-btn').addEventListener('click',()=>showTravelPanel('add'));
+$('travel-edit').addEventListener('click',()=>showTravelPanel('edit'));
+$('travel-choose').addEventListener('click',()=>showTravelPanel('choice'));
+$('travel-book').addEventListener('click',()=>showTravelPanel('booking'));
+function renderJourneys(){
+ const host=$('journeys-output');host.replaceChildren();
+ const event=$('travel-event-filter').value,person=$('travel-person-filter').value;
+ const all=items('option').sort((a,b)=>a.travelDate.localeCompare(b.travelDate));
+ const rows=all.filter(o=>{
+  const participation=byId('participation',o.participationId);
+  return participation&&(!event||participation.eventId===event)&&
+    (!person||participation.personId===person);
+ });
+ $('travel-count').textContent=rows.length+' trajet(s) enregistré(s)';
+ for(const o of rows){
+  const booking=items('booking').find(b=>b.optionId===o.id);
+  const first=o.legs?.[0],last=o.legs?.at(-1);
+  const status=booking?.filedAt?'Classé':booking?.paidAt?'Acheté':
+   booking?.inCartAt?'Panier':'Proposé';
+  const choice=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction);
+  const rank=choice?.firstOptionId===o.id?' · Choix nº 1':
+   choice?.backupOptionId===o.id?' · Choix nº 2':'';
+  const subtitle=fmtDate(o.travelDate)+' · '+(o.direction==='A'?'Aller':'Retour')+
+   ' · '+(first?.from||'')+' → '+(last?.to||'')+' · '+status+rank;
+  const entry=directoryEntry(displayParticipation(o.participationId),
+   subtitle,()=>showTravelPanel('detail',o.id));
+  if(state.travelOptionId===o.id)entry.setAttribute('aria-current','true');
+  host.append(entry);
+ }
+ if(!rows.length)listEmpty(host,
+  all.length?'Aucun trajet ne correspond aux filtres.':
+   'Aucun trajet enregistré. Créez d’abord un événement avec ses participants.',
+  all.length?'Effacer les filtres':'＋ Ajouter un trajet',()=>{
+   if(all.length){
+    $('travel-event-filter').value='';$('travel-person-filter').value='';
+    renderJourneys();
+   }else showTravelPanel('add');
+  });
+}
+for(const id of ['travel-event-filter','travel-person-filter'])
+ $(id).addEventListener('change',renderJourneys);
+
+/* Permanent global search: only registered in-app data, never remote guesses. */
+const normalizeSearch=v=>String(v??'').normalize('NFD')
+ .replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR').trim();
+function closeGlobalSearch(){
+ $('site-search-results').hidden=true;
+ $('site-search-input').setAttribute('aria-expanded','false');
+}
+function runGlobalSearch(value){
+ const q=normalizeSearch(value),host=$('site-search-results');
+ host.replaceChildren();
+ if(!q){closeGlobalSearch();return;}
+ const found=[],add=(kind,id,title,subtitle,text)=>{
+  if(normalizeSearch([title,subtitle,text].join(' ')).includes(q))
+   found.push({kind,id,title,subtitle});
+ };
+ for(const p of items('person'))add('person',p.id,'👤 '+p.name,
+  p.departure||'Gare non renseignée',[p.email,p.phone,p.reductionCards,p.preferences].join(' '));
+ for(const e of items('event'))add('event',e.id,'📅 '+e.title,
+  fmtDate(e.startDate)+' · '+(e.destination||''),e.theater);
+ for(const o of items('option')){
+  const p=byId('participation',o.participationId);
+  if(!p)continue;
+  const booking=items('booking').find(b=>b.optionId===o.id);
+  const status=booking?.paidAt?'acheté payé':
+   booking?.inCartAt?'panier':'billet non acheté proposé';
+  const first=o.legs?.[0],last=o.legs?.at(-1);
+  add('travel',o.id,'🚆 '+displayPerson(p.personId),
+   fmtDate(o.travelDate)+' · '+(first?.from||'')+' → '+(last?.to||''),
+   displayEvent(p.eventId)+' '+status+' '+(o.direction==='A'?'aller':'retour'));
+ }
+ for(const n of items('note'))add('note',n.id,'📝 '+(n.targetType==='person'?
+  displayPerson(n.targetId):displayEvent(n.targetId)),n.content,'notes');
+ if(q.includes('billet')&&(q.includes('non achet')||q.includes('a acheter'))){
+  // The existing status words are indexed above; no synthetic purchases.
+ }
+ if(!found.length)host.append(node('p','site-search-empty','Aucun résultat dans TRANSBORA.'));
+ for(const row of found.slice(0,24)){
+  const button=node('button','site-search-result');
+  button.type='button';button.setAttribute('role','option');
+  button.append(node('span',null,row.title),node('small',null,row.subtitle));
+  button.addEventListener('click',()=>{
+   $('site-search-input').value='';
+   closeGlobalSearch();
+   if(row.kind==='person'){showTab('people');openPersonEditor(byId('person',row.id));}
+   else if(row.kind==='event'){showTab('events');openEventEditor(byId('event',row.id));}
+   else if(row.kind==='travel'){showTab('travels');showTravelPanel('detail',row.id);}
+   else showTab('notes');
+  });
+  host.append(button);
+ }
+ host.hidden=false;$('site-search-input').setAttribute('aria-expanded','true');
+}
+$('site-search-input').addEventListener('input',e=>runGlobalSearch(e.currentTarget.value));
+$('site-search-input').addEventListener('keydown',e=>{
+ if(e.key==='Escape')closeGlobalSearch();
+ if(e.key==='Enter'&&!$('site-search-results').hidden){
+  const first=$('site-search-results').querySelector('button');
+  if(first){e.preventDefault();first.click();}
+ }
+});
+document.addEventListener('click',e=>{
+ if(!e.target.closest('#site-search'))closeGlobalSearch();
+});
+
 function renderEverything(){
  const people=$('people-output');people.replaceChildren();
  for(const p of items('person')){
