@@ -327,8 +327,10 @@ $('budget-month-filter').addEventListener('change',()=>{
  renderMonthly();
  renderBudget().catch(e=>feedback(e.message,true));
 });
-// Messages are only accepted from the loaded same-origin timetable iframe.
-// Never consume owner capabilities, personal contacts, or arbitrary cross-origin data.
+// Only the currently opened, same-origin timetable iframe can register a
+// native owner capability. Forward it directly to the authenticated workspace
+// service; never log it, render it, or store it in demonstration records.
+// Ignore all other senders and origins.
 window.addEventListener('message',async event=>{
  if(event.origin!==location.origin||
    event.source!==$('search-frame').contentWindow)return;
