@@ -24,7 +24,7 @@ export function nativeLinkFor(storage,organizerEventId){
  * Native option IDs are selected from actual link-service proposals; every
  * one maps to one sourceKey of the real search plan.
  */
-export function registerNativeLink(storage,{
+export function buildNativeLinkMapping({
   organizerHandoff,nativeEventId,participants,plans,choicePeople,routes
 },now=Date.now()){
   if(!organizerHandoff?.eventId||!nativeEventId||
@@ -59,6 +59,10 @@ export function registerNativeLink(storage,{
     organizerEventId:organizerHandoff.eventId,nativeEventId:str(nativeEventId,100),
     title:organizerHandoff.title,destination:organizerHandoff.destination,
     startDate:organizerHandoff.startDate,travelers};
+  return mapping;
+}
+export function registerNativeLink(storage,params,now=Date.now()){
+  const mapping=buildNativeLinkMapping(params,now);
   const rest=parse(storage).filter(v=>v.organizerEventId!==mapping.organizerEventId);
   storage.setItem(NATIVE_LINKS_KEY,JSON.stringify([mapping,...rest].slice(0,MAX_LINKS)));
   return mapping;
@@ -104,7 +108,9 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
         if(links.length!==1)return null;
         if(!native.options?.[dir]?.some(row=>row.id===id))return null;
         const match=options.filter(o=>o.participationId===pid&&o.direction===dir&&
-           o.sourceKey===links[0].sourceKey);
+           (links[0].sourceKeyHash?
+             o.sourceKeyHash===links[0].sourceKeyHash:
+             o.sourceKey===links[0].sourceKey));
         return match.length===1?match[0].id:null;
       };
       const first=translate(answer);
