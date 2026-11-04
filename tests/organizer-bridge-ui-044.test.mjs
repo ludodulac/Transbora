@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 import {writeSearchResults} from '../site/organizer-bridge.mjs';
+import {createRehearsalApi} from '../site/organizer-rehearsal.mjs';
 
 test('044: organizer demo receives real search proposals, without contacting private API',async()=>{
  const html=readFileSync(new URL('../site/organisation.html',import.meta.url),'utf8');
@@ -13,9 +14,17 @@ test('044: organizer demo receives real search proposals, without contacting pri
  globalThis.location=w.location;globalThis.history=w.history;
  globalThis.FormData=w.FormData;
  globalThis.fetch=async()=>{throw Error('The rehearsal must not call the private backend.');};
+ const api=createRehearsalApi(w.localStorage,{cleanExamples:true});
+ const person=(await api('save',{type:'person',record:{name:'Sophie',departure:'Paris'}})).item;
+ const show=(await api('save',{type:'event',record:{
+  title:'Concert Mulhouse',startDate:'2026-10-31',destination:'Mulhouse',budgetCents:10000
+ }})).item;
+ const part=(await api('save',{type:'participation',record:{
+  eventId:show.id,personId:person.id
+ }})).item;
  writeSearchResults(w.localStorage,{
-  eventId:'festival-demo',rows:[{
-    personId:'sophie-demo',direction:'A',travelDate:'2026-10-31',
+  eventId:show.id,rows:[{
+    personId:person.id,direction:'A',travelDate:'2026-10-31',
     sourceKey:'test-sncf-2026-10-31-09:22',estimatedCents:null,
     legs:[{from:'Paris Gare de Lyon',to:'Mulhouse',
       departureDate:'2026-10-31',arrivalDate:'2026-10-31',
@@ -28,11 +37,15 @@ test('044: organizer demo receives real search proposals, without contacting pri
  assert.equal($('private-panel').hidden,false);
  assert.equal($('login-panel').hidden,true);
  assert.equal($('panel-travels').hidden,false);
- assert.match($('journeys-output').textContent,/SNCF/);
- assert.match($('journeys-output').textContent,/Montant inconnu/);
+ assert.match($('journeys-output').textContent,/Sophie/);
+ assert.match($('journeys-output').textContent,/Mulhouse/);
+ const actual=(await api('list',{type:'option'})).items.find(x=>x.sourceKey==='test-sncf-2026-10-31-09:22');
+ assert.ok(actual);
+ assert.equal(actual.estimatedCents,null);
+ assert.equal(actual.legs[0].operator,'SNCF');
  assert.match($('global-feedback').textContent,/1 trajet\(s\) ajouté\(s\)/);
  assert.equal(w.localStorage.getItem('transbora_demo_search_results_044'),null);
  assert.equal(w.location.search,'');
- assert.ok(w.document.querySelector('button.item-action'));
+ assert.ok(w.document.querySelector('.directory-entry'));
  w.close();
 });
