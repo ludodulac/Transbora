@@ -489,6 +489,12 @@ function showTravelPanel(mode='detail',optionId){
   for(const l of legs)summary.append(node('p',null,
    (l.departure||'')+' '+(l.from||'')+' → '+(l.arrival||'')+' '+(l.to||'')));
   const booking=items('booking').find(b=>b.optionId===o.id);
+  const choiceRecord=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction);
+  const rank=choiceRecord?.firstOptionId===o.id?1:
+   choiceRecord?.backupOptionId===o.id?2:null;
+  if(rank)summary.append(node('p',null,'Choix nº '+rank));
+  summary.append(node('p',null,'Prix prévu : '+
+   (o.estimatedCents==null?'Non renseigné':fmtEuro(o.estimatedCents))));
   summary.append(node('p',null,booking?.filedAt?'Billet classé':booking?.paidAt?'Billet payé':
    booking?.inCartAt?'Dans le panier':'Pas encore acheté'));
   summary.append(node('p',null,'Prix payé : '+(booking?.paidAt?fmtEuro(booking.paidCents):'—')));
