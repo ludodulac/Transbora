@@ -447,8 +447,9 @@ async function refreshNativeChoices(){
   }
  }finally{state.syncingChoices=false;}
 }
-setInterval(()=>{if(state.user&&document.visibilityState!=='hidden')
+const choiceRefreshTimer=setInterval(()=>{if(state.user&&document.visibilityState!=='hidden')
  refreshNativeChoices().catch(()=>{});},30000);
+choiceRefreshTimer.unref?.();
 document.addEventListener('visibilitychange',()=>{
  if(document.visibilityState==='visible'&&state.user)
   refreshNativeChoices().catch(()=>{});
@@ -810,10 +811,11 @@ function renderEverything(){
    if(!row){lines.push(title+' : en attente de réponse');continue;}
    const first=items('option').find(x=>x.id===row.firstOptionId);
    const backup=items('option').find(x=>x.id===row.backupOptionId);
-   lines.push(title+' : '+(row.firstOptionId==='NONE'?'aucun horaire souhaité':
+   lines.push(title+' · choix nº 1 : '+(row.firstOptionId==='NONE'?'aucun horaire souhaité':
     first?(fmtDate(first.travelDate)+' '+(first.legs[0]?.departure||'')+' → '+
         (first.legs.at(-1)?.to||'')):'choix sans horaire reconnu'));
-   if(backup)lines.push('Solution de secours : '+fmtDate(backup.travelDate)+' '+backup.legs[0]?.departure);
+   if(backup)lines.push(title+' · choix nº 2 : '+fmtDate(backup.travelDate)+' '+backup.legs[0]?.departure+
+    ' → '+(backup.legs.at(-1)?.to||''));
   }
   const row=card(displayPerson(participation.personId),lines);
   if(state.demo&&nativeLinkFor(window.localStorage,event.id)){
