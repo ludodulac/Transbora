@@ -25,18 +25,50 @@ const init=()=>{
  for(const k of KINDS)for(const row of data[k])row.organizationId=ORG;
  return data;
 };
-export function createRehearsalApi(store){
+const empty=()=>({version:1,person:[],event:[],participation:[],
+ option:[],choice:[],booking:[],note:[]});
+/* Only remove the known built-in fictional fixtures. Never delete unrelated
+   user-created persons, events or records from an existing local browser. */
+export function stripFictionalExamples(data){
+ const ids={
+  person:new Set(['sophie-demo','michel-demo']),
+  event:new Set(['festival-demo']),
+  participation:new Set(['ps-demo','pm-demo']),
+  option:new Set(['opt1-demo','opt2-demo','opt3-demo']),
+  choice:new Set(['choice-demo']),note:new Set(['note-demo'])
+ };
+ const clone={...data};
+ const remove=(kind,predicate)=>{clone[kind]=clone[kind].filter(x=>!predicate(x));};
+ remove('person',x=>ids.person.has(x.id));
+ remove('event',x=>ids.event.has(x.id));
+ remove('participation',x=>ids.participation.has(x.id)||
+  ids.person.has(x.personId)||ids.event.has(x.eventId));
+ const removedParts=new Set(data.participation.filter(p=>!clone.participation.some(x=>x.id===p.id)).map(p=>p.id));
+ remove('option',x=>ids.option.has(x.id)||removedParts.has(x.participationId));
+ const removedOptions=new Set(data.option.filter(o=>!clone.option.some(x=>x.id===o.id)).map(o=>o.id));
+ remove('choice',x=>ids.choice.has(x.id)||removedParts.has(x.participationId));
+ remove('booking',x=>removedOptions.has(x.optionId));
+ remove('note',x=>ids.note.has(x.id)||
+  (x.targetType==='person'&&ids.person.has(x.targetId))||
+  (x.targetType==='event'&&ids.event.has(x.targetId)));
+ return clone;
+}
+export function createRehearsalApi(store,{cleanExamples=false}={}){
  const write=data=>{try{store.setItem(KEY,JSON.stringify(data))}catch{die('Impossible de sauvegarder sur cet appareil.')}};
  const read=()=>{
   const raw=store.getItem(KEY);
-  if(!raw){const data=init();write(data);return data;}
+  if(!raw){const data=cleanExamples?empty():init();write(data);return data;}
   let data;try{data=JSON.parse(raw)}catch{die('Démonstration illisible.')}
   if(data.version!==1||KINDS.some(k=>!Array.isArray(data[k])))die('Version de démonstration incompatible.');
+  if(cleanExamples){
+   const clean=stripFictionalExamples(data);
+   if(KINDS.some(k=>clean[k].length!==data[k].length)){write(clean);return clean;}
+  }
   return data;
  };
  return async function api(action,args={}){
   if(action==='me')return {organizationName:'Atelier de démonstration',role:'manager',email:'',organizationId:ORG};
-  if(action==='reset_demo'){write(init());return {reset:true};}
+  if(action==='reset_demo'){write(cleanExamples?empty():init());return {reset:true};}
   const data=read(),{type,record}=args;
   const get=(kind,key)=>data[kind].find(x=>x.id===key)||die('Élément introuvable.');
   if(action==='list')return {items:structuredClone(data[type]||[])};
