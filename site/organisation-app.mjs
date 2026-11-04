@@ -11,7 +11,7 @@ import {monthlyTravelPdf,travelPdfName} from './organizer-monthly-pdf.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false,
  activeSearchEventId:null,sharedHandoff:null,searchImportPromise:Promise.resolve(),
- searchImportError:'',syncingChoices:false};
+ searchImportError:'',syncingChoices:false,lastRemoteChoiceRevision:null};
 let rehearsal=null;
 const kinds=['person','event','participation','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
@@ -287,6 +287,8 @@ function openIntegratedSearch(eventId){
  state.sharedHandoff=state.demo?null:buildSearchHandoff(roster);
  if(state.demo)createSearchHandoff(window.localStorage,roster);
  state.activeSearchEventId=eventId;
+ state.searchImportPromise=Promise.resolve();
+ state.searchImportError='';
  $('search-event-select').value=eventId;
  $('search-context').textContent=event.title+' · '+
    items('participation').filter(p=>p.eventId===eventId).length+' voyageur(s)';
@@ -442,7 +444,10 @@ async function refreshNativeChoices(){
    hint.textContent=r.linked?
     '✅ Réponses reliées : les choix nº 1 et nº 2 se mettent à jour automatiquement.':
     'Aucun lien de choix associé pour le moment. Ouvrez un événement, recherchez ses trains, puis créez les liens des artistes.';
-   if(r.synced)await reload();
+   if(r.choicesRevision!==state.lastRemoteChoiceRevision||r.synced){
+    state.lastRemoteChoiceRevision=r.choicesRevision;
+    await reload();
+   }
    if(r.conflicts?.length)hint.textContent+=' ⚠ '+r.conflicts.slice(0,2).join(' / ');
   }
  }finally{state.syncingChoices=false;}
