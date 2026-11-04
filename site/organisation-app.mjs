@@ -431,6 +431,8 @@ function openEventEditor(event=null){
   $('participation-form').elements.eventId.value=event.id;
  }
  $('event-participation-region').hidden=!event;
+ $('event-editor-search').hidden=!event;
+ $('event-editor-search').dataset.eventId=event?.id||'';
  const roster=$('event-participants-list');roster.replaceChildren();
  if(event){
   const people=items('participation').filter(p=>p.eventId===event.id);
@@ -448,6 +450,10 @@ $('person-editor-close').addEventListener('click',closePersonEditor);
 $('person-editor-backdrop').addEventListener('click',closePersonEditor);
 $('add-event-btn').addEventListener('click',()=>openEventEditor());
 $('event-editor-close').addEventListener('click',closeEventEditor);
+$('event-editor-search').addEventListener('click',()=>{
+ try{openIntegratedSearch($('event-editor-search').dataset.eventId);}
+ catch(error){feedback(error.message,true);}
+});
 $('event-editor-backdrop').addEventListener('click',closeEventEditor);
 document.addEventListener('keydown',e=>{
  if(e.key!=='Escape')return;
