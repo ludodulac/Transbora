@@ -14,6 +14,8 @@ test('046: one desktop sidebar and mobile hamburger navigate same existing works
  globalThis.window=w;globalThis.document=w.document;globalThis.location=w.location;
  globalThis.history=w.history;globalThis.FormData=w.FormData;
  globalThis.fetch=async()=>{throw Error('Demo must remain local.');};
+ const api=createRehearsalApi(w.localStorage,{cleanExamples:true});
+ await api('save',{type:'person',record:{name:'Sophie Martin',departure:'Paris'}});
  await import('../site/organisation-app.mjs');
  await new Promise(r=>setTimeout(r,90));
  const $=id=>w.document.getElementById(id);
