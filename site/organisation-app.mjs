@@ -652,95 +652,51 @@ document.addEventListener('click',e=>{
 
 function renderEverything(){
  const people=$('people-output');people.replaceChildren();
- for(const p of items('person')){
-  const c=card(p.name,[p.departure||'Gare non renseignée',
-    p.reductionCards?'Cartes : '+p.reductionCards:'']);
-  if(p.preferences)c.append(node('p','tiny',p.preferences));
-  const edit=node('button','item-action','Modifier la fiche');
-  edit.type='button';edit.addEventListener('click',()=>{
-    const form=$('person-form');form.dataset.recordId=p.id;
-    for(const field of ['name','departure','email','phone','preferences'])
-      form.elements[field].value=p[field]||'';
-    setCardsFromSaved(p.reductionCards);
-    form.dataset.expectedUpdatedAt=p.updatedAt??'';
-    form.querySelector('button').textContent='Enregistrer les modifications';
-    form.scrollIntoView?.({behavior:'smooth',block:'start'});
-  });
-  c.append(edit);people.append(c);
+ for(const p of [...items('person')].sort((a,b)=>a.name.localeCompare(b.name,'fr'))){
+  const subtitle=[p.departure||'Gare à préciser',
+   p.reductionCards?'Cartes renseignées':''].filter(Boolean).join(' · ');
+  people.append(directoryEntry(p.name,subtitle,()=>openPersonEditor(p)));
  }
- if(!items('person').length)people.append(node('p','muted','Aucune personne. Commencez par une fiche.'));
+ if(!items('person').length)listEmpty(people,
+  'Aucune personne enregistrée.','＋ Ajouter une personne',()=>openPersonEditor());
  $('person-filter').dispatchEvent(new window.Event('input'));
  renderMonthly();
  const events=$('events-output');events.replaceChildren();
- for(const event of items('event').sort((a,b)=>a.startDate.localeCompare(b.startDate))){
+ for(const event of [...items('event')].sort((a,b)=>a.startDate.localeCompare(b.startDate))){
   const n=items('participation').filter(p=>p.eventId===event.id).length;
-  const c=card(event.title,[fmtDate(event.startDate)+' · '+(event.destination||'Ville à préciser'),
-   (event.theater||'')+' · '+n+' personne(s)',
-   'Enveloppe transport : '+fmtEuro(event.budgetCents)]);
-  const edit=node('button','item-action','Modifier l’événement');
-  edit.type='button';edit.addEventListener('click',()=>{
-    const form=$('event-form');form.dataset.recordId=event.id;
-    for(const field of ['title','startDate','destination','theater'])
-      form.elements[field].value=event[field]||'';
-    form.elements.budgetEuros.value=event.budgetCents===null?'':String(event.budgetCents/100);
-    form.dataset.expectedUpdatedAt=event.updatedAt??'';
-    form.querySelector('button').textContent='Enregistrer les modifications';
-    form.scrollIntoView?.({behavior:'smooth',block:'start'});
-  });
-  c.append(edit);
-  const search=node('button','item-action','🔎 Rechercher les trajets');
+  const row=node('div','directory-event-row');
+  row.append(directoryEntry(event.title,
+   fmtDate(event.startDate)+' · '+(event.destination||'Ville à préciser')+
+   ' · '+n+' personne(s)',()=>openEventEditor(event)));
+  const search=node('button','secondary','🔎 Trouver les trajets');
   search.type='button';
   search.addEventListener('click',()=>{
    try{openIntegratedSearch(event.id);}
    catch(error){feedback(error.message,true);}
   });
-  c.append(search);
+  row.append(search);
   if(state.demo){
    const mapping=nativeLinkFor(window.localStorage,event.id);
    if(mapping){
-    const sync=node('button','item-action','🔄 Récupérer les réponses');
+    const sync=node('button','outline','↻ Réponses');
     sync.type='button';
     sync.addEventListener('click',async()=>{
-      sync.disabled=true;
-      try{
-       const result=await syncOneNativeEvent(event.id);
-       showTab('events');
-       feedback(nativeSyncSummary(result),Boolean(result.conflicts.length));
-      }catch(error){feedback('Synchronisation impossible : '+error.message,true);}
-      finally{sync.disabled=false;}
+     sync.disabled=true;
+     try{
+      const result=await syncOneNativeEvent(event.id);
+      showTab('events');
+      feedback(nativeSyncSummary(result),Boolean(result.conflicts.length));
+     }catch(error){feedback('Synchronisation impossible : '+error.message,true);}
+     finally{sync.disabled=false;}
     });
-    c.append(sync);
+    row.append(sync);
    }
   }
-  events.append(c);
+  events.append(row);
  }
- if(!items('event').length)events.append(node('p','muted','Aucun événement.'));
- const journeys=$('journeys-output');journeys.replaceChildren();
- for(const option of items('option').sort((a,b)=>a.travelDate.localeCompare(b.travelDate))){
-  const booking=items('booking').find(b=>b.optionId===option.id);
-  const choice=items('choice').find(c=>c.participationId===option.participationId&&
-    c.direction===option.direction);
-  const rank=choice?.firstOptionId===option.id?' · CHOIX Nº1':
-    choice?.backupOptionId===option.id?' · CHOIX Nº2':'';
-  const c=card(displayParticipation(option.participationId)+rank,[
-   (option.direction==='A'?'ALLER':'RETOUR')+' · '+fmtDate(option.travelDate),
-   'Prix estimé : '+fmtEuro(option.estimatedCents),
-   choice?.firstOptionId==='NONE'?'Aucun trajet souhaité pour ce sens':
-   choice?.origin==='native'?'Choix de l’artiste synchronisé':'']);
-  for(const leg of option.legs||[]){
-   c.append(node('p','segment',
-    (leg.departureDate&&leg.departureDate!==option.travelDate?fmtDate(leg.departureDate)+' ':'')+
-    leg.departure+' '+leg.from+' → '+
-    (leg.arrivalDate&&leg.arrivalDate!==leg.departureDate?fmtDate(leg.arrivalDate)+' ':'')+
-    leg.arrival+' '+leg.to+
-     (leg.operator?' · '+leg.operator:'')));
-  }
-  const label=booking?.filedAt?'✅ Billet classé':
-    booking?.paidAt?'💳 Payé':booking?.inCartAt?'🛒 Dans le panier':'Proposé';
-  c.append(node('span','badge'+(booking?.paidAt?' paid':booking?.inCartAt?' wait':''),label));
-  journeys.append(c);
- }
- if(!items('option').length)journeys.append(node('p','muted','Ajoutez un trajet après avoir inscrit un participant.'));
+ if(!items('event').length)listEmpty(events,
+  'Aucun événement enregistré.','＋ Ajouter un événement',()=>openEventEditor());
+ renderJourneys();
  const answers=$('answers-output');answers.replaceChildren();
  for(const participation of items('participation')){
   const event=byId('event',participation.eventId);
