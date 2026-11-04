@@ -319,3 +319,16 @@
 @media(min-width:771px) and (max-height:650px){
  .travels-layout{height:calc(100dvh - 152px);min-height:300px}
 }
+
+.directory-event-row{display:flex;align-items:center;gap:9px}
+.directory-event-row>.directory-entry{flex:1;min-width:0}
+.directory-event-row>.secondary,.directory-event-row>.outline{flex:0 0 auto;min-height:42px;padding:9px 12px;font-size:.8rem}
+.linked-people-list{display:grid;gap:5px;margin:8px 0 15px;font-size:.83rem}
+.linked-people-list span{padding:7px 11px;border:1px solid #dce9ea;border-radius:8px;background:#f6fbfb}
+.travels-layout:not(.is-open) .travels-list-area{max-width:980px}
+.travels-layout .travel-work-panel[hidden]{display:none!important}
+@media(max-width:770px){
+ .directory-event-row{align-items:stretch;flex-wrap:wrap}
+ .directory-event-row>.directory-entry{flex:1 1 100%}
+ .directory-event-row>.secondary,.directory-event-row>.outline{flex:1}
+}
