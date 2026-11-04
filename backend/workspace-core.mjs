@@ -284,7 +284,12 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
            pending:0,unchanged:0,conflicts:['Réponses indisponibles : réessayer.']});
         }
       }
-      return json({linked:filtered.length,
+      // A traveler submission may have been pushed by the server before
+      // this request. Return a revision so the open browser knows to repaint.
+      const choicesRevision=hash(JSON.stringify((await all(store,'choice',org))
+       .map(c=>[c.id,c.updatedAt,c.firstOptionId,c.backupOptionId])
+       .sort((a,b)=>String(a[0]).localeCompare(String(b[0])))));
+      return json({linked:filtered.length,choicesRevision,
        synced:results.reduce((n,x)=>n+x.synced,0),
        pending:results.reduce((n,x)=>n+x.pending,0),
        conflicts:results.flatMap(x=>x.conflicts||[]).slice(0,50),
