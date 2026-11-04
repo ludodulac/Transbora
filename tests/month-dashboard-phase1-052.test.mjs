@@ -18,7 +18,9 @@ test('052 phase 1: monthly arrows, inline desktop details, mobile cards, and exi
  globalThis.window=w;globalThis.document=w.document;globalThis.location=w.location;
  globalThis.history=w.history;globalThis.FormData=w.FormData;
  globalThis.fetch=async()=>{throw Error('No private server in local preview');};
- const api=createRehearsalApi(w.localStorage);
+ const api=createRehearsalApi(w.localStorage,{cleanExamples:true});
+ const sophie=(await api('save',{type:'person',record:{name:'Sophie Martin',departure:'Paris'}})).item;
+ const michel=(await api('save',{type:'person',record:{name:'Michel Dupont',departure:'Brest'}})).item;
  const e1=(await api('save',{type:'event',record:{
   title:'Festival Nantes',startDate:'2026-11-20',destination:'Nantes',budgetCents:30000
  }})).item;
@@ -26,10 +28,10 @@ test('052 phase 1: monthly arrows, inline desktop details, mobile cards, and exi
   title:'Concert à Lille',startDate:'2026-11-23',destination:'Lille',budgetCents:40000
  }})).item;
  const participation=(await api('save',{type:'participation',record:{
-  eventId:e1.id,personId:'sophie-demo'
+  eventId:e1.id,personId:sophie.id
  }})).item;
  await api('save',{type:'participation',record:{
-  eventId:e2.id,personId:'michel-demo'
+  eventId:e2.id,personId:michel.id
  }});
  const option=(await api('save',{type:'option',record:{
   participationId:participation.id,direction:'A',travelDate:'2026-11-19',
@@ -55,7 +57,7 @@ test('052 phase 1: monthly arrows, inline desktop details, mobile cards, and exi
  const paid=[...table.rows].find(row=>row.textContent.includes('Sophie'));
  assert.ok(paid);
  assert.match(paid.textContent,/Billet acheté/);
- assert.equal(paid.querySelectorAll('button').length,2);
+ assert.equal(paid.querySelectorAll('button').length,0,'monthly rows open a detail, without duplicate controls');
  paid.cells[1].click();
  assert.equal($('month-detail').hidden,false);
  assert.match($('month-detail-title').textContent,/Sophie/);
@@ -80,11 +82,13 @@ test('052 phase 1: monthly arrows, inline desktop details, mobile cards, and exi
  assert.equal($('month-detail-booking').hidden,true);
  assert.equal($('month-detail-event').hidden,false);
  $('month-detail-close').click();
- paid.querySelectorAll('button')[0].click();
+ paid.cells[1].click();
+ $('month-detail-choice').click();
  assert.equal($('panel-travels').hidden,false);
  assert.equal($('choice-form').elements.firstOptionId.value,option.id);
  $('tabs').querySelector('[data-tab=overview]').click();
- paid.querySelectorAll('button')[1].click();
+ paid.cells[1].click();
+ $('month-detail-booking').click();
  assert.equal($('booking-form').elements.optionId.value,option.id);
  assert.equal($('booking-form').elements.stage.value,'PAID');
  $('tabs').querySelector('[data-tab=overview]').click();
@@ -100,7 +104,7 @@ test('052 phase 1: monthly arrows, inline desktop details, mobile cards, and exi
  assert.match($('month-mobile-cards').textContent,/Aucun déplacement/);
  $('month-filter').value='2026-11';
  $('month-filter').dispatchEvent(new w.Event('change'));
- $('month-person').value='sophie-demo';
+ $('month-person').value=sophie.id;
  $('month-person').dispatchEvent(new w.Event('change'));
  assert.equal($('month-mobile-cards').children.length,1);
  assert.equal($('month-register-body').rows.length,1);
