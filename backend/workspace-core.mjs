@@ -7,6 +7,8 @@
 import {randomBytes,scrypt as scryptCallback,timingSafeEqual,createHash} from 'node:crypto';
 import {promisify} from 'node:util';
 import {personMonthView,eventBudgetSummary} from '../site/organizer-domain.mjs';
+import {registerNativeWorkspaceLink,syncNativeWorkspaceEvent,linkedEventsForOrganization}
+ from './workspace-native-sync.mjs';
 
 const scrypt=promisify(scryptCallback);
 const COOKIE='__Host-transbora_staff';
@@ -93,7 +95,7 @@ function passFields(kind,body,old,org){
   }
   throw Error('Type de fiche interdit.');
 }
-export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}){
+export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()=>Date.now()}){
  return async function handle(req){
   if(req.method!=='POST')return deny('Méthode non autorisée.',405);
   if(!originOk(req))return deny('Origine non autorisée.',403);
@@ -250,6 +252,43 @@ export function createWorkspaceHandler({getStore,masterKey,clock=()=>Date.now()}
         imported++;
       }
       return json({imported,alreadyPresent});
+    }
+    if(action==='link_native_choices'){
+      if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
+      try{
+        const registered=await registerNativeWorkspaceLink({
+         store,org,eventId:body.eventId,mapping:body.mapping,
+         ownerKey:body.ownerKey,nativeStatus,clock
+        });
+        const synced=await syncNativeWorkspaceEvent({
+         store,org,eventId:body.eventId,nativeStatus,clock
+        });
+        return json({...registered,...synced},201);
+      }catch(error){
+        return deny(error.message?.match(/^(Les liens|Les horaires|Un voyageur|Un autre dossier|Ces réponses|Les propositions|Propositions publiées|Proposition de train|Association des voyageurs|Liaison de réponses|Événement introuvable)/)?
+         error.message:'Liaison des réponses impossible : vérifiez les liens et les trajets.',409);
+      }
+    }
+    if(action==='sync_native_choices'){
+      if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
+      const linked=await linkedEventsForOrganization(store,org);
+      const filtered=body.eventId?linked.filter(x=>x.eventId===body.eventId):linked;
+      const results=[];
+      for(const link of filtered.slice(0,100)){
+        try{
+          results.push(await syncNativeWorkspaceEvent({
+           store,org,eventId:link.eventId,nativeStatus,clock
+          }));
+        }catch{
+          results.push({linked:true,eventId:link.eventId,synced:0,
+           pending:0,unchanged:0,conflicts:['Réponses indisponibles : réessayer.']});
+        }
+      }
+      return json({linked:filtered.length,
+       synced:results.reduce((n,x)=>n+x.synced,0),
+       pending:results.reduce((n,x)=>n+x.pending,0),
+       conflicts:results.flatMap(x=>x.conflicts||[]).slice(0,50),
+       results});
     }
     if(action==='save'){
       if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
