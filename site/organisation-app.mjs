@@ -550,7 +550,7 @@ function showTravelPanel(mode='detail',optionId){
   choice.backupOptionId.value=existing?.backupOptionId||'';
  }
  if(mode==='booking'){
-  if(o)ticket.optionId.value=o.id;
+  ticket.optionId.value=o?.id||'';
   const existing=items('booking').find(b=>b.optionId===ticket.optionId.value);
   ticket.stage.value=existing?.filedAt?'FILED':existing?.paidAt?'PAID':
    existing?.inCartAt?'IN_CART':'PROPOSED';
