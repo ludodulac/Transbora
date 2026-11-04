@@ -9,7 +9,9 @@ import {monthLedger,personMonthLedger} from './organizer-monthly.mjs';
 import {ledgerPrintHtml} from './organizer-monthly-export.mjs';
 import {monthlyTravelPdf,travelPdfName} from './organizer-monthly-pdf.mjs';
 const $=id=>document.getElementById(id);
-const state={user:null,data:{},mode:'login',tab:'overview',demo:false,activeSearchEventId:null,sharedHandoff:null};
+const state={user:null,data:{},mode:'login',tab:'overview',demo:false,
+ activeSearchEventId:null,sharedHandoff:null,searchImportPromise:Promise.resolve(),
+ searchImportError:'',syncingChoices:false};
 let rehearsal=null;
 const kinds=['person','event','participation','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
@@ -331,21 +333,52 @@ window.addEventListener('message',async event=>{
     handoff:state.sharedHandoff},location.origin);
   return;
  }
+ if(!state.demo&&event.data?.type==='transbora:shared-native-link'){
+  if(event.data.eventId!==state.activeSearchEventId||
+     event.data.mapping?.organizerEventId!==state.activeSearchEventId)return;
+  try{
+   await state.searchImportPromise;
+   if(state.searchImportError)throw Error(state.searchImportError);
+   await api('link_native_choices',{
+    eventId:event.data.eventId,mapping:event.data.mapping,
+    ownerKey:event.data.ownerKey
+   });
+   await reload();
+   $('search-context').textContent='✅ Réponses des artistes reliées au dossier : '+
+     'les choix nº 1 et nº 2 se mettent à jour automatiquement.';
+   event.source.postMessage({type:'transbora:shared-native-link-result',
+    eventId:event.data.eventId,ok:true},location.origin);
+  }catch(error){
+   const message=String(error.message||'Liaison indisponible').slice(0,260);
+   $('search-context').textContent='⚠ Liens non reliés : '+message;
+   event.source.postMessage({type:'transbora:shared-native-link-result',
+    eventId:event.data.eventId,ok:false,error:message},location.origin);
+  }
+  return;
+ }
  if(!state.demo&&event.data?.type==='transbora:shared-routes-ready'){
   if(event.data.eventId!==state.activeSearchEventId||
      !Array.isArray(event.data.rows)||event.data.rows.length>1000)return;
-  try{
-   let imported=0,alreadyPresent=0;
-   for(let i=0;i<event.data.rows.length;i+=3){
-    const r=await api('import_search_results',{
-     eventId:event.data.eventId,rows:event.data.rows.slice(i,i+3)
-    });
-    imported+=r.imported;alreadyPresent+=r.alreadyPresent;
+  state.searchImportError='';
+  const job=(async()=>{
+   try{
+    let imported=0,alreadyPresent=0;
+    for(let i=0;i<event.data.rows.length;i+=3){
+     const r=await api('import_search_results',{
+      eventId:event.data.eventId,rows:event.data.rows.slice(i,i+3)
+     });
+     imported+=r.imported;alreadyPresent+=r.alreadyPresent;
+    }
+    await reload();
+    $('search-context').textContent='✅ '+imported+' trajet(s) ajoutés, '+alreadyPresent+
+     ' déjà présents. Prix et places à vérifier.';
+   }catch(error){
+    state.searchImportError=error.message;
+    $('search-context').textContent='⚠ Import partagé impossible : '+error.message;
    }
-   await reload();
-   $('search-context').textContent='✅ '+imported+' trajet(s) ajoutés, '+alreadyPresent+
-    ' déjà présents. Prix et places à vérifier.';
-  }catch(error){$('search-context').textContent='⚠ Import partagé impossible : '+error.message;}
+  })();
+  state.searchImportPromise=job;
+  await job;
   return;
  }
  if(event.data?.type==='transbora:open-tab'){
