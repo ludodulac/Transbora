@@ -25,7 +25,7 @@ La prévisualisation ne crée plus de Sophie ou Michel d'exemple, de festival fi
 - PR #45 en DRAFT, non fusionnée ; site principal non modifié.
 - Données de démonstration enregistrées dans ce navigateur, sauvegarde JSON dans Paramètres.
 - Espace privé collaboratif à activer et vérifier séparément.
-- Retour automatique des réponses natives vers l'espace privé encore incomplet.
+- Retour automatique des réponses natives développé dans la mission 054 et validé en prévisualisation, à activer sur le site principal après validation : voir synchronisation-reponses-artistes-054.md.
 - Recherche d'horaires indicatifs sans garantie de tarifs ou de disponibilité.
 
 Tests ajoutés : tests/organizer-ui-simplification-053.test.mjs.
