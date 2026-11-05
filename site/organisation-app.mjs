@@ -869,18 +869,26 @@ function renderEverything(){
   const event=byId('event',participation.eventId);
   if(!event)continue;
   const records=items('choice').filter(x=>x.participationId===participation.id);
+  const linkedNeeds=items('need').filter(n=>n.participationId===participation.id);
   const lines=['Événement : '+event.title];
-  for(const dir of ['A','R']){
-   const row=records.find(x=>x.direction===dir);
-   const title=dir==='A'?'Aller':'Retour';
-   if(!row){lines.push(title+' : en attente de réponse');continue;}
-   const first=items('option').find(x=>x.id===row.firstOptionId);
-   const backup=items('option').find(x=>x.id===row.backupOptionId);
-   lines.push(title+' · choix nº 1 : '+(row.firstOptionId==='NONE'?'aucun horaire souhaité':
-    first?(fmtDate(first.travelDate)+' '+(first.legs[0]?.departure||'')+' → '+
-        (first.legs.at(-1)?.to||'')):'choix sans horaire reconnu'));
-   if(backup)lines.push(title+' · choix nº 2 : '+fmtDate(backup.travelDate)+' '+backup.legs[0]?.departure+
-    ' → '+(backup.legs.at(-1)?.to||''));
+  const scopes=linkedNeeds.length?
+    linkedNeeds.map(n=>({needId:n.id,direction:n.direction,label:
+      (n.direction==='A'?'Arrivée':'Retour')+' '+fmtDate(n.targetDate)+' à '+n.targetTime})):
+    ['A','R'].map(direction=>({needId:'',direction,
+      label:direction==='A'?'Aller':'Retour'}));
+  for(const scope of scopes){
+   const c=records.find(x=>x.direction===scope.direction&&
+    (x.needId||'')===scope.needId);
+   if(!c){lines.push(scope.label+' : en attente de réponse');continue;}
+   const first=items('option').find(x=>x.id===c.firstOptionId);
+   const backup=items('option').find(x=>x.id===c.backupOptionId);
+   lines.push(scope.label+' · choix nº 1 : '+(c.firstOptionId==='NONE'?
+    'aucun horaire souhaité':first?
+     fmtDate(first.travelDate)+' '+(first.legs[0]?.departure||'')+
+     ' → '+(first.legs.at(-1)?.to||''):'choix sans horaire reconnu'));
+   if(backup)lines.push(scope.label+' · choix nº 2 : '+
+     fmtDate(backup.travelDate)+' '+(backup.legs[0]?.departure||'')+
+     ' → '+(backup.legs.at(-1)?.to||''));
   }
   const row=card(displayPerson(participation.personId),lines);
   if(state.demo&&nativeLinkFor(window.localStorage,event.id)){
