@@ -112,7 +112,8 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
         const match=options.filter(o=>o.participationId===pid&&o.direction===dir&&
            (links[0].sourceKeyHash?
              o.sourceKeyHash===links[0].sourceKeyHash:
-             o.sourceKey===links[0].sourceKey));
+             o.sourceKey===links[0].sourceKey))&&
+           (o.needId||'')===(mapping.needId||''));
         return match.length===1?match[0].id:null;
       };
       const first=translate(answer);
@@ -139,7 +140,8 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
         continue;
       }
       if(bookings.some(b=>b.participationId===pid&&b.paidAt &&
-         options.some(o=>o.id===b.optionId&&o.direction===dir))){
+         options.some(o=>o.id===b.optionId&&o.direction===dir&&
+         (o.needId||'')===(mapping.needId||'')))){
         summary.conflicts.push(str(native.first+' '+native.last,100)+
           ' ('+dir+') : achat local existant, choix non remplacé.');
         continue;
