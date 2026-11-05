@@ -355,3 +355,9 @@
 .participant-chip{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin:5px 0}
 .participant-chip button{min-height:35px}
 @media(max-width:770px){#need-form{grid-template-columns:1fr}.need-row{align-items:stretch;flex-direction:column}.need-actions button{flex:1}}
+
+.person-related{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.person-related-event{display:grid;gap:5px;border:1px solid var(--line);border-radius:9px;padding:9px;margin:7px 0}
+.person-related-event .plain{text-align:left;font-weight:700;color:var(--ink)}
+.person-related-need{border:0;background:#eaf6f5;border-radius:7px;padding:9px;cursor:pointer;text-align:left;color:var(--ink)}
+.person-related-need:hover,.person-related-need:focus-visible{background:#d3efeb}
