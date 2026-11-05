@@ -4,6 +4,7 @@
  * Never put invitations, organizer credentials, owner keys, email, or telephone
  * numbers into these messages. Only explicit demo data may be transferred.
  */
+import {defaultTravelNeed} from './organizer-needs.mjs';
 export const HANDOFF_KEY='transbora_demo_search_handoff_044';
 export const RESULTS_KEY='transbora_demo_search_results_044';
 const TTL=12*60*60*1000;
@@ -94,11 +95,14 @@ export function readSearchHandoff(storage,now=Date.now()){
 export function wizardPeople(handoff){
   return handoff.travelers.map((person,index)=>{
     const pieces=person.name.trim().split(/\s+/);
+    const eventDefaults=defaultTravelNeed(handoff,{departure:person.departure},'A');
     return {id:'P-'+String(index+1).padStart(3,'0'),first:pieces[0],
       last:pieces.slice(1).join(' '),departure:person.departure,
       organizerPersonId:person.personId,
       reductionCards:person.reductionCards||'',
       preferences:person.preferences||'',outwardDate:'',returnDate:'',notes:'',
+      arrivalDate:eventDefaults?.targetDate||'',
+      arrivalTime:eventDefaults?.targetTime||'',
       ...(person.requirement?.direction==='A'?{
        outwardOrigin:person.requirement.origin,
        outwardDestination:person.requirement.destination,
