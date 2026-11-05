@@ -332,3 +332,26 @@
  .directory-event-row>.directory-entry{flex:1 1 100%}
  .directory-event-row>.secondary,.directory-event-row>.outline{flex:1}
 }
+
+
+/* 055 — event-first travel requirements (separate from train offers). */
+.field-help{display:block;color:var(--muted);font-size:.75rem;line-height:1.5;margin-top:5px;font-weight:400}
+.card-other-choice{display:flex;align-items:center;gap:9px;cursor:pointer}
+.card-other-choice input{width:auto;flex:none}
+.need-planner{margin:18px 0 26px;min-width:0}
+#need-work-panel{max-width:850px;margin:12px 0 20px;border:1px solid var(--line);border-radius:13px;padding:18px;background:#fff}
+#need-work-panel .editor-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#need-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:14px 0 0}
+#need-form label{min-width:0}
+#need-form input,#need-form select,#need-form textarea{width:100%;max-width:100%}
+#need-form label.full,#need-form button{grid-column:1/-1}
+.need-list{display:grid;gap:9px}
+.need-row{border:1px solid var(--line);border-radius:13px;padding:13px 16px;background:#fff;display:flex;gap:14px;align-items:center;justify-content:space-between}
+.need-details{min-width:0;overflow-wrap:anywhere}
+.need-details p{margin:6px 0;color:var(--muted);font-size:.9rem}
+.need-details small{display:block;color:var(--muted)}
+.need-actions{display:flex;gap:8px;flex:none}
+.need-actions button{min-height:38px}
+.participant-chip{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin:5px 0}
+.participant-chip button{min-height:35px}
+@media(max-width:770px){#need-form{grid-template-columns:1fr}.need-row{align-items:stretch;flex-direction:column}.need-actions button{flex:1}}
