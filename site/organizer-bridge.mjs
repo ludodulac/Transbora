@@ -24,10 +24,10 @@ function read(storage,key,now){
     return data;
   }catch{return null;}
 }
-export function buildSearchHandoff({event,people,participations},now=Date.now()){
+export function buildSearchHandoff({event,people,participations,need},now=Date.now()){
   if(!event?.id||!event.title||!ISO.test(event.startDate||'')||!event.destination)
     throw Error('Événement incomplet : renseignez son nom, sa date et sa ville.');
-  const members=(participations||[]).filter(p=>p.eventId===event.id);
+  const members=(participations||[]).filter(p=>p.eventId===event.id&&p.active!==false&&(!need||p.id===need.participationId));
   const travelers=members.map(link=>{
     const p=(people||[]).find(p=>p.id===link.personId);
     if(!p)throw Error('Une fiche participant est introuvable.');
@@ -36,7 +36,11 @@ export function buildSearchHandoff({event,people,participations},now=Date.now())
     return {personId:p.id,name:shorten(p.name,120),
       departure:shorten(p.departure,140),
       reductionCards:shorten(p.reductionCards,160),
-      preferences:shorten(p.preferences,240)};
+      preferences:shorten(p.preferences,240),
+      ...(need?{requirement:{
+       direction:need.direction,targetDate:need.targetDate,targetTime:need.targetTime,
+       origin:need.origin,destination:need.destination
+      }}:{})};
   });
   if(!travelers.length)throw Error('Inscrivez au moins une personne à cet événement.');
   if(travelers.length>100)throw Error('Maximum 100 participants.');
@@ -44,7 +48,11 @@ export function buildSearchHandoff({event,people,participations},now=Date.now())
     throw Error('Participant inscrit plusieurs fois.');
   const handoff={version:1,createdAt:now,eventId:event.id,
     title:shorten(event.title,90),destination:shorten(event.destination,120),
-    startDate:event.startDate,travelers};
+    startDate:event.startDate,startTime:event.startTime||'',
+    endDate:event.endDate||event.startDate,endTime:event.endTime||'',
+    arrivalLeadMinutes:event.arrivalLeadMinutes??60,
+    ...(need?{needId:need.id,needDirection:need.direction}:{}),
+    travelers};
   return handoff;
 }
 export function createSearchHandoff(storage,data,now=Date.now()){
@@ -90,7 +98,19 @@ export function wizardPeople(handoff){
       last:pieces.slice(1).join(' '),departure:person.departure,
       organizerPersonId:person.personId,
       reductionCards:person.reductionCards||'',
-      preferences:person.preferences||'',outwardDate:'',returnDate:'',notes:''};
+      preferences:person.preferences||'',outwardDate:'',returnDate:'',notes:'',
+      ...(person.requirement?.direction==='A'?{
+       outwardOrigin:person.requirement.origin,
+       outwardDestination:person.requirement.destination,
+       arrivalDate:person.requirement.targetDate,
+       arrivalTime:person.requirement.targetTime
+      }:{}),
+      ...(person.requirement?.direction==='R'?{
+       returnOrigin:person.requirement.origin,
+       returnDestination:person.requirement.destination,
+       releaseDate:person.requirement.targetDate,
+       releaseTime:person.requirement.targetTime
+      }:{})};
   });
 }
 function isoFromParisDate(value){
