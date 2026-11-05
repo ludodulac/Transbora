@@ -179,7 +179,8 @@ function fillSelects(){
 }
 function refreshChoiceSelects(){
  const fd=$('choice-form').elements,pid=fd.participationId.value,dir=fd.direction.value;
- const matching=items('option').filter(o=>o.participationId===pid&&o.direction===dir);
+ const matching=items('option').filter(o=>o.participationId===pid&&o.direction===dir&&
+  (o.needId||'')===(fd.needId.value||''));
  const arr=matching.map(o=>[o.id,
   fmtDate(o.travelDate)+' · '+(o.legs?.[0]?.from||'')+' → '+(o.legs?.at(-1)?.to||'')+
   ' · '+(o.legs?.[0]?.departure||'')]);
@@ -627,7 +628,8 @@ function showTravelPanel(mode='detail',optionId){
   for(const l of legs)summary.append(node('p',null,
    (l.departure||'')+' '+(l.from||'')+' → '+(l.arrival||'')+' '+(l.to||'')));
   const booking=items('booking').find(b=>b.optionId===o.id);
-  const choiceRecord=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction);
+  const choiceRecord=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction&&
+   (c.needId||'')===(o.needId||''));
   const rank=choiceRecord?.firstOptionId===o.id?1:
    choiceRecord?.backupOptionId===o.id?2:null;
   if(rank)summary.append(node('p',null,'Choix nº '+rank));
@@ -675,8 +677,10 @@ function showTravelPanel(mode='detail',optionId){
  }
  if(mode==='choice'&&o){
   choice.participationId.value=o.participationId;choice.direction.value=o.direction;
+  choice.needId.value=o.needId||'';
   refreshChoiceSelects();
-  const existing=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction);
+  const existing=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction&&
+   (c.needId||'')===(o.needId||''));
   choice.firstOptionId.value=existing?.firstOptionId&&
    items('option').some(x=>x.id===existing.firstOptionId)?existing.firstOptionId:o.id;
   choice.backupOptionId.value=existing?.backupOptionId||'';
@@ -715,7 +719,8 @@ function renderJourneys(){
   const first=o.legs?.[0],last=o.legs?.at(-1);
   const status=booking?.filedAt?'Classé':booking?.paidAt?'Acheté':
    booking?.inCartAt?'Panier':'Proposé';
-  const choice=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction);
+  const choice=items('choice').find(c=>c.participationId===o.participationId&&c.direction===o.direction&&
+   (c.needId||'')===(o.needId||''));
   const rank=choice?.firstOptionId===o.id?' · Choix nº 1':
    choice?.backupOptionId===o.id?' · Choix nº 2':'';
   const subtitle=fmtDate(o.travelDate)+' · '+(o.direction==='A'?'Aller':'Retour')+
@@ -921,7 +926,7 @@ function renderEverything(){
 
 function registerData(){
  return {people:items('person'),events:items('event'),
-  participations:items('participation'),options:items('option'),
+  participations:items('participation'),needs:items('need'),options:items('option'),
   choices:items('choice'),bookings:items('booking')};
 }
 function currentRegister(){
@@ -1286,7 +1291,8 @@ function bindForm(id,create){
    }
    if(type==='choice'){
     record.expectedUpdatedAt=items('choice').find(x=>
-     x.participationId===record.participationId&&x.direction===record.direction)?.updatedAt??null;
+     x.participationId===record.participationId&&x.direction===record.direction&&
+     (x.needId||'')===(record.needId||''))?.updatedAt??null;
    }else if(type==='booking'){
     record.expectedUpdatedAt=items('booking').find(x=>x.optionId===record.optionId)?.updatedAt??null;
    }
@@ -1336,6 +1342,7 @@ bindForm('option-form',fd=>({type:'option',record:{
  departure:val(fd,'departure'),arrival:val(fd,'arrival'),mode:'rail'}]}}));
 bindForm('choice-form',fd=>({type:'choice',record:{
  participationId:val(fd,'participationId'),direction:val(fd,'direction'),
+ needId:val(fd,'needId')||null,
  firstOptionId:val(fd,'firstOptionId')||null,
  backupOptionId:val(fd,'backupOptionId')||null}}));
 bindForm('booking-form',fd=>({type:'booking',record:{
