@@ -204,6 +204,7 @@
    <button type="button" id="search-open" class="primary">🔎 Rechercher</button>
   </div>
   <p id="search-context" class="small" aria-live="polite"></p>
+  <button id="search-next-need" class="secondary" type="button" hidden>→ Déplacement suivant</button>
   <div id="search-frame-area" hidden><iframe id="search-frame" title="Recherche de trains et autocars pour l'événement" loading="lazy"></iframe></div>
  </section>
  <section id="panel-answers" class="tab-panel" hidden>
@@ -239,7 +240,7 @@
      <button class="primary" type="submit">Enregistrer ce déplacement</button>
     </form>
    </div>
-   <div class="list-tab-header"><h3>Déplacements à organiser</h3></div>
+   <div class="list-tab-header"><h3>Déplacements à organiser</h3><button id="search-batch-needs" class="secondary" type="button">🔎 Rechercher plusieurs déplacements</button></div>
    <div id="needs-output" class="need-list"></div>
   </div>
   <h3>Propositions de trains et billets</h3>
