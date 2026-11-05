@@ -488,6 +488,38 @@ function closePersonEditor(){
 function closeEventEditor(){
  $('event-editor').hidden=true;$('event-editor-backdrop').hidden=true;
 }
+function renderPersonRelated(person){
+ const wrap=$('person-related'),host=$('person-related-content');host.replaceChildren();
+ wrap.hidden=!person;
+ if(!person)return;
+ const participations=items('participation').filter(p=>p.personId===person.id&&p.active!==false)
+  .sort((a,b)=>String(byId('event',a.eventId)?.startDate||'')
+   .localeCompare(String(byId('event',b.eventId)?.startDate||'')));
+ for(const p of participations){
+  const event=byId('event',p.eventId);
+  if(!event)continue;
+  const card=node('div','person-related-event');
+  const title=node('button','plain',event.title+' · '+fmtDate(event.startDate));
+  title.type='button';title.addEventListener('click',()=>{
+   showTab('events');openEventEditor(event);
+  });
+  card.append(title);
+  const needs=items('need').filter(n=>n.participationId===p.id);
+  for(const need of needs){
+   const link=node('button','person-related-need',
+    (need.direction==='A'?'Arrivée':'Départ')+' · '+fmtDate(need.targetDate)+
+    ' '+need.targetTime+' · '+need.origin+' → '+need.destination);
+   link.type='button';
+   link.addEventListener('click',()=>{
+    showTab('travels');needPlanner.openNeedEditor(need);
+   });
+   card.append(link);
+  }
+  if(!needs.length)card.append(node('p','muted','Déplacement à préparer'));
+  host.append(card);
+ }
+ if(!participations.length)host.append(node('p','muted','Aucun événement associé.'));
+}
 function openPersonEditor(person=null){
  const form=$('person-form');form.reset();
  delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
@@ -498,6 +530,7 @@ function openPersonEditor(person=null){
   form.dataset.recordId=person.id;
   form.dataset.expectedUpdatedAt=person.updatedAt??'';
  }
+ renderPersonRelated(person);
  $('person-editor-title').textContent=person?'Fiche de '+person.name:'Ajouter une personne';
  form.querySelector('button[type="submit"],button:not([type])').textContent=
   person?'Enregistrer les modifications':'Enregistrer la personne';
