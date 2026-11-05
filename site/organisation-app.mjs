@@ -1219,6 +1219,24 @@ $('view-person-month').addEventListener('click',async()=>{
   }
  }catch(e){feedback(e.message,true)}
 });
+async function updateInheritedNeeds(type,id){
+ const links=items('participation').filter(p=>type==='event'?p.eventId===id:p.personId===id);
+ for(const participation of links){
+  const event=byId('event',participation.eventId);
+  const person=byId('person',participation.personId);
+  for(const need of items('need').filter(n=>n.participationId===participation.id&&!n.customized)){
+   const defaults=defaultTravelNeed(event,person,need.direction);
+   if(!defaults||!defaults.targetDate||!defaults.targetTime||
+      !defaults.origin||!defaults.destination)continue;
+   if(Object.entries(defaults).every(([k,v])=>need[k]===v))continue;
+   await api('save',{type:'need',record:{
+    id:need.id,participationId:participation.id,direction:need.direction,
+    ...defaults,customized:false,note:need.note||'',
+    expectedUpdatedAt:need.updatedAt??null
+   }});
+  }
+ }
+}
 function bindForm(id,create){
  const form=$(id);
  form.addEventListener('submit',async e=>{
@@ -1240,6 +1258,12 @@ function bindForm(id,create){
     record.expectedUpdatedAt=items('booking').find(x=>x.optionId===record.optionId)?.updatedAt??null;
    }
    const saved=await api('save',{type,record});
+   // Event hours or a usual station change updates ONLY inherited (not manually
+   // customized) requirements; tickets and artist preferences are untouched.
+   if(type==='event'||type==='person'){
+    state.data[type]=items(type).filter(x=>x.id!==saved.item.id).concat([saved.item]);
+    await updateInheritedNeeds(type,saved.item.id);
+   }
    form.reset();if(id==='person-form')setCardsFromSaved('');
    delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
    if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
