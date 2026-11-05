@@ -11,29 +11,31 @@ export function monthLedger(data,month,personId=''){
  if(!isMonth(month))throw Error('Mois invalide.');
  const people=dict(data?.people),events=dict(data?.events);
  const parts=dict(data?.participations),options=data?.options||[],
-   choices=data?.choices||[],bookings=data?.bookings||[];
+   needs=data?.needs||[],choices=data?.choices||[],bookings=data?.bookings||[];
  if(!Array.isArray(options)||!Array.isArray(choices)||!Array.isArray(bookings))
   throw Error('Registre incomplet.');
- const choiceMap=new Map(choices.map(x=>[x.participationId+':'+x.direction,x]));
+ const choiceMap=new Map(choices.map(x=>[x.participationId+':'+x.direction+':'+(x.needId||''),x]));
  const bookingMap=new Map(bookings.map(x=>[x.optionId,x]));
  const hasOptions=new Set(options.map(x=>x.participationId));
+ const hasScopedOptions=new Set(options.filter(x=>x.needId).map(x=>x.participationId+':'+x.needId));
  const rows=[];
  for(const option of options){
   const part=parts.get(option.participationId);
-  if(!part||!['A','R'].includes(option.direction)||!String(option.travelDate||'').startsWith(month))continue;
+  if(!part||part.active===false||!['A','R'].includes(option.direction)||!String(option.travelDate||'').startsWith(month))continue;
   if(personId&&part.personId!==personId)continue;
   const person=people.get(part.personId),event=events.get(part.eventId);
   if(!person||!event)continue;
   const legs=[...(option.legs||[])].sort((a,b)=>(a.order||0)-(b.order||0));
   if(!legs.length)continue;
-  const choice=choiceMap.get(part.id+':'+option.direction);
+  const choice=choiceMap.get(part.id+':'+option.direction+':'+(option.needId||''));
   const rank=choice?.firstOptionId===option.id?1:
     choice?.backupOptionId===option.id?2:null;
   const booking=bookingMap.get(option.id);
   const paid=Boolean(booking?.paidAt),filed=Boolean(booking?.filedAt);
   const inCart=Boolean(booking?.inCartAt);
   rows.push({
-   optionId:option.id,participationId:part.id,eventId:event.id,personId:person.id,
+   optionId:option.id,needId:option.needId||null,
+   participationId:part.id,eventId:event.id,personId:person.id,
    date:option.travelDate,event:event.title,person:person.name,
    direction:option.direction==='A'?'Aller':'Retour',
    from:str(legs[0]?.from),to:str(legs.at(-1)?.to),
@@ -47,10 +49,29 @@ export function monthLedger(data,month,personId=''){
    pending:false
   });
  }
- for(const part of parts.values()){
+ for(const need of needs){
+  const part=parts.get(need.participationId);
+  if(!part||part.active===false||hasScopedOptions.has(part.id+':'+need.id)||
+     !String(need.targetDate||'').startsWith(month))continue;
   if(personId&&part.personId!==personId)continue;
   const person=people.get(part.personId),event=events.get(part.eventId);
-  if(!person||!event||hasOptions.has(part.id)||!String(event.startDate||'').startsWith(month))continue;
+  if(!person||!event)continue;
+  rows.push({optionId:null,needId:need.id,participationId:part.id,
+   eventId:event.id,personId:person.id,date:need.targetDate,
+   event:event.title,person:person.name,
+   direction:need.direction==='A'?'Aller':'Retour',
+   from:str(need.origin),to:str(need.destination),
+   departure:need.direction==='R'?time(need.targetTime):'',
+   arrival:need.direction==='A'?time(need.targetTime):'',legs:[],
+   choiceRank:null,choiceOrigin:null,cart:false,paid:false,filed:false,
+   stage:'À rechercher',paidCents:null,estimateCents:null,
+   source:null,receiptReference:null,pending:true});
+ }
+ for(const part of parts.values()){
+  if(part.active===false||(personId&&part.personId!==personId))continue;
+  const person=people.get(part.personId),event=events.get(part.eventId);
+  if(!person||!event||needs.some(n=>n.participationId===part.id)||
+     hasOptions.has(part.id)||!String(event.startDate||'').startsWith(month))continue;
   rows.push({optionId:null,participationId:part.id,eventId:event.id,personId:person.id,
    date:event.startDate,event:event.title,person:person.name,direction:'—',
    from:person.departure||'—',to:event.destination||'—',
