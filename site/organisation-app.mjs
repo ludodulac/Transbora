@@ -5,6 +5,7 @@ import {nativeLinkFor} from './organizer-replies-bridge.mjs';
 import {readHistory} from './event-history.mjs';
 import {api as nativeChoicesApi} from './native-choices.mjs';
 import {FRENCH_RAIL_CARDS,unpackRailCards,packRailCards} from './reduction-cards.mjs';
+import {initNeedPlanner,defaultTravelNeed} from './organizer-needs.mjs';
 import {monthLedger,personMonthLedger} from './organizer-monthly.mjs';
 import {ledgerPrintHtml} from './organizer-monthly-export.mjs';
 import {monthlyTravelPdf,travelPdfName} from './organizer-monthly-pdf.mjs';
@@ -49,6 +50,10 @@ async function api(action,payload={}){
  if(!response.ok)throw Error(result.error||'Action refusée ('+response.status+').');
  return result;
 }
+const needPlanner=initNeedPlanner({
+ api,items,byId,displayParticipation,fmtDate,feedback,reload,showTab,
+ openIntegratedSearch,closeTravelPanel
+});
 function showMode(mode){
  state.mode=mode;
  $('bootstrap-fields').hidden=mode!=='bootstrap';
@@ -650,17 +655,17 @@ function closeTravelPanel(){
  state.travelOptionId=null;
 }
 $('travel-panel-close').addEventListener('click',closeTravelPanel);
-$('add-travel-btn').addEventListener('click',()=>showTravelPanel('add'));
+// Add a new travel requirement using the separate need planner.
 $('travel-edit').addEventListener('click',()=>showTravelPanel('edit'));
 $('travel-choose').addEventListener('click',()=>showTravelPanel('choice'));
 $('travel-book').addEventListener('click',()=>showTravelPanel('booking'));
 function renderJourneys(){
  const host=$('journeys-output');host.replaceChildren();
  const event=$('travel-event-filter').value,person=$('travel-person-filter').value;
- const all=items('option').sort((a,b)=>a.travelDate.localeCompare(b.travelDate));
+ const all=[...items('option')].sort((a,b)=>a.travelDate.localeCompare(b.travelDate));
  const rows=all.filter(o=>{
   const participation=byId('participation',o.participationId);
-  return participation&&(!event||participation.eventId===event)&&
+  return participation&&participation.active!==false&&(!event||participation.eventId===event)&&
     (!person||participation.personId===person);
  });
  $('travel-count').textContent=rows.length+' trajet(s) enregistré(s)';
@@ -682,15 +687,15 @@ function renderJourneys(){
  if(!rows.length)listEmpty(host,
   all.length?'Aucun trajet ne correspond aux filtres.':
    'Aucun trajet enregistré. Créez d’abord un événement avec ses participants.',
-  all.length?'Effacer les filtres':'＋ Ajouter un trajet',()=>{
+  all.length?'Effacer les filtres':'＋ Préparer un déplacement',()=>{
    if(all.length){
     $('travel-event-filter').value='';$('travel-person-filter').value='';
     renderJourneys();
-   }else showTravelPanel('add');
+   }else needPlanner.openNeedEditor();
   });
 }
 for(const id of ['travel-event-filter','travel-person-filter'])
- $(id).addEventListener('change',renderJourneys);
+ $(id).addEventListener('change',()=>{renderJourneys();needPlanner.renderNeeds();});
 
 /* Permanent global search: only registered in-app data, never remote guesses. */
 const normalizeSearch=v=>String(v??'').normalize('NFD')
@@ -812,7 +817,7 @@ function renderEverything(){
  }
  if(!items('event').length)listEmpty(events,
   'Aucun événement enregistré.','＋ Ajouter un événement',()=>openEventEditor());
- renderJourneys();
+ needPlanner.renderNeeds();renderJourneys();
  const answers=$('answers-output');answers.replaceChildren();
  for(const participation of items('participation').filter(p=>p.active!==false)){
   const event=byId('event',participation.eventId);
@@ -1234,7 +1239,11 @@ function bindForm(id,create){
    await reload();
    if(id==='person-form')closePersonEditor();
    if(id==='event-form')openEventEditor(byId('event',saved.item.id));
-   if(id==='participation-form'&&record.eventId)openEventEditor(byId('event',record.eventId));
+   if(id==='participation-form'&&record.eventId){
+    try{await needPlanner.ensureInitialNeed(saved.item);await reload();}
+    catch(error){feedback('Inscription enregistrée ; déplacement à compléter : '+error.message,true);}
+    openEventEditor(byId('event',record.eventId));
+   }
    if(id==='option-form')showTravelPanel('detail',saved.item.id);
    if((id==='choice-form'||id==='booking-form')&&state.travelOptionId)
     showTravelPanel('detail',state.travelOptionId);
