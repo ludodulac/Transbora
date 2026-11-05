@@ -99,8 +99,8 @@ function passFields(kind,body,old,org){
     const endDate=safe(body.endDate??old?.endDate,10);
     const endTime=safe(body.endTime??old?.endTime,5);
     const lead=body.arrivalLeadMinutes??old?.arrivalLeadMinutes??60;
-    if((startTime&&!/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(startTime))||
-       (endTime&&!/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(endTime))||
+    if((startTime&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(startTime))||
+       (endTime&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endTime))||
        (endDate&&!formatDate(endDate))||
        !Number.isInteger(Number(lead))||Number(lead)<0||Number(lead)>360)
       throw Error('Horaires de l’événement invalides.');
@@ -357,7 +357,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
           const targetDate=safe(obj.targetDate,10),targetTime=safe(obj.targetTime,5);
           const origin=safe(obj.origin,160),destination=safe(obj.destination,160);
           if(!['A','R'].includes(direction)||!formatDate(targetDate)||
-            !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(targetTime)||
+            !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(targetTime)||
             !origin||!destination)return deny('Déplacement incomplet.',400);
           if(existing&&existing.participationId!==p.id)
             return deny('Ce déplacement appartient à un autre artiste.',409);
