@@ -112,7 +112,7 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
         const match=options.filter(o=>o.participationId===pid&&o.direction===dir&&
            (links[0].sourceKeyHash?
              o.sourceKeyHash===links[0].sourceKeyHash:
-             o.sourceKey===links[0].sourceKey))&&
+             o.sourceKey===links[0].sourceKey)&&
            (o.needId||'')===(mapping.needId||''));
         return match.length===1?match[0].id:null;
       };
