@@ -288,6 +288,10 @@ $('tabs').addEventListener('click',e=>{
  const btn=e.target.closest('[data-tab]');if(btn)showTab(btn.dataset.tab);
 });
 function openIntegratedSearch(eventId,needId=null){
+ if(needId!==(state.needSearchQueue?.[state.needSearchIndex]||null)){
+  state.needSearchQueue=[];state.needSearchIndex=0;
+ }
+
  const event=byId('event',eventId);
  if(!event)throw Error('Événement inconnu.');
  const need=needId?byId('need',needId):null;
@@ -307,6 +311,11 @@ function openIntegratedSearch(eventId,needId=null){
   ' à '+need.targetTime:
   event.title+' · '+items('participation').filter(p=>p.eventId===eventId&&p.active!==false).length+
   ' voyageur(s)';
+ const remaining=state.needSearchQueue?.length||0;
+ $('search-next-need').hidden=!remaining||state.needSearchIndex>=remaining-1;
+ $('search-next-need').textContent=remaining?
+  '→ Déplacement suivant ('+(state.needSearchIndex+2)+'/'+remaining+')':
+  '→ Déplacement suivant';
  const frame=$('search-frame');
  // Reload only when the organizer explicitly chooses an event; changing
  // sidebar tabs never destroys the ongoing timetable search.
@@ -315,6 +324,29 @@ function openIntegratedSearch(eventId,needId=null){
  $('search-frame-area').hidden=false;
  showTab('search');
 }
+$('search-batch-needs').addEventListener('click',()=>{
+ const selected=items('need').filter(n=>{
+  const part=byId('participation',n.participationId);
+  return part&&part.active!==false&&
+   (!$('travel-event-filter').value||part.eventId===$('travel-event-filter').value)&&
+   (!$('travel-person-filter').value||part.personId===$('travel-person-filter').value);
+ }).sort((a,b)=>(a.targetDate+a.targetTime).localeCompare(b.targetDate+b.targetTime));
+ if(!selected.length){feedback('Préparez d’abord un déplacement.',true);return;}
+ state.needSearchQueue=selected.map(n=>n.id);state.needSearchIndex=0;
+ const first=selected[0],part=byId('participation',first.participationId);
+ try{openIntegratedSearch(part.eventId,first.id);}
+ catch(error){state.needSearchQueue=[];feedback(error.message,true);}
+});
+$('search-next-need').addEventListener('click',()=>{
+ const list=state.needSearchQueue||[];
+ if(state.needSearchIndex>=list.length-1)return;
+ state.needSearchIndex++;
+ const need=byId('need',list[state.needSearchIndex]);
+ const part=need&&byId('participation',need.participationId);
+ if(!need||!part){feedback('Le déplacement suivant n’existe plus.',true);return;}
+ try{openIntegratedSearch(part.eventId,need.id);}
+ catch(error){feedback(error.message,true);}
+});
 $('search-open').addEventListener('click',()=>{
  try{openIntegratedSearch($('search-event-select').value)}
  catch(error){feedback(error.message,true);}
