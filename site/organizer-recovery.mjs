@@ -8,8 +8,8 @@
  * Never accept owner keys, native invitation capabilities, authorization
  * cookies or arbitrary fields from the input backup.
  */
-const kinds=['person','event','participation','option','choice','booking','note'];
-const limits={person:500,event:250,participation:1000,option:2000,
+const kinds=['person','event','participation','need','option','choice','booking','note'];
+const limits={person:500,event:250,participation:1000,need:2000,option:2000,
   choice:2000,booking:2000,note:1000};
 const pick=(row,field,max=120)=>String(row?.[field]??'').slice(0,max);
 const id=row=>{
@@ -27,7 +27,7 @@ export function validateRehearsalBackup(raw){
   'Le fichier ne contient pas une sauvegarde de démonstration TRANSBORA compatible.');
  const data={version:1};
  for(const kind of kinds){
-  const rows=raw[kind];
+  const rows=kind==='need'?(raw.need||[]):raw[kind];
   requireFlag(Array.isArray(rows)&&rows.length<=limits[kind],
     'Taille ou liste invalide : '+kind);
   const ids=new Set();
@@ -50,10 +50,24 @@ export function validateRehearsalBackup(raw){
         cents(row.budgetCents),'Événement invalide.');
       return {...base,title:pick(row,'title',160),startDate:pick(row,'startDate',10),
         destination:pick(row,'destination',160),theater:pick(row,'theater',160),
-        budgetCents:row.budgetCents??null};
+        budgetCents:row.budgetCents??null,
+        startTime:pick(row,'startTime',5),endDate:pick(row,'endDate',10),
+        endTime:pick(row,'endTime',5),arrivalLeadMinutes:
+          Number.isInteger(row.arrivalLeadMinutes)?row.arrivalLeadMinutes:60};
     }
     if(kind==='participation'){
-      return {...base,eventId:pick(row,'eventId',100),personId:pick(row,'personId',100)};
+      return {...base,eventId:pick(row,'eventId',100),
+        personId:pick(row,'personId',100),active:row.active!==false};
+    }
+    if(kind==='need'){
+      requireFlag(['A','R'].includes(row.direction)&&iso(row.targetDate||'')&&
+        /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(row.targetTime||'')&&
+        pick(row,'origin',160)&&pick(row,'destination',160),'Déplacement invalide.');
+      return {...base,participationId:pick(row,'participationId',100),
+        direction:row.direction,targetDate:pick(row,'targetDate',10),
+        targetTime:pick(row,'targetTime',5),origin:pick(row,'origin',160),
+        destination:pick(row,'destination',160),customized:row.customized===true,
+        note:pick(row,'note',400)};
     }
     if(kind==='option'){
       requireFlag(['A','R'].includes(row.direction)&&iso(row.travelDate||'')&&
@@ -97,6 +111,8 @@ export function validateRehearsalBackup(raw){
  const people=ids('person'),events=ids('event'),parts=ids('participation'),options=ids('option');
  for(const row of data.participation)
   requireFlag(people.has(row.personId)&&events.has(row.eventId),'Inscription orpheline.');
+ for(const row of data.need)
+  requireFlag(parts.has(row.participationId),'Déplacement sans participant.');
  for(const row of data.option)
   requireFlag(parts.has(row.participationId),'Trajet sans participant.');
  for(const row of data.choice){
