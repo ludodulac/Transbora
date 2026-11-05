@@ -100,8 +100,12 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
         typeof item.sourceKey!=='string'||!item.sourceKey||
         item.sourceKey.length>6000||!Array.isArray(item.legs)||
         !item.legs.length||item.legs.length>6)die('Proposition de transport invalide.');
-      const participant=data.participation.find(p=>p.personId===item.personId&&p.eventId===eventId);
+      const participant=data.participation.find(p=>p.personId===item.personId&&
+        p.eventId===eventId&&p.active!==false);
       if(!participant)die('Participant non inscrit à cet événement.');
+      const need=item.needId?data.need.find(n=>n.id===item.needId):null;
+      if(item.needId&&(!need||need.participationId!==participant.id||
+         need.direction!==item.direction))die('Déplacement incompatible.');
       const legs=item.legs.map((l,index)=>({
         order:index+1,from:str(l.from,150),to:str(l.to,150),
         departure:str(l.departure,5),arrival:str(l.arrival,5),
@@ -115,7 +119,8 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
       if(seen.has(item.sourceKey)){alreadyPresent++;continue;}
       seen.add(item.sourceKey);
       additions.push({id:uuid(),organizationId:ORG,createdAt:now,updatedAt:now,
-        participationId:participant.id,direction:item.direction,
+        participationId:participant.id,
+        ...(need?{needId:need.id}:{}),direction:item.direction,
         travelDate:item.travelDate,estimatedCents:null,
         source:'Horaires théoriques, prix et disponibilité inconnus',
         sourceKey:item.sourceKey,legs});
@@ -134,7 +139,7 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
     const now=Date.now();
     for(const update of summary.updates){
       const old=data.choice.find(row=>row.participationId===update.participationId&&
-        row.direction===update.direction);
+        row.direction===update.direction&&(row.needId||null)===(update.needId||null));
       data.choice=data.choice.filter(row=>row!==old);
       data.choice.push({id:old?.id||uuid(),createdAt:old?.createdAt||now,
         updatedAt:now,organizationId:ORG,...update});
@@ -192,15 +197,23 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
    if(legs.some(x=>!x.from||!x.to||!x.departure||!x.arrival))die('Tronçon incomplet.');
    row={...row,participationId:record.participationId,direction:record.direction,travelDate:record.travelDate,estimatedCents:record.estimatedCents??null,legs};
   }else if(type==='choice'){
-   get('participation',record.participationId);
+   const p=get('participation',record.participationId);
    if(!['A','R'].includes(record.direction))die('Sens invalide.');
+   const needId=record.needId||null;
+   if(needId){
+    const n=get('need',needId);
+    if(n.participationId!==p.id||n.direction!==record.direction)die('Déplacement incompatible.');
+   }
    for(const k of [record.firstOptionId,record.backupOptionId].filter(Boolean)){
     const o=get('option',k);
-    if(o.participationId!==record.participationId||o.direction!==record.direction)die('Choix non autorisé.');
+    if(o.participationId!==record.participationId||o.direction!==record.direction||
+      (o.needId||null)!==needId)die('Choix non autorisé.');
    }
    if(record.firstOptionId&&record.firstOptionId===record.backupOptionId)die('Choix identiques.');
-   const old=data.choice.find(x=>x.participationId===record.participationId&&x.direction===record.direction);
-   row={...row,id:old?.id||row.id,participationId:record.participationId,direction:record.direction,firstOptionId:record.firstOptionId||null,backupOptionId:record.backupOptionId||null};
+   const old=data.choice.find(x=>x.participationId===record.participationId&&
+     x.direction===record.direction&&(x.needId||null)===needId);
+   row={...row,id:old?.id||row.id,participationId:record.participationId,direction:record.direction,
+     ...(needId?{needId}:{}),firstOptionId:record.firstOptionId||null,backupOptionId:record.backupOptionId||null};
   }else if(type==='booking'){
    const opt=get('option',record.optionId);
    if(!['PROPOSED','IN_CART','PAID','FILED'].includes(record.stage)||!cents(record.paidCents))die('Statut invalide.');
@@ -219,7 +232,8 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
    row={...row,targetType:record.targetType,targetId:record.targetId,content:str(record.content,2000),updatedBy:'Démonstration'};
   }
   data[type]=data[type].filter(x=>x.id!==row.id&&!(type==='booking'&&x.optionId===row.optionId)&&
-    !(type==='choice'&&x.participationId===row.participationId&&x.direction===row.direction));
+    !(type==='choice'&&x.participationId===row.participationId&&x.direction===row.direction&&
+       (x.needId||null)===(row.needId||null)));
   data[type].push(row);write(data);return {saved:true,item:structuredClone(row)};
  };
 }
