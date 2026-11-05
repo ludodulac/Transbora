@@ -49,8 +49,8 @@
   <section class="panel event-panel wizard-screen" id="etape-1" data-step="1" aria-labelledby="step-one-heading">
    <div class="screen-heading"><span class="screen-icon">01</span><h1 id="step-one-heading" tabindex="-1">Événement</h1></div>
    <div class="wizard-fields">
-    <label>Nom<input id="event-title" placeholder="Ex. Congrès" maxlength="90" autocomplete="off" required></label>
-    <label>Lieu<input id="event-destination" list="event-stations" placeholder="Ex. Paris" maxlength="120" autocomplete="off" required><small class="city-hint">Ville = toutes les gares et arrêts trouvés. Gare précise = sélection ciblée.</small><datalist id="event-stations"></datalist></label>
+    <label>Nom<input id="event-title" maxlength="90" autocomplete="off" required></label>
+    <label>Lieu<input id="event-destination" list="event-stations" maxlength="120" autocomplete="off" required><small class="city-hint">Ville = toutes les gares et arrêts trouvés. Gare précise = sélection ciblée.</small><datalist id="event-stations"></datalist></label>
     <div class="date-group"><span class="field-group-label">Début de l’événement</span>
      <div class="date-time-row"><label>Date<input id="event-start-date" type="date" required></label><label>Heure<input id="event-start-time" type="time" value="14:00" required></label></div>
     </div>
@@ -78,15 +78,15 @@
    <div class="screen-heading"><span class="screen-icon">02</span><h1 id="step-two-heading" tabindex="-1">Voyageurs</h1><span id="participants-total" class="count-bubble">0</span></div>
    <div id="directory-select" class="directory-quick-select">
      <label>Personne enregistrée
-       <input id="directory-person-find" type="search" list="directory-person-names" placeholder="Nom du voyageur…" autocomplete="off">
+       <input id="directory-person-find" type="search" list="directory-person-names" autocomplete="off">
        <datalist id="directory-person-names"></datalist>
      </label>
      <button id="add-directory-person" type="button" class="secondary">＋ Ajouter cette personne</button>
      <p id="directory-message" class="small" aria-live="polite"></p>
    </div>
    <form id="manual-person" class="wizard-manual">
-    <div class="two-inline"><label>Prénom<input id="add-first" placeholder="Sophie" maxlength="90" required></label><label>Nom<input id="add-last" placeholder="Martin" maxlength="90" required></label></div>
-    <label>Départ<input id="add-from" list="event-stations" placeholder="Brest" maxlength="140" required></label>
+    <div class="two-inline"><label>Prénom<input id="add-first" maxlength="90" required></label><label>Nom<input id="add-last" maxlength="90" required></label></div>
+    <label>Départ<input id="add-from" list="event-stations" maxlength="140" required></label>
     <button type="submit" class="secondary action-button" id="add-person">＋ Ajouter</button>
    </form>
    <div class="people-head"><strong>Participants</strong><button type="button" class="text-button" id="clear-participants">Tout effacer</button></div>
