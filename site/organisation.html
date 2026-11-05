@@ -13,7 +13,7 @@
  <div class="site-search" id="site-search" role="search">
   <label class="sr-only" for="site-search-input">Rechercher dans TRANSBORA</label>
   <span aria-hidden="true">⌕</span>
-  <input id="site-search-input" type="search" placeholder="Rechercher une personne, un spectacle, un trajet…" autocomplete="off" aria-controls="site-search-results" aria-expanded="false">
+  <input id="site-search-input" type="search" autocomplete="off" aria-controls="site-search-results" aria-expanded="false">
   <div id="site-search-results" class="site-search-results" role="listbox" hidden></div>
  </div>
 </header>
@@ -127,14 +127,14 @@
   <div class="list-tab-header">
    <h2>Personnes</h2><button type="button" class="primary" id="add-person-btn">＋ Ajouter une personne</button>
   </div>
-  <label class="directory-filter">🔎 Retrouver une personne<input id="person-filter" type="search" placeholder="Nom, gare, carte de réduction…" autocomplete="off"></label>
+  <label class="directory-filter">🔎 Retrouver une personne<input id="person-filter" type="search" autocomplete="off"></label>
   <div id="people-output" class="directory-list"></div>
   <div id="person-editor-backdrop" class="editor-backdrop" hidden></div>
   <aside id="person-editor" class="editor-drawer" hidden aria-label="Fiche d'une personne">
    <div class="editor-heading"><h3 id="person-editor-title">Ajouter une personne</h3><button id="person-editor-close" type="button" class="outline" aria-label="Fermer la fiche">✕</button></div>
   <form id="person-form" class="form-grid panel nested">
-   <label>Nom *<input name="name" required maxlength="100" placeholder="Nom et prénom"></label>
-   <label>Gare ou ville habituelle<input name="departure" maxlength="150" placeholder="Ex. : Brest"></label>
+   <label>Nom *<input name="name" required maxlength="100"></label>
+   <label>Gare ou ville habituelle<input name="departure" maxlength="150"></label>
    <label>E-mail<input name="email" type="email"></label>
    <label>Téléphone<input name="phone" maxlength="50"></label>
    <div class="full card-selector-wrap">
@@ -142,10 +142,14 @@
     <details id="person-card-picker" class="card-selector">
      <summary>Cartes et abonnements <span id="person-card-summary">Aucun</span></summary>
      <div id="person-card-options" class="card-option-list"></div>
-     <label>Autre carte<input id="person-card-other" type="text" maxlength="120" placeholder="Préciser si absente de la liste"></label>
+     <label class="card-other-choice"><input id="person-card-other-checkbox" type="checkbox"> Autre carte / abonnement</label>
+     <label id="person-card-other-wrap" hidden>Nom de l'autre carte<input id="person-card-other" type="text" maxlength="120"></label>
     </details>
    </div>
-   <label>Préférences de voyage<input name="preferences" maxlength="600"></label>
+   <label class="full">Préférences et remarques de voyage
+    <textarea name="preferences" maxlength="600" rows="2"></textarea>
+    <small class="field-help">Note facultative : correspondances à éviter, gare préférée, horaires difficiles, classe souhaitée…</small>
+   </label>
    <button class="primary">Enregistrer la personne</button>
   </form>
   </aside>
@@ -158,14 +162,27 @@
    <div class="editor-heading"><h3 id="event-editor-title">Événement</h3><button type="button" id="event-editor-close" class="outline" aria-label="Fermer le dossier">✕</button></div>
   <form id="event-form" class="form-grid panel nested">
    <label>Titre *<input name="title" required maxlength="120"></label>
-   <label>Date *<input name="startDate" type="date" required></label>
-   <label>Ville / destination<input name="destination" maxlength="160"></label>
+   <label>Date de début *<input name="startDate" type="date" required></label>
+   <label>Heure de début *<input name="startTime" type="time" required></label>
+   <label>Date de fin<input name="endDate" type="date"></label>
+   <label>Heure de fin<input name="endTime" type="time"></label>
+   <label>Arrivée souhaitée avant l'événement
+    <select name="arrivalLeadMinutes">
+     <option value="0">À l'heure de début</option>
+     <option value="30">30 minutes avant</option>
+     <option value="60" selected>1 heure avant</option>
+     <option value="90">1 h 30 avant</option>
+     <option value="120">2 heures avant</option>
+     <option value="180">3 heures avant</option>
+    </select>
+   </label>
+   <label>Ville / destination *<input name="destination" required maxlength="160"></label>
    <label>Théâtre ou salle<input name="theater" maxlength="160"></label>
-   <label>Enveloppe transport (€)<input name="budgetEuros" type="number" step=".01" min="0" placeholder="750"></label>
+   <label>Enveloppe transport (€)<input name="budgetEuros" type="number" step=".01" min="0"></label>
    <button class="primary">Enregistrer l'événement</button>
   </form>
   <div id="event-participation-region" hidden><h3>Participants</h3>
-  <label class="directory-filter">Rechercher une personne<input id="participation-person-find" type="search" list="registered-person-names" placeholder="Nom…" autocomplete="off"><datalist id="registered-person-names"></datalist></label>
+  <p class="small">Associez les personnes enregistrées à cet événement.</p>
   <form id="participation-form" class="row panel nested">
    <label>Événement<select name="eventId" required></select></label>
    <label>Personne<select name="personId" required></select></label>
@@ -177,7 +194,7 @@
   </aside>
  </section>
  <section id="panel-search" class="tab-panel" hidden>
-  <div class="list-tab-header"><h2>Recherche de trajets pour un événement</h2><button type="button" id="search-back-event" class="outline">← Événements</button></div>
+  <div class="list-tab-header"><h2>Recherche de trains</h2><button type="button" id="search-back-event" class="outline">← Événements</button></div>
   <div id="search-select-area" class="search-select-area">
    <label>Événement<select id="search-event-select"></select></label>
    <button type="button" id="search-open" class="primary">🔎 Rechercher</button>
@@ -201,7 +218,27 @@
   <button class="secondary" type="button" id="open-booking-form">🎫 Mettre à jour un achat</button>
  </section>
  <section id="panel-travels" class="tab-panel travels-tab" hidden>
-  <div class="list-tab-header"><h2>Trajets</h2><button id="add-travel-btn" type="button" class="primary">＋ Ajouter un trajet</button></div>
+  <div class="list-tab-header"><h2>Déplacements</h2><button id="add-travel-btn" type="button" class="primary">＋ Préparer un déplacement</button></div>
+  <p class="small">Indiquez d'abord la personne, l'événement et l'heure souhaitée. Les trains seront recherchés ensuite.</p>
+  <div class="need-planner">
+   <div id="need-work-panel" class="panel nested" hidden>
+    <div class="editor-heading"><h3 id="need-panel-title">Préparer un déplacement</h3><button id="need-panel-close" class="outline" type="button">✕</button></div>
+    <form id="need-form" class="form-grid">
+     <label>Événement *<select name="eventId" required></select></label>
+     <label>Personne *<select name="personId" required></select></label>
+     <label>Trajet <select name="direction"><option value="A">Aller / arrivée</option><option value="R">Retour / départ</option></select></label>
+     <label>Date souhaitée *<input name="targetDate" type="date" required></label>
+     <label>Heure souhaitée *<input name="targetTime" type="time" required></label>
+     <label>Ville / gare de départ *<input name="origin" required maxlength="160"></label>
+     <label>Ville / gare d'arrivée *<input name="destination" required maxlength="160"></label>
+     <label class="full">Remarque facultative<textarea name="note" rows="2" maxlength="400"></textarea></label>
+     <button class="primary" type="submit">Enregistrer ce déplacement</button>
+    </form>
+   </div>
+   <div class="list-tab-header"><h3>Déplacements à organiser</h3></div>
+   <div id="needs-output" class="need-list"></div>
+  </div>
+  <h3>Propositions de trains et billets</h3>
   <div class="travels-layout">
    <div class="travels-list-area">
     <div class="travels-filters">
@@ -224,15 +261,15 @@
    <label>Voyageur / événement<select name="participationId" required></select></label>
    <label>Sens<select name="direction"><option value="A">Aller</option><option value="R">Retour</option></select></label>
    <label>Date du trajet<input type="date" name="travelDate" required></label>
-   <label>Origine<input name="from" required placeholder="Paris Gare de Lyon"></label>
-   <label>Destination<input name="to" required placeholder="Mulhouse"></label>
+   <label>Origine<input name="from" required></label>
+   <label>Destination<input name="to" required></label>
    <label>Départ (heure)<input type="time" name="departure" required></label>
    <label>Arrivée (heure)<input type="time" name="arrival" required></label>
    <label>Prix prévu (€), si connu<input name="estimatedEuros" type="number" min="0" step=".01"></label>
    <button class="primary">Ajouter cette option de voyage</button>
     </form></div>
     <div id="travel-choice-wrap" hidden>
-    <h3>Choix des horaires</h3>
+    <h3>Préférences de l'artiste</h3>
     <form id="choice-form" class="form-grid panel nested">
    <label>Voyageur / événement<select name="participationId" required></select></label>
    <label>Sens<select name="direction"><option value="A">Aller</option><option value="R">Retour</option></select></label>
