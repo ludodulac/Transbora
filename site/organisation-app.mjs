@@ -286,18 +286,26 @@ $('refresh-workspace').addEventListener('click',async()=>{
 $('tabs').addEventListener('click',e=>{
  const btn=e.target.closest('[data-tab]');if(btn)showTab(btn.dataset.tab);
 });
-function openIntegratedSearch(eventId){
+function openIntegratedSearch(eventId,needId=null){
  const event=byId('event',eventId);
  if(!event)throw Error('Événement inconnu.');
- const roster={event,people:items('person'),participations:items('participation')};
+ const need=needId?byId('need',needId):null;
+ if(needId&&!need)throw Error('Déplacement introuvable.');
+ const roster={event,people:items('person'),participations:items('participation'),need};
+
  state.sharedHandoff=state.demo?null:buildSearchHandoff(roster);
  if(state.demo)createSearchHandoff(window.localStorage,roster);
  state.activeSearchEventId=eventId;
+ state.activeSearchNeedId=needId;
  state.searchImportPromise=Promise.resolve();
  state.searchImportError='';
  $('search-event-select').value=eventId;
- $('search-context').textContent=event.title+' · '+
-   items('participation').filter(p=>p.eventId===eventId).length+' voyageur(s)';
+ $('search-context').textContent=need?
+  event.title+' · '+displayParticipation(need.participationId)+' · '+
+  (need.direction==='A'?'Arrivée':'Départ')+' souhaité : '+fmtDate(need.targetDate)+
+  ' à '+need.targetTime:
+  event.title+' · '+items('participation').filter(p=>p.eventId===eventId&&p.active!==false).length+
+  ' voyageur(s)';
  const frame=$('search-frame');
  // Reload only when the organizer explicitly chooses an event; changing
  // sidebar tabs never destroys the ongoing timetable search.
