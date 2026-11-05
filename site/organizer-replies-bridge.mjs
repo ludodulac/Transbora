@@ -58,12 +58,14 @@ export function buildNativeLinkMapping({
   const mapping={version:1,createdAt:now,
     organizerEventId:organizerHandoff.eventId,nativeEventId:str(nativeEventId,100),
     title:organizerHandoff.title,destination:organizerHandoff.destination,
-    startDate:organizerHandoff.startDate,travelers};
+    startDate:organizerHandoff.startDate,
+    ...(organizerHandoff.needId?{needId:organizerHandoff.needId}:{}),travelers};
   return mapping;
 }
 export function registerNativeLink(storage,params,now=Date.now()){
   const mapping=buildNativeLinkMapping(params,now);
-  const rest=parse(storage).filter(v=>v.organizerEventId!==mapping.organizerEventId);
+  const rest=parse(storage).filter(v=>v.organizerEventId!==mapping.organizerEventId||
+    (v.needId||'')!==(mapping.needId||''));
   storage.setItem(NATIVE_LINKS_KEY,JSON.stringify([mapping,...rest].slice(0,MAX_LINKS)));
   return mapping;
 }
@@ -126,7 +128,8 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
           ' ('+dir+') : second choix introuvable ou invalide.');
         continue;
       }
-      const previous=choices.find(c=>c.participationId===pid&&c.direction===dir);
+      const previous=choices.find(c=>c.participationId===pid&&c.direction===dir&&
+       (c.needId||'')===(mapping.needId||''));
       if(previous?.firstOptionId===first &&
          (previous?.backupOptionId||null)===(backup||null)){summary.unchanged++;continue;}
       if(previous && previous.origin!=='sample' && (previous.origin!=='native'||
@@ -144,7 +147,8 @@ export function planNativeAnswers({mapping,report,event,participations,options,c
       if(answer==='NONE')summary.none++;
       summary.updates.push({participationId:pid,direction:dir,
         firstOptionId:first,backupOptionId:backup||null,
-        origin:'native',nativeEventId:mapping.nativeEventId});
+        origin:'native',nativeEventId:mapping.nativeEventId,
+        ...(mapping.needId?{needId:mapping.needId}:{})});
     }
   }
   return summary;
