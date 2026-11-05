@@ -429,16 +429,18 @@ async function init(){
       $('event-title').value=handoff.title;
       $('event-destination').value=handoff.destination;
       $('event-start-date').value=handoff.startDate;
-      $('event-end-date').value=handoff.startDate;
-      $('event-start-time').value='';
-      $('event-end-time').value='';
+      $('event-end-date').value=handoff.endDate||handoff.startDate;
+      $('event-start-time').value=handoff.startTime||'';
+      $('event-end-time').value=handoff.endTime||'';
+      $('include-outward').checked=handoff.needDirection!=='R';
+      $('include-return').checked=handoff.needDirection!=='A';
       for(const id of ['event-title','event-destination','event-start-date'])
         $(id).readOnly=true;
       participants=wizardPeople(handoff);
       nextId=participants.length+1;
       renderPeople();updateButtons();
       $('org-search-warning').hidden=false;
-      status('Événement et voyageurs chargés. Indiquez les heures de présence.');
+      status(handoff.startTime&&handoff.endTime?'Événement et contraintes chargés. Vous pouvez rechercher les trains.':'Complétez les horaires du spectacle avant la recherche.');
     });
     window.parent.postMessage({type:'transbora:shared-ready'},location.origin);
   }
@@ -453,9 +455,11 @@ async function init(){
       $('event-title').value=handoff.title;
       $('event-destination').value=handoff.destination;
       $('event-start-date').value=handoff.startDate;
-      $('event-end-date').value=handoff.startDate;
-      $('event-start-time').value='';
-      $('event-end-time').value='';
+      $('event-end-date').value=handoff.endDate||handoff.startDate;
+      $('event-start-time').value=handoff.startTime||'';
+      $('event-end-time').value=handoff.endTime||'';
+      $('include-outward').checked=handoff.needDirection!=='R';
+      $('include-return').checked=handoff.needDirection!=='A';
       participants=wizardPeople(handoff);
       nextId=participants.length+1;
       restoredDraft=true;
