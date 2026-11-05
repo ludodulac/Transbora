@@ -293,7 +293,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
          ownerKey:body.ownerKey,nativeStatus,clock
         });
         const synced=await syncNativeWorkspaceEvent({
-         store,org,eventId:body.eventId,nativeStatus,clock
+         store,org,eventId:body.eventId,needId:body.mapping?.needId,nativeStatus,clock
         });
         return json({...registered,...synced},201);
       }catch(error){
@@ -309,7 +309,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
       for(const link of filtered.slice(0,100)){
         try{
           results.push(await syncNativeWorkspaceEvent({
-           store,org,eventId:link.eventId,nativeStatus,clock
+           store,org,eventId:link.eventId,needId:link.needId,nativeStatus,clock
           }));
         }catch{
           results.push({linked:true,eventId:link.eventId,synced:0,
