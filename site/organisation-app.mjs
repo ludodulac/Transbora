@@ -13,7 +13,7 @@ const state={user:null,data:{},mode:'login',tab:'overview',demo:false,
  activeSearchEventId:null,sharedHandoff:null,searchImportPromise:Promise.resolve(),
  searchImportError:'',syncingChoices:false,lastRemoteChoiceRevision:null};
 let rehearsal=null;
-const kinds=['person','event','participation','option','choice','booking','note'];
+const kinds=['person','event','participation','need','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
  const e=document.createElement(tag);if(cls)e.className=cls;
  if(text!==undefined)e.textContent=String(text);return e;
@@ -124,7 +124,7 @@ function selectedCardLabels(){
  return [...cardList.querySelectorAll('input[type="checkbox"]:checked')].map(x=>x.value);
 }
 function updateCardCaption(){
- const known=selectedCardLabels(),other=$('person-card-other').value.trim();
+ const known=selectedCardLabels(),other=$('person-card-other-checkbox').checked?$('person-card-other').value.trim():'';
  const count=known.length+(other?1:0);
  $('person-card-summary').textContent=count?count===1?(known[0]||other):
   count+' sélectionnés':'Aucun';
@@ -133,15 +133,24 @@ function setCardsFromSaved(value){
  const saved=unpackRailCards(value);
  for(const input of cardList.querySelectorAll('input[type="checkbox"]'))
   input.checked=saved.known.includes(input.value);
+ $('person-card-other-checkbox').checked=Boolean(saved.other);
+ $('person-card-other-wrap').hidden=!saved.other;
  $('person-card-other').value=saved.other;
  updateCardCaption();
  $('person-form').elements.reductionCards.value=String(value||'');
 }
 function applyCardsToForm(){
  $('person-form').elements.reductionCards.value=
-  packRailCards(selectedCardLabels(),$('person-card-other').value);
+  packRailCards(selectedCardLabels(),$('person-card-other-checkbox').checked?$('person-card-other').value:'');
 }
 cardList.addEventListener('change',updateCardCaption);
+$('person-card-other-checkbox').addEventListener('change',()=>{
+ const active=$('person-card-other-checkbox').checked;
+ $('person-card-other-wrap').hidden=!active;
+ if(active)$('person-card-other').focus();
+ else $('person-card-other').value='';
+ updateCardCaption();
+});
 $('person-card-other').addEventListener('input',updateCardCaption);
 function fillSelects(){
  const persons=items('person').map(p=>[p.id,p.name]),
@@ -151,16 +160,8 @@ function fillSelects(){
  options($('travel-person-filter'),persons,'Tous les artistes');
  options($('travel-event-filter'),events,'Tous les événements');
  options($('search-event-select'),events,'Choisir…');
- const matches=$('registered-person-names');matches.replaceChildren();
- for(const person of items('person')){
-   const item=node('option');item.value=person.name;item.label=person.departure||'';
-   matches.append(item);
- }
- const hint=$('participation-person-find');
- if(hint?.dataset.personId){
-   const person=byId('person',hint.dataset.personId);
-   if(person)hint.value=person.name;
- }
+ options($('need-form').elements.eventId,events,'Choisir un événement');
+ options($('need-form').elements.personId,persons,'Choisir une personne');
 
  for(const sel of document.querySelectorAll('#participation-form select[name="personId"]'))options(sel,persons);
  for(const sel of document.querySelectorAll('#participation-form select[name="eventId"]'))options(sel,events);
@@ -305,14 +306,6 @@ $('search-open').addEventListener('click',()=>{
  catch(error){feedback(error.message,true);}
 });
 $('search-back-event').addEventListener('click',()=>showTab('events'));
-$('participation-person-find').addEventListener('input',e=>{
- const name=e.currentTarget.value.trim().toLocaleLowerCase('fr-FR');
- const match=items('person').find(p=>p.name.trim().toLocaleLowerCase('fr-FR')===name);
- if(match){
-  $('participation-form').elements.personId.value=match.id;
-  e.currentTarget.dataset.personId=match.id;
- }else delete e.currentTarget.dataset.personId;
-});
 $('person-filter').addEventListener('input',e=>{
  const term=e.currentTarget.value.trim().toLocaleLowerCase('fr-FR');
  for(const card of $('people-output').children){
@@ -501,8 +494,9 @@ function openPersonEditor(person=null){
 function openEventEditor(event=null){
  const form=$('event-form');form.reset();
  delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
- for(const field of ['title','startDate','destination','theater'])
+ for(const field of ['title','startDate','startTime','endDate','endTime','destination','theater'])
   form.elements[field].value=event?.[field]||'';
+ form.elements.arrivalLeadMinutes.value=String(event?.arrivalLeadMinutes??60);
  form.elements.budgetEuros.value=event?.budgetCents==null?'':String(event.budgetCents/100);
  if(event){
   form.dataset.recordId=event.id;
@@ -515,7 +509,20 @@ function openEventEditor(event=null){
  const roster=$('event-participants-list');roster.replaceChildren();
  if(event){
   const people=items('participation').filter(p=>p.eventId===event.id);
-  for(const participant of people)roster.append(node('span',null,displayPerson(participant.personId)));
+  for(const participant of people){
+   const chip=node('div','participant-chip');
+   chip.append(node('span',null,displayPerson(participant.personId)));
+   const remove=node('button','outline',participant.active===false?'Réinscrire':'Retirer');
+   remove.type='button';
+   remove.addEventListener('click',async()=>{
+    try{
+     await api('set_participation_active',{participationId:participant.id,active:participant.active===false});
+     await reload();openEventEditor(byId('event',event.id));
+     feedback(participant.active===false?'✅ Personne réinscrite.':'✅ Personne retirée de cet événement.');
+    }catch(error){feedback(error.message,true);}
+   });
+   chip.append(remove);roster.append(chip);
+  }
   if(!people.length)roster.append(node('p','muted','Aucun artiste inscrit à cet événement.'));
  }
  $('event-editor-title').textContent=event?event.title:'Ajouter un événement';
@@ -772,7 +779,7 @@ function renderEverything(){
  renderMonthly();
  const events=$('events-output');events.replaceChildren();
  for(const event of [...items('event')].sort((a,b)=>a.startDate.localeCompare(b.startDate))){
-  const n=items('participation').filter(p=>p.eventId===event.id).length;
+  const n=items('participation').filter(p=>p.eventId===event.id&&p.active!==false).length;
   const row=node('div','directory-event-row');
   row.append(directoryEntry(event.title,
    fmtDate(event.startDate)+' · '+(event.destination||'Ville à préciser')+
@@ -807,7 +814,7 @@ function renderEverything(){
   'Aucun événement enregistré.','＋ Ajouter un événement',()=>openEventEditor());
  renderJourneys();
  const answers=$('answers-output');answers.replaceChildren();
- for(const participation of items('participation')){
+ for(const participation of items('participation').filter(p=>p.active!==false)){
   const event=byId('event',participation.eventId);
   if(!event)continue;
   const records=items('choice').filter(x=>x.participationId===participation.id);
@@ -1241,7 +1248,9 @@ bindForm('person-form',fd=>({type:'person',record:{
  email:val(fd,'email'),phone:val(fd,'phone'),
  reductionCards:val(fd,'reductionCards'),preferences:val(fd,'preferences')}}));
 bindForm('event-form',fd=>({type:'event',record:{
- title:val(fd,'title'),startDate:val(fd,'startDate'),
+ title:val(fd,'title'),startDate:val(fd,'startDate'),startTime:val(fd,'startTime'),
+ endDate:val(fd,'endDate'),endTime:val(fd,'endTime'),
+ arrivalLeadMinutes:Number(val(fd,'arrivalLeadMinutes')||60),
  destination:val(fd,'destination'),theater:val(fd,'theater'),
  budgetCents:money(val(fd,'budgetEuros'))}}));
 bindForm('participation-form',fd=>({type:'participation',record:{
