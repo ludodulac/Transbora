@@ -243,8 +243,12 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
           !Array.isArray(item.legs)||!item.legs.length||item.legs.length>6)
           return deny('Proposition de recherche invalide.',400);
         if(!people.has(item.personId))return deny('Personne non autorisée.',400);
-        const part=parts.find(p=>p.personId===item.personId);
+        const part=parts.find(p=>p.personId===item.personId&&p.active!==false);
         if(!part)return deny('Cette personne n’est pas inscrite à cet événement.',400);
+        const requirement=item.needId?await requireItem(store,'need',org,item.needId):null;
+        if(requirement&&(requirement.participationId!==part.id||
+           requirement.direction!==item.direction))
+          return deny('Le déplacement ne correspond pas à cet artiste.',400);
         const legs=item.legs.map((leg,index)=>({
           order:index+1,from:safe(leg.from,150),to:safe(leg.to,150),
           departure:safe(leg.departure,5),arrival:safe(leg.arrival,5),
@@ -258,6 +262,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
           legs[0].departureDate!==item.travelDate)
           return deny('Horaires ou correspondances invalides.',400);
         validated.push({personId:item.personId,participationId:part.id,
+          ...(requirement?{needId:requirement.id}:{}),
           direction:item.direction,travelDate:item.travelDate,legs,
           sourceKeyHash:hash(eventId+'|'+item.sourceKey)});
       }
@@ -270,6 +275,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
         const now=clock(),id=random();
         await store.setJSON(key('option',org,id),{
           id,organizationId:org,participationId:row.participationId,
+          ...(row.needId?{needId:row.needId}:{}),
           direction:row.direction,travelDate:row.travelDate,
           legs:row.legs,source:'Horaires publiés (tarifs et disponibilité inconnus)',
           estimatedCents:null,sourceKeyHash:row.sourceKeyHash,
@@ -384,10 +390,17 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
         }else if(type==='choice'){
           const p=await requireItem(store,'participation',org,obj.participationId);
           if(!['A','R'].includes(obj.direction))return deny('Sens invalide.',400);
+          const needId=obj.needId||null;
+          if(needId){
+           const need=await requireItem(store,'need',org,needId);
+           if(need.participationId!==p.id||need.direction!==obj.direction)
+             return deny('Déplacement incompatible avec ce choix.',409);
+          }
           const validOption=async id=>{
             if(!id)return null;
             const o=await requireItem(store,'option',org,id);
-            if(o.participationId!==p.id||o.direction!==obj.direction)
+            if(o.participationId!==p.id||o.direction!==obj.direction||
+             (o.needId||null)!==needId)
               throw Error('Proposition d’un autre trajet.');
             return id;
           };
@@ -396,14 +409,15 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
           if(firstOptionId&&firstOptionId===backupOptionId)
             return deny('Options nº1 et nº2 identiques.',400);
           // One saved choice per traveler + direction.
-          const id='c-'+hash(p.id+':'+obj.direction).slice(0,42);
+          const id='c-'+hash(p.id+':'+obj.direction+(needId?':'+needId:'')).slice(0,42);
           if(obj.id&&obj.id!==id)return deny('Identifiant de choix incompatible.',409);
           const previousChoice=await store.get(key('choice',org,id),{type:'json'});
           if(expects&&(previousChoice?.updatedAt??null)!==(obj.expectedUpdatedAt??null))
             return deny('Un autre membre a modifié ce choix. Actualisez les données.',409);
           result={...common,id,createdAt:previousChoice?.createdAt||common.createdAt,
             participationId:p.id,direction:obj.direction,
-            firstOptionId,backupOptionId,confirmedBy:session.email};
+            ...(needId?{needId}:{}),firstOptionId,backupOptionId,
+            confirmedBy:session.email};
         }else if(type==='booking'){
           const o=await requireItem(store,'option',org,obj.optionId);
           if(!['PROPOSED','IN_CART','PAID','FILED'].includes(obj.stage)||
