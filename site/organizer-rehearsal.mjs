@@ -2,7 +2,7 @@ import {personMonthView,eventBudgetSummary} from './organizer-domain.mjs';
 import {planNativeAnswers} from './organizer-replies-bridge.mjs';
 import {validateRehearsalBackup} from './organizer-recovery.mjs';
 export const KEY='transbora_local_example_043';
-const ORG='local-rehearsal',KINDS=['person','event','participation','option','choice','booking','note'];
+const ORG='local-rehearsal',KINDS=['person','event','participation','need','option','choice','booking','note'];
 const str=(x,n=200)=>String(x??'').trim().slice(0,n);
 const uuid=()=>String(globalThis.crypto?.randomUUID?.()||('d'+Math.random().toString(36).slice(2))).replace(/-/g,'');
 const die=msg=>{throw Error(msg)};
@@ -20,13 +20,13 @@ const init=()=>{
           {id:'opt2-demo',participationId:'ps-demo',direction:'A',travelDate:'2026-10-31',estimatedCents:8000,legs:[leg('Paris Gare de Lyon','Mulhouse','07:22','10:03')]},
           {id:'opt3-demo',participationId:'pm-demo',direction:'A',travelDate:'2026-10-30',estimatedCents:12000,legs:[leg('Brest','Paris Montparnasse','08:00','12:00'),leg('Paris Est','Mulhouse','13:45','16:50',2)]}],
   choice:[{id:'choice-demo',participationId:'ps-demo',direction:'A',firstOptionId:'opt1-demo',backupOptionId:'opt2-demo',origin:'sample'}],
-  booking:[],
+  booking:[],need:[],
   note:[{id:'note-demo',targetType:'event',targetId:'festival-demo',content:'Note fictive : vérifier les horaires.',updatedBy:'Démonstration',updatedAt:Date.now()}]};
  for(const k of KINDS)for(const row of data[k])row.organizationId=ORG;
  return data;
 };
 const empty=()=>({version:1,person:[],event:[],participation:[],
- option:[],choice:[],booking:[],note:[]});
+ need:[],option:[],choice:[],booking:[],note:[]});
 /* Only remove the known built-in fictional fixtures. Never delete unrelated
    user-created persons, events or records from an existing local browser. */
 export function stripFictionalExamples(data){
@@ -43,6 +43,7 @@ export function stripFictionalExamples(data){
   !removedEvents.has(p.eventId));
  const removedParts=new Set(data.participation.filter(p=>
   !copy.participation.some(x=>x.id===p.id)).map(p=>p.id));
+ copy.need=(data.need||[]).filter(n=>!removedParts.has(n.participationId));
  copy.option=data.option.filter(o=>!removedParts.has(o.participationId));
  const removedOptions=new Set(data.option.filter(o=>
   !copy.option.some(x=>x.id===o.id)).map(o=>o.id));
@@ -58,7 +59,10 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
   const raw=store.getItem(KEY);
   if(!raw){const data=cleanExamples?empty():init();write(data);return data;}
   let data;try{data=JSON.parse(raw)}catch{die('Démonstration illisible.')}
-  if(data.version!==1||KINDS.some(k=>!Array.isArray(data[k])))die('Version de démonstration incompatible.');
+  if(data.version!==1)die('Version de démonstration incompatible.');
+  // Additive migration: keep existing people (including user-created Gérard).
+  if(!Array.isArray(data.need))data.need=[];
+  if(KINDS.some(k=>!Array.isArray(data[k])))die('Version de démonstration incompatible.');
   if(cleanExamples){
    const clean=stripFictionalExamples(data);
    if(KINDS.some(k=>clean[k].length!==data[k].length)){write(clean);return clean;}
@@ -70,10 +74,17 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
   if(action==='reset_demo'){write(cleanExamples?empty():init());return {reset:true};}
   const data=read(),{type,record}=args;
   const get=(kind,key)=>data[kind].find(x=>x.id===key)||die('Élément introuvable.');
+  if(action==='set_participation_active'){
+    const part=get('participation',args.participationId);
+    if(typeof args.active!=='boolean')die('État invalide.');
+    part.active=args.active;part.updatedAt=Date.now();
+    write(data);return {saved:true,item:structuredClone(part)};
+  }
   if(action==='list')return {items:structuredClone(data[type]||[])};
   if(action==='export_backup')return {type:'local-rehearsal',...data};
   if(action==='restore_demo_backup'){
     const restored=validateRehearsalBackup(args.backup);
+    restored.need=Array.isArray(restored.need)?restored.need:[];
     write(restored);
     return {restored:true,persons:restored.person.length,events:restored.event.length};
   }
@@ -148,11 +159,32 @@ export function createRehearsalApi(store,{cleanExamples=false}={}){
   }else if(type==='event'){
    if(!str(record.title)||!date(record.startDate)||!cents(record.budgetCents))die('Événement invalide.');
    for(const field of ['title','startDate','destination','theater'])row[field]=str(record[field],160);
+   row.startTime=str(record.startTime??prev?.startTime,5);
+   row.endDate=str(record.endDate??prev?.endDate,10);
+   row.endTime=str(record.endTime??prev?.endTime,5);
+   row.arrivalLeadMinutes=Number(record.arrivalLeadMinutes??prev?.arrivalLeadMinutes??60);
+   const timeOk=v=>!v||/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v);
+   if(!timeOk(row.startTime)||!timeOk(row.endTime)||
+     (row.endDate&&!date(row.endDate))||
+     !Number.isInteger(row.arrivalLeadMinutes)||row.arrivalLeadMinutes<0||row.arrivalLeadMinutes>360)
+     die('Horaires invalides.');
    row.budgetCents=record.budgetCents??null;
   }else if(type==='participation'){
    get('person',record.personId);get('event',record.eventId);
    if(data.participation.some(x=>x.eventId===record.eventId&&x.personId===record.personId))die('Cette personne est déjà inscrite.');
    row={...row,eventId:record.eventId,personId:record.personId};
+  }else if(type==='need'){
+   const participation=get('participation',record.participationId);
+   if(participation.active===false)die('Personne retirée de cet événement.');
+   const time=str(record.targetTime,5);
+   const origin=str(record.origin,160),destination=str(record.destination,160);
+   if(!['A','R'].includes(record.direction)||!date(record.targetDate)||
+     !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)||!origin||!destination)
+      die('Déplacement incomplet.');
+   if(prev&&prev.participationId!==record.participationId)die('Déplacement associé à une autre personne.');
+   row={...row,participationId:participation.id,direction:record.direction,
+     origin,destination,targetDate:record.targetDate,targetTime:time,
+     customized:record.customized===true,note:str(record.note,400)};
   }else if(type==='option'){
    get('participation',record.participationId);
    if(!['A','R'].includes(record.direction)||!date(record.travelDate)||!cents(record.estimatedCents)||!Array.isArray(record.legs)||!record.legs.length)die('Option invalide.');
