@@ -95,7 +95,20 @@ function passFields(kind,body,old,org){
     if(!title||!formatDate(date))throw Error('Titre ou date invalide.');
     const budget=body.budgetCents??null;
     if(!money(budget))throw Error('Enveloppe budgétaire invalide.');
-    return {...base,title,startDate:date,budgetCents:budget,
+    const startTime=safe(body.startTime??old?.startTime,5);
+    const endDate=safe(body.endDate??old?.endDate,10);
+    const endTime=safe(body.endTime??old?.endTime,5);
+    const lead=body.arrivalLeadMinutes??old?.arrivalLeadMinutes??60;
+    if((startTime&&!/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(startTime))||
+       (endTime&&!/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(endTime))||
+       (endDate&&!formatDate(endDate))||
+       !Number.isInteger(Number(lead))||Number(lead)<0||Number(lead)>360)
+      throw Error('Horaires de l’événement invalides.');
+    if(endDate&&endTime&&startTime&&
+       endDate+'T'+endTime<date+'T'+startTime)
+      throw Error('La fin de l’événement précède son début.');
+    return {...base,title,startDate:date,startTime,endDate,endTime,
+      arrivalLeadMinutes:Number(lead),budgetCents:budget,
       destination:safe(body.destination,160),theater:safe(body.theater,160)};
   }
   throw Error('Type de fiche interdit.');
@@ -202,9 +215,17 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
     }
     if(action==='list'){
       const type=body.type;
-      if(!['person','event','participation','option','choice','booking','note'].includes(type))
+      if(!['person','event','participation','need','option','choice','booking','note'].includes(type))
         return deny('Catégorie invalide.',400);
       return json({items:await all(store,type,org)});
+    }
+    if(action==='set_participation_active'){
+      if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
+      const p=await requireItem(store,'participation',org,body.participationId);
+      if(typeof body.active!=='boolean')return deny('Statut invalide.',400);
+      const next={...p,active:body.active,updatedAt:clock(),updatedBy:session.email};
+      await store.setJSON(key('participation',org,p.id),next);
+      return json({saved:true,item:next});
     }
     if(action==='import_search_results'){
       if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
@@ -304,7 +325,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
       if(!['manager','editor'].includes(session.role))return deny('Lecture seule.');
       const type=body.type,obj=body.record;
       if(!obj||typeof obj!=='object'||Array.isArray(obj))return deny('Fiche invalide.',400);
-      if(!['person','event','participation','option','choice','booking','note'].includes(type))
+      if(!['person','event','participation','need','option','choice','booking','note'].includes(type))
         return deny('Catégorie invalide.',400);
       const existing=obj.id?await requireItem(store,type,org,obj.id):null;
       // Every connected editor works on the same organization records.
@@ -329,6 +350,20 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
           result={...common,eventId:obj.eventId,personId:obj.personId,
             outwardOrigin:safe(obj.outwardOrigin,150),
             returnDestination:safe(obj.returnDestination,150)};
+        }else if(type==='need'){
+          const p=await requireItem(store,'participation',org,obj.participationId);
+          if(p.active===false)return deny('Cette personne a été retirée de l’événement.',409);
+          const direction=obj.direction;
+          const targetDate=safe(obj.targetDate,10),targetTime=safe(obj.targetTime,5);
+          const origin=safe(obj.origin,160),destination=safe(obj.destination,160);
+          if(!['A','R'].includes(direction)||!formatDate(targetDate)||
+            !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(targetTime)||
+            !origin||!destination)return deny('Déplacement incomplet.',400);
+          if(existing&&existing.participationId!==p.id)
+            return deny('Ce déplacement appartient à un autre artiste.',409);
+          result={...common,participationId:p.id,direction,targetDate,targetTime,
+            origin,destination,customized:obj.customized===true,
+            note:safe(obj.note,400)};
         }else if(type==='option'){
           const p=await requireItem(store,'participation',org,obj.participationId);
           const legs=obj.legs;
@@ -411,7 +446,7 @@ export function createWorkspaceHandler({getStore,masterKey,nativeStatus,clock=()
     if(action==='export_backup'){
       if(session.role!=='manager')return deny('Seule la direction peut sauvegarder la totalité des données.');
       const data={};
-      for(const type of ['person','event','participation','option','choice','booking','note'])
+      for(const type of ['person','event','participation','need','option','choice','booking','note'])
         data[type]=await all(store,type,org);
       return json({format:'transbora-organizer-backup-v1',organizationId:org,
         exportedAt:new Date(clock()).toISOString(),data});
