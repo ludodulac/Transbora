@@ -12,7 +12,8 @@ import {monthlyTravelPdf,travelPdfName} from './organizer-monthly-pdf.mjs';
 const $=id=>document.getElementById(id);
 const state={user:null,data:{},mode:'login',tab:'overview',demo:false,
  activeSearchEventId:null,sharedHandoff:null,searchImportPromise:Promise.resolve(),
- searchImportError:'',syncingChoices:false,lastRemoteChoiceRevision:null};
+ searchImportError:'',syncingChoices:false,lastRemoteChoiceRevision:null,
+ eventToEnrollAfterPerson:null};
 let rehearsal=null;
 const kinds=['person','event','participation','need','option','choice','booking','note'];
 const node=(tag,cls,text)=>{
@@ -522,6 +523,7 @@ function card(title,lines=[]){
 /* 053 — Editors appear only when an item is selected or created.
    The lists themselves are the default landing views. */
 function closePersonEditor(){
+ state.eventToEnrollAfterPerson=null;
  $('person-editor').hidden=true;$('person-editor-backdrop').hidden=true;
 }
 function closeEventEditor(){
@@ -623,6 +625,13 @@ $('add-event-btn').addEventListener('click',()=>openEventEditor());
 $('overview-create-event').addEventListener('click',()=>{
  showTab('events');
  openEventEditor();
+});
+$('event-create-person').addEventListener('click',()=>{
+ const eventId=$('event-editor-search').dataset.eventId;
+ if(!eventId)return;
+ showTab('people');
+ state.eventToEnrollAfterPerson=eventId;
+ openPersonEditor();
 });
 $('event-editor-close').addEventListener('click',closeEventEditor);
 $('event-editor-search').addEventListener('click',()=>{
@@ -1361,7 +1370,23 @@ function bindForm(id,create){
    if(button)button.textContent=id==='person-form'?'Enregistrer la personne':
      id==='event-form'?'Enregistrer l’événement':button.textContent;
    await reload();
-   if(id==='person-form')closePersonEditor();
+   if(id==='person-form'){
+    const eventId=state.eventToEnrollAfterPerson;
+    closePersonEditor();
+    if(eventId&&byId('event',eventId)){
+     const already=items('participation').find(p=>
+       p.eventId===eventId&&p.personId===saved.item.id);
+     if(!already){
+      const joined=await api('save',{type:'participation',
+       record:{eventId,personId:saved.item.id}});
+      try{await needPlanner.ensureInitialNeed(joined.item);}
+      catch(error){feedback('Artiste inscrit ; déplacement à compléter : '+error.message,true);}
+     }
+     await reload();
+     showTab('events');
+     openEventEditor(byId('event',eventId));
+    }
+   }
    if(id==='event-form')openEventEditor(byId('event',saved.item.id));
    if(id==='participation-form'&&record.eventId){
     try{await needPlanner.ensureInitialNeed(saved.item);await reload();}
