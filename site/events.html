@@ -15,26 +15,20 @@
 <body>
 <header class="event-header">
  <div class="container event-nav">
-  <a class="brand" href="./index.html">🚆 Transbora</a>
+  <a class="brand" href="./organisation.html">🚆 Transbora</a>
 
-  <button type="button" id="help-open" aria-expanded="false" aria-controls="help-drawer" aria-label="Ouvrir le menu" class="hamburger"><span></span><span></span><span></span></button>
+  <button type="button" id="help-open" aria-expanded="false" aria-controls="help-drawer" aria-label="Ouvrir les options de trajet" class="hamburger"><span></span><span></span><span></span></button>
  </div>
 </header>
 <div class="drawer-backdrop" id="help-backdrop" hidden></div>
 <aside id="help-drawer" class="help-drawer" aria-label="Menu et aide" aria-hidden="true" tabindex="-1" inert>
- <div class="drawer-head"><strong>☰ Menu</strong><button id="help-close" type="button" aria-label="Fermer le menu">✕</button></div>
+ <div class="drawer-head"><strong>Options de trajet</strong><button id="help-close" type="button" aria-label="Fermer les options">✕</button></div>
  <div class="help-body">
-  <nav class="drawer-nav" aria-label="Navigation">
-  <a href="./index.html" class="drawer-link">🏠 Accueil</a>
-  <a id="menu-replies" href="./mes-evenements.html" class="drawer-link">📂 Mes événements et réponses</a>
-  <button type="button" id="menu-event" class="drawer-link">✏️ Brouillon en cours</button>
-  <button type="button" id="clear-saved-draft" class="drawer-link">＋ Nouvel événement</button>
-  <a href="./recherche.html" class="drawer-link">🚆 Recherche rapide</a>
-  <a href="./organisation.html" class="drawer-link">🗂️ Tableau organisateur</a>
+  <nav class="drawer-nav" aria-label="Navigation de l'assistant">
+   <a href="./organisation.html" class="drawer-link">← Tableau de bord</a>
+   <a href="./mes-evenements.html" class="drawer-link">📂 Liens de suivi</a>
+   <button type="button" id="clear-saved-draft" class="drawer-link">↻ Recommencer</button>
   </nav>
-  <details class="settings-fold"><summary>Comment ça marche ?</summary>
-    <p>Créez un événement, ajoutez vos voyageurs, recherchez les horaires puis envoyez leurs liens. Vos dossiers déjà créés se retrouvent dans « Mes événements ».</p>
-  </details>
  </div>
 </aside>
 <main class="container event-main">
@@ -167,8 +161,8 @@
        <button type="button" class="secondary switch-share-mode" id="switch-sharing-mode">↔ Changer le type de lien</button>
        <p class="small">Changer de type de lien désactive les liens précédents.</p>
        <div class="native-admin-link"><a id="native-status-link" href="#" target="_blank" rel="noopener noreferrer">📋 Ouvrir le suivi des réponses ↗</a></div>
-       <p class="native-admin-link"><a id="native-organizer-link" class="secondary" href="./organisation.html?import_search=1" hidden>🗂️ Retrouver les trajets et les réponses dans Organisation →</a></p>
-        <div class="finished-actions"><a class="primary" href="./mes-evenements.html">📂 Mes événements</a><a class="secondary" href="./events.html?new=1">＋ Créer un autre événement</a></div>
+       <p class="native-admin-link"><a id="native-organizer-link" class="secondary" href="./organisation.html?import_search=1" hidden>🗂️ Retour au tableau de bord</a></p>
+        <div class="finished-actions"><a class="primary" href="./organisation.html">← Tableau de bord</a><a class="secondary" href="./mes-evenements.html">📂 Liens de suivi</a></div>
      </section>
    </div>
    <details class="settings-fold legacy-excel" id="legacy-excel">
@@ -184,7 +178,7 @@
     <button type="button" class="text-button invite-link" id="copy-invitation" hidden>📋 Message d’envoi</button>
     <p id="copy-invitation-status" class="inline-feedback" role="status"></p>
    </details>
-   <p class="reply-shortcut"><a id="open-replies" href="./mes-evenements.html">📂 Mes événements et réponses →</a></p>
+   <p class="reply-shortcut"><a id="open-replies" href="./mes-evenements.html">📂 Liens de suivi →</a></p>
   </section>
 
   <div class="wizard-actions" id="wizard-actions">
