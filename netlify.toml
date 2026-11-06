@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --ignore-scripts --no-audit --no-fund && node --test tests/organizer-native-auto-sync-054.test.mjs tests/organizer-ui-simplification-053.test.mjs tests/organizer-native-shared-ui-054.test.mjs tests/organizer-replies-045.test.mjs tests/workspace-shared-048.test.mjs tests/multimodal-comparison.test.mjs tests/practical-ranking.test.mjs tests/navigation-architecture-057.test.mjs tests/unified-workspace-046.test.mjs tests/context-help-051.test.mjs && python3 scripts/build_sources.py --output site/data && python3 scripts/build_mct.py --output site/data/mct.json --allow-unavailable"
+  command = "npm install --ignore-scripts --no-audit --no-fund && node --test tests/organizer-native-auto-sync-054.test.mjs tests/organizer-ui-simplification-053.test.mjs tests/organizer-native-shared-ui-054.test.mjs tests/organizer-replies-045.test.mjs tests/workspace-shared-048.test.mjs tests/multimodal-comparison.test.mjs tests/practical-ranking.test.mjs tests/navigation-architecture-057.test.mjs tests/event-first-onboarding-058.test.mjs tests/unified-workspace-046.test.mjs tests/context-help-051.test.mjs && python3 scripts/build_sources.py --output site/data && python3 scripts/build_mct.py --output site/data/mct.json --allow-unavailable"
   publish = "site"
   functions = "netlify/functions"
 
