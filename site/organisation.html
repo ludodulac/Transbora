@@ -194,15 +194,15 @@
    <label>Enveloppe transport (€)<input name="budgetEuros" type="number" step=".01" min="0"></label>
    <button class="primary">Enregistrer l'événement</button>
   </form>
-  <div id="event-participation-region" hidden><h3>Participants</h3>
-  <p class="small">Associez les personnes enregistrées à cet événement.</p>
+  <div id="event-participation-region" hidden><h3>Artistes inscrits</h3>
   <form id="participation-form" class="row panel nested">
-   <label>Événement<select name="eventId" required></select></label>
-   <label>Personne<select name="personId" required></select></label>
-   <button class="secondary">Ajouter</button>
+   <label class="sr-only">Événement<select name="eventId" required></select></label>
+   <label>Artiste existant<select name="personId" required></select></label>
+   <button class="secondary">Inscrire</button>
   </form>
   <div id="event-participants-list" class="linked-people-list"></div>
-  <button type="button" class="secondary" id="event-editor-search">🔎 Trouver les trajets de cet événement</button>
+  <button type="button" class="outline" id="event-create-person">＋ Créer un artiste et l’inscrire</button>
+  <button type="button" class="secondary" id="event-editor-search">🔎 Trouver les trajets</button>
   </div>
   </aside>
  </section>
