@@ -20,9 +20,8 @@ function refreshList(){
   host.replaceChildren();
   if(!data.length){
     const empty=node('div','history-empty');
-    empty.append(node('p',null,'Aucun événement enregistré sur cet appareil.'));
-    const help=node('p',null,'Créez un événement ou ajoutez un ancien dossier avec son lien de suivi ci-dessous.');
-    empty.append(help);host.append(empty);return;
+    empty.append(node('p',null,'Aucun lien de suivi enregistré sur cet appareil.'));
+    host.append(empty);return;
   }
   data.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   for(const item of data){
