@@ -463,3 +463,20 @@ border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b460
    imports, templates or XLSX exports inside the embedded workbench. */
 .embedded-workspace .secondary-import,
 .embedded-workspace .legacy-excel{display:none!important}
+
+
+/* 057 — a compact mobile options menu, not an almost empty full-screen drawer. */
+@media(max-width:620px){
+ .help-drawer{
+  top:67px;right:12px;left:12px;bottom:auto;width:auto;max-height:calc(100dvh - 84px);
+  overflow:hidden;border-radius:15px;box-shadow:0 15px 40px #102e3b40;
+  transform:translateY(-14px);opacity:0;transition:transform .18s ease,opacity .18s ease
+ }
+ .help-drawer.open{transform:translateY(0);opacity:1}
+ .drawer-head{padding:10px 15px;min-height:52px}
+ .drawer-head strong{font-size:1rem}
+ .drawer-head button{padding:4px 10px;font-size:1rem}
+ .help-body{padding:13px;max-height:calc(100dvh - 141px)}
+ .drawer-nav{gap:6px;padding-bottom:0;border:0}
+ .drawer-link{padding:12px;font-size:.93rem}
+}
