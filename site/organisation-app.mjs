@@ -246,8 +246,14 @@ function closeMobileNav(){
 }
 function showTab(tab){
  state.tab=tab;
+ // Search is a real screen, not an invisible "Événements" menu selection.
+ // Expose its label only while the search is open.
+ const searchNav=$('tabs').querySelector('[data-tab="search"]');
+ searchNav.hidden=tab!=='search';
+ const extra=$('nav-more');
+ extra.open=['budget','notes','team'].includes(tab);
  for(const btn of $('tabs').querySelectorAll('[data-tab]')){
-  const selected=btn.dataset.tab===tab||(tab==='search'&&btn.dataset.tab==='events');
+  const selected=btn.dataset.tab===tab;
   if(selected)btn.setAttribute('aria-current','page');
   else btn.removeAttribute('aria-current');
  }
@@ -614,6 +620,10 @@ $('add-person-btn').addEventListener('click',()=>openPersonEditor());
 $('person-editor-close').addEventListener('click',closePersonEditor);
 $('person-editor-backdrop').addEventListener('click',closePersonEditor);
 $('add-event-btn').addEventListener('click',()=>openEventEditor());
+$('overview-create-event').addEventListener('click',()=>{
+ showTab('events');
+ openEventEditor();
+});
 $('event-editor-close').addEventListener('click',closeEventEditor);
 $('event-editor-search').addEventListener('click',()=>{
  try{openIntegratedSearch($('event-editor-search').dataset.eventId);}
@@ -850,6 +860,9 @@ document.addEventListener('click',e=>{
 });
 
 function renderEverything(){
+ const empty=!items('event').length;
+ $('overview-empty').hidden=!empty;
+ $('panel-overview').classList.toggle('is-empty',empty);
  const people=$('people-output');people.replaceChildren();
  for(const p of [...items('person')].sort((a,b)=>a.name.localeCompare(b.name,'fr'))){
   const subtitle=[p.departure||'Gare à préciser',
