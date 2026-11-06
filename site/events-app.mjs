@@ -1244,11 +1244,6 @@ $('clear-saved-draft').addEventListener('click',()=>{
   eraseDraft(localStorage);
   location.assign('./events.html?new=1');
 });
-$('menu-event').addEventListener('click',()=>{
-  toggleHelp(false,{focus:false});
-  showStep(activeStep);
-});
-
 
 $('back-to-wizard').addEventListener('click',()=>showStep(activeStep));
 
