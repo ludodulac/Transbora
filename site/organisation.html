@@ -42,28 +42,37 @@
  <div class="masthead"><button id="nav-toggle" class="outline mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="tabs" aria-label="Ouvrir le menu">☰ Menu</button><span id="company-name" class="identity" hidden></span><span id="user-identity" class="identity" hidden></span><button id="refresh-workspace" class="outline" type="button" hidden>↻ Actualiser</button><button id="logout" class="outline" type="button">Déconnexion</button></div>
  <div id="nav-backdrop" class="nav-backdrop" hidden></div>
  <div class="app-workspace">
- <nav id="tabs" class="tabs" aria-label="Espaces de travail">
-  <p class="nav-title">🚆 TRANSBORA</p>
-  <button type="button" data-tab="overview" aria-current="page">🏠 Accueil</button>
-  <button type="button" data-tab="people">👥 Personnes</button>
+ <nav id="tabs" class="tabs" aria-label="Rubriques TRANSBORA">
+  <p class="nav-title">TRANSBORA</p>
+  <button type="button" data-tab="overview" aria-current="page">🏠 Tableau de bord</button>
   <button type="button" data-tab="events">📅 Événements</button>
   <button type="button" data-tab="search" hidden>🔎 Recherche de trajets</button>
+  <button type="button" data-tab="people">👥 Artistes</button>
   <button type="button" data-tab="travels">🚆 Déplacements</button>
   <button type="button" data-tab="answers">✅ Réponses</button>
   <button type="button" data-tab="bookings">🎫 Billets</button>
-  <button type="button" data-tab="budget">💶 Budgets</button>
-  <button type="button" data-tab="notes">📝 Notes</button>
-  <button type="button" data-tab="team">⚙️ Paramètres</button>
+  <details id="nav-more" class="nav-more">
+   <summary>Autres outils</summary>
+   <div class="nav-more-items">
+    <button type="button" data-tab="budget">💶 Budgets</button>
+    <button type="button" data-tab="notes">📝 Notes</button>
+    <button type="button" data-tab="team">⚙️ Paramètres</button>
+   </div>
+  </details>
  </nav>
  <div class="workspace-content">
  <div id="demo-warning" hidden></div>
  <p id="global-feedback" class="feedback" role="status" hidden></p>
  <section id="panel-overview" class="tab-panel overview-panel">
+  <h1 class="overview-title">Tableau de bord</h1>
+  <div id="overview-empty" class="overview-empty" hidden>
+   <p>Commencez par créer un événement. Vous pourrez ensuite ajouter les artistes et rechercher leurs trajets.</p>
+   <button type="button" id="overview-create-event" class="primary">＋ Créer un événement</button>
+  </div>
   <div class="month-heading">
    <div class="month-intro">
-    <p class="month-eyebrow">TABLEAU DE BORD</p>
-    <h2>Les déplacements</h2>
-    <p class="month-hint">Tout votre mois, au même endroit. Touchez une ligne pour voir ses détails.</p>
+    <p class="month-eyebrow">SUIVI MENSUEL</p>
+    <h2>Déplacements du mois</h2>
    </div>
    <div class="month-switcher" role="group" aria-label="Navigation entre les mois">
     <button class="month-arrow" id="month-prev" type="button" aria-label="Mois précédent">‹</button>
@@ -125,7 +134,7 @@
  </section>
  <section id="panel-people" class="tab-panel list-tab" hidden>
   <div class="list-tab-header">
-   <h2>Personnes</h2><button type="button" class="primary" id="add-person-btn">＋ Ajouter une personne</button>
+   <h2>Artistes</h2><button type="button" class="primary" id="add-person-btn">＋ Ajouter une personne</button>
   </div>
   <label class="directory-filter">🔎 Retrouver une personne<input id="person-filter" type="search" autocomplete="off"></label>
   <div id="people-output" class="directory-list"></div>
@@ -198,7 +207,7 @@
   </aside>
  </section>
  <section id="panel-search" class="tab-panel" hidden>
-  <div class="list-tab-header"><h2>Recherche de trains</h2><button type="button" id="search-back-event" class="outline">← Événements</button></div>
+  <div class="list-tab-header"><h2>Recherche de trajets</h2><button type="button" id="search-back-event" class="outline">← Événements</button></div>
   <div id="search-select-area" class="search-select-area">
    <label>Événement<select id="search-event-select"></select></label>
    <button type="button" id="search-open" class="primary">🔎 Rechercher</button>
