@@ -405,7 +405,10 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
     }
     const choices=kind==='R'&&automatic
       ?selectPracticalReturn([...found.values()],{deadline,maximum:max})
-      :[...found.values()].sort((a,b)=>compareJourneys(a,b,kind,deadline)).slice(0,max);
+      :[...found.values()].sort((a,b)=>
+        kind==='A'&&searchSettings.mode==='all'
+          ?compareMultimodalJourneys(a,b,kind,deadline)
+          :compareJourneys(a,b,kind,deadline)).slice(0,max);
     return {choices,searched,covered,level:chosenTier,
       reason:directionIncomplete?'incomplete':
         !covered?'no_published_data':!choices.length?(boundedReturn?'return_window_empty':'not_found'):null};
@@ -439,8 +442,12 @@ export async function planEvent(event,participants,feeds,settings,officialRules=
       // soon as ANY operator has a direct service". Search rail, road and
       // cross-provider journeys independently so a direct coach cannot hide
       // a faster train with a change (and vice versa).
-      const multimodal=settings.mode==='all'&&settings.connections==='auto';
-      const modes=multimodal?['rail','bus','all']:[settings.mode];
+      const multimodal=settings.mode==='all';
+      // In automatic mode each transport family gets its own shortlist,
+      // preventing a direct coach from hiding a good rail connection.
+      // Explicit transfer filters keep a single search but still rank
+      // coaches against trains by practical duration, not just arrival gap.
+      const modes=multimodal&&settings.connections==='auto'?['rail','bus','all']:[settings.mode];
       const runs=[];
       for(const mode of modes){
         if(multimodal&&mode!=='all'&&!feeds.some(f=>f.source.mode===mode))continue;
