@@ -361,3 +361,29 @@
 .person-related-event .plain{text-align:left;font-weight:700;color:var(--ink)}
 .person-related-need{border:0;background:#eaf6f5;border-radius:7px;padding:9px;cursor:pointer;text-align:left;color:var(--ink)}
 .person-related-need:hover,.person-related-need:focus-visible{background:#d3efeb}
+
+
+/* 057 — one clear entry point, same names in menu and page title. */
+.nav-more{border-top:1px solid #e0ebec;margin-top:8px;padding-top:8px}
+.nav-more>summary{display:block;cursor:pointer;padding:11px 12px;border-radius:9px;color:#286771;font-weight:700;font-size:.92rem;list-style:none}
+.nav-more>summary::-webkit-details-marker{display:none}
+.nav-more>summary::after{content:'⌄';float:right}
+.nav-more[open]>summary::after{content:'⌃'}
+.nav-more>summary:hover,.nav-more>summary:focus-visible{background:#eaf7f5}
+.nav-more-items{display:grid;gap:4px;margin:4px 0 0 8px}
+.nav-more-items button{font-size:.9rem}
+.overview-title{font-size:clamp(1.55rem,3.4vw,2rem);line-height:1.2;margin:0 0 24px}
+.workspace-content .overview-panel{min-height:0}
+#overview-empty[hidden]{display:none!important}
+.overview-empty{max-width:570px;padding:18px 0 6px}
+.overview-empty p{margin:0 0 22px;font-size:1rem;line-height:1.65;color:#456770}
+.overview-empty .primary{min-height:52px;padding:12px 22px}
+.overview-panel.is-empty>:not(.overview-title):not(#overview-empty){display:none!important}
+/* Help remains available in data-entry forms; do not litter an empty dashboard. */
+.overview-panel.is-empty .tb-help-trigger{display:none!important}
+.overview-panel .tb-help-trigger{width:24px;height:24px;min-width:24px;min-height:24px;font-size:14px;margin-left:6px}
+@media(max-width:770px){
+ .overview-title{margin-bottom:16px}
+ .overview-empty .primary{width:100%}
+ .nav-more>summary{min-height:46px}
+}
