@@ -64,3 +64,24 @@ test('A slightly later but much shorter journey outranks a 9h25 coach',()=>{
   const boundary=Date.parse(date+'T19:00:00Z')+3600000;
   assert.ok(compareMultimodalJourneys(train,coach,'R',boundary)<0);
 });
+
+test('direct-only train + coach keeps a much shorter train ahead of near-deadline coaches',async()=>{
+  const outwardEvent={...event,includeOutward:true,includeReturn:false};
+  const outwardTraveler={...person,outwardDate:date,returnDate:''};
+  const coachesOut=feed('coaches-out','bus',[
+    [2,0,8*3600,14*3600+45*60],
+    [2,0,8*3600+15*60,14*3600+50*60],
+    [2,0,8*3600+30*60,14*3600+55*60]
+  ]);
+  const railOut=feed('rail-out','rail',[
+    [2,0,11*3600+30*60,14*3600+15*60]
+  ]);
+  const result=await planEvent(outwardEvent,[outwardTraveler],
+    [coachesOut,railOut],{...settings,connections:'no',maxOptions:3});
+  const routes=result.plans.get(outwardTraveler.id).outward;
+  assert.equal(routes.length,3);
+  assert.equal(routes[0].mode,'rail',
+    'Three coaches close to the arrival deadline must not hide a much shorter train');
+  assert.ok(routes.some(r=>r.mode==='bus'),'Keep alternative coach options too');
+  assert.ok(routes.every(r=>!('price' in r)&&!('availableSeats' in r)));
+});
