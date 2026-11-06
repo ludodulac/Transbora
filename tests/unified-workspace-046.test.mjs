@@ -21,7 +21,7 @@ test('046: one desktop sidebar and mobile hamburger navigate same existing works
  const $=id=>w.document.getElementById(id);
  assert.equal($('private-panel').hidden,false);
  const tabs=[...$('tabs').querySelectorAll('button[data-tab]')].map(x=>x.dataset.tab);
- assert.deepEqual(tabs,['overview','people','events','search','travels','answers',
+ assert.deepEqual(tabs,['overview','events','search','people','travels','answers',
   'bookings','budget','notes','team']);
  $('nav-toggle').click();
  assert.equal($('nav-toggle').getAttribute('aria-expanded'),'true');
