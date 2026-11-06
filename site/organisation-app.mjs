@@ -276,6 +276,7 @@ $('nav-toggle').addEventListener('click',()=>{
  $('nav-backdrop').hidden=!opened;
 });
 $('nav-backdrop').addEventListener('click',closeMobileNav);
+$('nav-close').addEventListener('click',closeMobileNav);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileNav();});
 $('refresh-workspace').addEventListener('click',async()=>{
  const button=$('refresh-workspace');button.disabled=true;
