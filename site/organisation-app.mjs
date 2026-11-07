@@ -330,6 +330,8 @@ function openIntegratedSearch(eventId,needId=null){
  frame.src=state.demo?'./events.html?from_organizer=1&embedded=1&ntl-drawer-state=hidden':
    './events.html?from_shared=1&embedded=1&ntl-drawer-state=hidden';
  $('search-frame-area').hidden=false;
+ // The event is already selected; do not ask for it again above the search.
+ $('search-select-area').hidden=true;
  showTab('search');
 }
 $('search-batch-needs').addEventListener('click',()=>{
