@@ -579,11 +579,31 @@ function openPersonEditor(person=null){
  $('person-editor').hidden=false;$('person-editor-backdrop').hidden=false;
  form.elements.name.focus();
 }
+// Keep the end-date calendar on the selected start date, without replacing
+// a deliberately chosen multi-day end date.
+let previousEventStartDate='';
+function syncEventEndDate(){
+ const start=$('event-form').elements.startDate;
+ const end=$('event-form').elements.endDate;
+ if(start.value){
+  if(!end.value||end.value===previousEventStartDate||end.value<start.value)
+   end.value=start.value;
+  end.min=start.value;
+ }else end.min='';
+ previousEventStartDate=start.value;
+}
+for(const eventName of ['input','change'])
+ $('event-form').elements.startDate.addEventListener(eventName,syncEventEndDate);
+
 function openEventEditor(event=null){
  const form=$('event-form');form.reset();
  delete form.dataset.recordId;delete form.dataset.expectedUpdatedAt;
  for(const field of ['title','startDate','startTime','endDate','endTime','destination','theater'])
   form.elements[field].value=event?.[field]||'';
+ // A saved multi-day event keeps its date of end; an empty end starts at
+ // the event's start day, including the native Android calendar selection.
+ previousEventStartDate=form.elements.startDate.value;
+ syncEventEndDate();
  form.elements.arrivalLeadMinutes.value=String(event?.arrivalLeadMinutes??60);
  form.elements.budgetEuros.value=event?.budgetCents==null?'':String(event.budgetCents/100);
  if(event){
