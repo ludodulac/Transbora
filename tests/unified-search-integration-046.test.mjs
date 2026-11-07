@@ -32,6 +32,8 @@ test('046: real organizer event opens its same person registry inline; results a
  assert.ok(button);
  button.click();
  assert.equal($('panel-search').hidden,false);
+ assert.equal($('search-select-area').hidden,true,
+   'The selected event should not be requested a second time');
  const handoff=readSearchHandoff(w.localStorage);
  assert.equal(handoff.eventId,event.id);
  assert.deepEqual(handoff.travelers.map(x=>x.personId),[sophie.id,michel.id]);
