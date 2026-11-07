@@ -100,6 +100,7 @@ let isBusy=false,hasSearched=false,nextId=1,activeStep=1,currentView='wizard';
 let published=null;
 let searchWorker=null,cancelActiveSearch=null,stopRequested=false;
 let draftSaving=null,restoredDraft=false,activeOrganizerHandoff=null;
+let organizerSearchStarted=false;
 let stationNames=[];
 const eventFieldIds=['event-title','event-destination','event-start-date','event-start-time','event-end-date',
   'event-end-time','include-outward','include-return','arrival-margin','departure-margin',
@@ -184,6 +185,26 @@ function updateButtons(){
     $('wizard-actions').hidden=false;
   }
 }
+// When opened from an existing organizer event, the event and travelers have
+// already been entered. Search the saved dossier directly instead of making
+// the organizer pass through the same event and people forms a second time.
+// Incomplete legacy dossiers still show the original form for correction.
+function startOrganizerSearchIfReady(){
+  if(!embeddedMode||!activeOrganizerHandoff||!manifest||organizerSearchStarted)return;
+  if(!participants.length)return;
+  try{readEvent();}
+  catch(error){
+    status('Événement incomplet : '+error.message+
+      ' Corrigez la fiche depuis « Événements ».',true);
+    return;
+  }
+  organizerSearchStarted=true;
+  $('wizard-shell').classList.add('organizer-direct-search');
+  showStep(3,{focus:false});
+  status('');
+  $('search-everyone').click();
+}
+
 function invalidate(){
   plans=new Map();choices={};hasSearched=false;published=null;
   $('native-ready').hidden=true;
@@ -440,7 +461,7 @@ async function init(){
       nextId=participants.length+1;
       renderPeople();updateButtons();
       $('org-search-warning').hidden=false;
-      status(handoff.startTime&&handoff.endTime?'Événement et contraintes chargés. Vous pouvez rechercher les trains.':'Complétez les horaires du spectacle avant la recherche.');
+      startOrganizerSearchIfReady();
     });
     window.parent.postMessage({type:'transbora:shared-ready'},location.origin);
   }
@@ -499,6 +520,7 @@ async function init(){
     status('Recherche indisponible : '+error.message+'. Le modèle Excel reste téléchargeable.',true);
   }
   updateButtons();
+  startOrganizerSearchIfReady();
 }
 async function download(book,prefix){
   const result=await bytes(book);
