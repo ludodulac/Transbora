@@ -394,3 +394,6 @@
 @media(max-width:770px){
  .tabs button.nav-close{display:inline-flex;align-items:center;justify-content:center;width:42px;min-height:42px;padding:6px;flex:none;font-size:1.25rem;border:1px solid #cadfe1}
 }
+
+/* The active event search already knows its event: no second selector. */
+#search-select-area[hidden]{display:none!important}
