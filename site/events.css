@@ -480,3 +480,14 @@ border-radius:9px;padding:9px 10px;font-size:.86rem;font-weight:750;color:#7b460
  .drawer-nav{gap:6px;padding-bottom:0;border:0}
  .drawer-link{padding:12px;font-size:.93rem}
 }
+
+/* Search opened from an already saved organizer event: do not show the
+   event/participants wizard a second time. The organizer heading remains. */
+.embedded-workspace #wizard-shell.organizer-direct-search .wizard-progress,
+.embedded-workspace #wizard-shell.organizer-direct-search #wizard-back,
+.embedded-workspace #wizard-shell.organizer-direct-search #etape-3 .screen-heading{
+ display:none!important
+}
+.embedded-workspace #wizard-shell.organizer-direct-search #etape-3{
+ padding-top:16px
+}
