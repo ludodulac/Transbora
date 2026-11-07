@@ -199,6 +199,7 @@ function startOrganizerSearchIfReady(){
     return;
   }
   organizerSearchStarted=true;
+  $('org-search-warning').hidden=true;
   $('wizard-shell').classList.add('organizer-direct-search');
   showStep(3,{focus:false});
   status('');
